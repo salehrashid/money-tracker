@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/firebase/firebase_app_initializer.dart';
 import 'core/utils/result.dart';
+import 'features/categories/presentation/pages/category_management_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,82 +28,45 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
         useMaterial3: true,
       ),
-      home: MyHomePage(title: 'Money Tracker', firebaseResult: firebaseResult),
-    );
-  }
-}
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({
-    required this.title,
-    required this.firebaseResult,
-    super.key,
-  });
-
-  final String title;
-  final Result<Object> firebaseResult;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _FirebaseStatus(result: widget.firebaseResult),
-            const SizedBox(height: 24),
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+      home: firebaseResult.when(
+        success: (_) => const CategoryManagementPage(),
+        failure: (failure) => _StartupFailurePage(message: failure.message),
       ),
     );
   }
 }
 
-class _FirebaseStatus extends StatelessWidget {
-  const _FirebaseStatus({required this.result});
+class _StartupFailurePage extends StatelessWidget {
+  const _StartupFailurePage({required this.message});
 
-  final Result<Object> result;
+  final String message;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return result.when(
-      success: (_) =>
-          Text('Firebase ready', style: TextStyle(color: colorScheme.primary)),
-      failure: (failure) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Text(
-          failure.message,
-          textAlign: TextAlign.center,
-          style: TextStyle(color: colorScheme.error),
+    return Scaffold(
+      appBar: AppBar(title: const Text('Money Tracker')),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.error_outline, size: 48, color: colorScheme.error),
+              const SizedBox(height: 12),
+              Text(
+                'Unable to start Money Tracker',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: colorScheme.error),
+              ),
+            ],
+          ),
         ),
       ),
     );
