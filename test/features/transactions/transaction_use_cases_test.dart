@@ -1,6 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_tracker/core/utils/result.dart';
+import 'package:money_tracker/features/accounts/domain/entities/account.dart';
+import 'package:money_tracker/features/categories/domain/entities/category.dart';
 import 'package:money_tracker/features/transactions/application/usecases/transaction_commands.dart';
+import 'package:money_tracker/features/transactions/application/usecases/transaction_filter.dart';
 import 'package:money_tracker/features/transactions/application/usecases/transaction_use_cases.dart';
 import 'package:money_tracker/features/transactions/domain/entities/transaction.dart';
 import 'package:money_tracker/features/transactions/domain/entities/transaction_draft.dart';
@@ -82,6 +85,89 @@ void main() {
         expect(repository.drafts.single.status, TransactionDraftStatus.saved);
       },
     );
+  });
+
+  group('ApplyTransactionFiltersUseCase', () {
+    test('filters by search text across note, category, and account', () {
+      const useCase = ApplyTransactionFiltersUseCase();
+      final result = useCase.execute(
+        transactions: [
+          _transaction(
+            id: 'transaction-1',
+            note: 'Lunch at kantin',
+            categoryId: 'food',
+            accountId: 'cash',
+          ),
+          _transaction(
+            id: 'transaction-2',
+            note: 'Monthly pay',
+            type: TransactionType.income,
+            categoryId: 'salary',
+            accountId: 'bank',
+          ),
+        ],
+        categories: [
+          _category(id: 'food', name: 'Food'),
+          _category(id: 'salary', name: 'Salary', type: TransactionType.income),
+        ],
+        accounts: [
+          _account(id: 'cash', name: 'Cash'),
+          _account(id: 'bank', name: 'BCA'),
+        ],
+        criteria: const TransactionFilterCriteria(searchQuery: 'bca'),
+      );
+
+      expect(result.map((transaction) => transaction.id), ['transaction-2']);
+    });
+
+    test('filters by type, category, account, amount, and date range', () {
+      const useCase = ApplyTransactionFiltersUseCase();
+      final result = useCase.execute(
+        transactions: [
+          _transaction(
+            id: 'transaction-1',
+            amount: 25000,
+            categoryId: 'food',
+            accountId: 'cash',
+            transactionDate: DateTime.utc(2026, 1, 1),
+          ),
+          _transaction(
+            id: 'transaction-2',
+            amount: 75000,
+            categoryId: 'food',
+            accountId: 'cash',
+            transactionDate: DateTime.utc(2026, 1, 15),
+          ),
+          _transaction(
+            id: 'transaction-3',
+            amount: 100000,
+            type: TransactionType.income,
+            categoryId: 'salary',
+            accountId: 'bank',
+            transactionDate: DateTime.utc(2026, 1, 15),
+          ),
+        ],
+        categories: [
+          _category(id: 'food', name: 'Food'),
+          _category(id: 'salary', name: 'Salary', type: TransactionType.income),
+        ],
+        accounts: [
+          _account(id: 'cash', name: 'Cash'),
+          _account(id: 'bank', name: 'BCA'),
+        ],
+        criteria: TransactionFilterCriteria(
+          type: TransactionType.expense,
+          categoryId: 'food',
+          accountId: 'cash',
+          startDate: DateTime(2026, 1, 10),
+          endDate: DateTime(2026, 1, 31),
+          minAmount: 50000,
+          maxAmount: 80000,
+        ),
+      );
+
+      expect(result.map((transaction) => transaction.id), ['transaction-2']);
+    });
   });
 }
 
@@ -166,6 +252,64 @@ TransactionDraft _draft({
     suggestedCategoryId: 'salary',
     status: TransactionDraftStatus.pendingReview,
     confidence: 0.95,
+    createdAt: now,
+    updatedAt: now,
+  );
+}
+
+TransactionEntity _transaction({
+  required String id,
+  TransactionType type = TransactionType.expense,
+  double amount = 50000,
+  String categoryId = 'food',
+  String accountId = 'cash',
+  String note = 'Lunch',
+  DateTime? transactionDate,
+}) {
+  final now = DateTime.utc(2026);
+  return TransactionEntity(
+    id: id,
+    type: type,
+    amount: amount,
+    currency: 'IDR',
+    categoryId: categoryId,
+    accountId: accountId,
+    note: note,
+    source: TransactionSource.manual,
+    transactionDate: transactionDate ?? now,
+    createdAt: now,
+    updatedAt: now,
+  );
+}
+
+Category _category({
+  required String id,
+  required String name,
+  TransactionType type = TransactionType.expense,
+}) {
+  final now = DateTime.utc(2026);
+  return Category(
+    id: id,
+    name: name,
+    type: type,
+    icon: 'restaurant',
+    color: '#2E7D32',
+    isDefault: false,
+    isArchived: false,
+    createdAt: now,
+    updatedAt: now,
+  );
+}
+
+Account _account({required String id, required String name}) {
+  final now = DateTime.utc(2026);
+  return Account(
+    id: id,
+    name: name,
+    type: AccountType.cash,
+    currency: 'IDR',
+    openingBalance: 0,
+    isArchived: false,
     createdAt: now,
     updatedAt: now,
   );

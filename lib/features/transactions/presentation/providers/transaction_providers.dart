@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/firebase/firebase_providers.dart';
 import '../../../../core/utils/result.dart';
+import '../../../../shared/models/finance_enums.dart';
+import '../../application/usecases/transaction_filter.dart';
 import '../../application/usecases/transaction_use_cases.dart';
 import '../../data/datasources/firebase_transaction_data_source.dart';
 import '../../data/repositories/firebase_transaction_repository.dart';
@@ -68,6 +70,11 @@ final saveTransactionDraftUseCaseProvider =
       );
     });
 
+final applyTransactionFiltersUseCaseProvider =
+    Provider<ApplyTransactionFiltersUseCase>((ref) {
+      return const ApplyTransactionFiltersUseCase();
+    });
+
 final transactionListProvider =
     StreamProvider.family<Result<List<TransactionEntity>>, String>((
       ref,
@@ -92,6 +99,12 @@ final transactionOperationStateProvider =
       AsyncValue<void>
     >(TransactionOperationNotifier.new);
 
+final transactionFilterProvider =
+    NotifierProvider.autoDispose<
+      TransactionFilterNotifier,
+      TransactionFilterCriteria
+    >(TransactionFilterNotifier.new);
+
 class TransactionOperationNotifier extends Notifier<AsyncValue<void>> {
   @override
   AsyncValue<void> build() {
@@ -108,5 +121,48 @@ class TransactionOperationNotifier extends Notifier<AsyncValue<void>> {
 
   void setFailure(Object error, StackTrace stackTrace) {
     state = AsyncError(error, stackTrace);
+  }
+}
+
+class TransactionFilterNotifier extends Notifier<TransactionFilterCriteria> {
+  @override
+  TransactionFilterCriteria build() {
+    return const TransactionFilterCriteria();
+  }
+
+  void setSearchQuery(String value) {
+    state = state.copyWith(searchQuery: value);
+  }
+
+  void setType(TransactionType? value) {
+    state = state.copyWith(type: value, clearType: value == null);
+  }
+
+  void setCategoryId(String? value) {
+    state = state.copyWith(categoryId: value, clearCategoryId: value == null);
+  }
+
+  void setAccountId(String? value) {
+    state = state.copyWith(accountId: value, clearAccountId: value == null);
+  }
+
+  void setStartDate(DateTime? value) {
+    state = state.copyWith(startDate: value, clearStartDate: value == null);
+  }
+
+  void setEndDate(DateTime? value) {
+    state = state.copyWith(endDate: value, clearEndDate: value == null);
+  }
+
+  void setMinAmount(double? value) {
+    state = state.copyWith(minAmount: value, clearMinAmount: value == null);
+  }
+
+  void setMaxAmount(double? value) {
+    state = state.copyWith(maxAmount: value, clearMaxAmount: value == null);
+  }
+
+  void clear() {
+    state = const TransactionFilterCriteria();
   }
 }

@@ -10,6 +10,7 @@ import '../../../../features/categories/domain/entities/category.dart';
 import '../../../../features/categories/presentation/providers/category_providers.dart';
 import '../../../../shared/models/finance_enums.dart';
 import '../../application/usecases/transaction_commands.dart';
+import '../../application/usecases/transaction_filter.dart';
 import '../../domain/entities/transaction.dart';
 import '../../domain/entities/transaction_draft.dart';
 import '../providers/transaction_providers.dart';
@@ -72,6 +73,8 @@ class _TransactionContent extends ConsumerWidget {
     final categoriesState = ref.watch(categoryListProvider(userId));
     final accountsState = ref.watch(accountListProvider(userId));
     final operationState = ref.watch(transactionOperationStateProvider);
+    final filterCriteria = ref.watch(transactionFilterProvider);
+    final applyFilters = ref.watch(applyTransactionFiltersUseCaseProvider);
 
     ref.listen<AsyncValue<void>>(transactionOperationStateProvider, (
       previous,
@@ -125,6 +128,13 @@ class _TransactionContent extends ConsumerWidget {
         ),
         _LoadedData(data: final data?) => _TransactionBody(
           data: data,
+          transactions: applyFilters.execute(
+            transactions: data.transactions,
+            categories: data.categories,
+            accounts: data.accounts,
+            criteria: filterCriteria,
+          ),
+          filterCriteria: filterCriteria,
           isBusy: operationState.isLoading,
           onRefresh: () async {
             ref.invalidate(transactionListProvider(userId));
@@ -138,6 +148,8 @@ class _TransactionContent extends ConsumerWidget {
           onDelete: (transaction) =>
               _confirmDelete(context, ref, data.userId, transaction),
           onSaveDraft: (draft) => _showDraftDialog(context, ref, data, draft),
+          onClearFilters: () =>
+              ref.read(transactionFilterProvider.notifier).clear(),
         ),
         _ => const _MessageState(
           icon: Icons.error_outline,
@@ -280,21 +292,27 @@ class _TransactionContent extends ConsumerWidget {
 class _TransactionBody extends StatelessWidget {
   const _TransactionBody({
     required this.data,
+    required this.transactions,
+    required this.filterCriteria,
     required this.isBusy,
     required this.onRefresh,
     required this.onCreate,
     required this.onEdit,
     required this.onDelete,
     required this.onSaveDraft,
+    required this.onClearFilters,
   });
 
   final _TransactionScreenData data;
+  final List<TransactionEntity> transactions;
+  final TransactionFilterCriteria filterCriteria;
   final bool isBusy;
   final Future<void> Function() onRefresh;
   final VoidCallback onCreate;
   final ValueChanged<TransactionEntity> onEdit;
   final ValueChanged<TransactionEntity> onDelete;
   final ValueChanged<TransactionDraft> onSaveDraft;
+  final VoidCallback onClearFilters;
 
   @override
   Widget build(BuildContext context) {
@@ -332,19 +350,40 @@ class _TransactionBody extends StatelessWidget {
                 ),
               ),
             ),
+          if (data.transactions.isNotEmpty)
+            SliverToBoxAdapter(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 980),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: _TransactionFilterPanel(
+                      criteria: filterCriteria,
+                      categories: data.categories,
+                      accounts: data.accounts,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           if (data.transactions.isEmpty)
             SliverFillRemaining(
               hasScrollBody: false,
               child: _EmptyTransactions(onCreate: isBusy ? null : onCreate),
             )
+          else if (transactions.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: _NoMatchingTransactions(onClear: onClearFilters),
+            )
           else
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
               sliver: SliverList.separated(
-                itemCount: data.transactions.length,
+                itemCount: transactions.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
-                  final transaction = data.transactions[index];
+                  final transaction = transactions[index];
                   return Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 980),
@@ -412,6 +451,292 @@ class _DraftSection extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+class _TransactionFilterPanel extends ConsumerStatefulWidget {
+  const _TransactionFilterPanel({
+    required this.criteria,
+    required this.categories,
+    required this.accounts,
+  });
+
+  final TransactionFilterCriteria criteria;
+  final List<Category> categories;
+  final List<Account> accounts;
+
+  @override
+  ConsumerState<_TransactionFilterPanel> createState() =>
+      _TransactionFilterPanelState();
+}
+
+class _TransactionFilterPanelState
+    extends ConsumerState<_TransactionFilterPanel> {
+  late final TextEditingController _searchController;
+  late final TextEditingController _minAmountController;
+  late final TextEditingController _maxAmountController;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController(
+      text: widget.criteria.searchQuery,
+    );
+    _minAmountController = TextEditingController(
+      text: _amountText(widget.criteria.minAmount),
+    );
+    _maxAmountController = TextEditingController(
+      text: _amountText(widget.criteria.maxAmount),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _TransactionFilterPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncController(_searchController, widget.criteria.searchQuery);
+    _syncController(
+      _minAmountController,
+      _amountText(widget.criteria.minAmount),
+    );
+    _syncController(
+      _maxAmountController,
+      _amountText(widget.criteria.maxAmount),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _minAmountController.dispose();
+    _maxAmountController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final criteria = widget.criteria;
+    final notifier = ref.read(transactionFilterProvider.notifier);
+    final categories = widget.categories
+        .where(
+          (category) => criteria.type == null || category.type == criteria.type,
+        )
+        .toList(growable: false);
+    final accounts = widget.accounts
+        .where(
+          (account) => !account.isArchived || account.id == criteria.accountId,
+        )
+        .toList(growable: false);
+
+    return Card(
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: _searchController,
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                labelText: 'Search',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: criteria.searchQuery.trim().isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'Clear search',
+                        onPressed: () {
+                          _searchController.clear();
+                          notifier.setSearchQuery('');
+                        },
+                        icon: const Icon(Icons.close),
+                      ),
+                border: const OutlineInputBorder(),
+              ),
+              onChanged: notifier.setSearchQuery,
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SegmentedButton<TransactionType?>(
+                  segments: const [
+                    ButtonSegment(value: null, label: Text('All')),
+                    ButtonSegment(
+                      value: TransactionType.expense,
+                      icon: Icon(Icons.remove_circle_outline),
+                      label: Text('Expense'),
+                    ),
+                    ButtonSegment(
+                      value: TransactionType.income,
+                      icon: Icon(Icons.add_circle_outline),
+                      label: Text('Income'),
+                    ),
+                  ],
+                  selected: {criteria.type},
+                  onSelectionChanged: (values) {
+                    final type = values.first;
+                    notifier.setType(type);
+                    if (type != null &&
+                        criteria.categoryId != null &&
+                        widget.categories
+                                .where(
+                                  (category) =>
+                                      category.id == criteria.categoryId,
+                                )
+                                .firstOrNull
+                                ?.type !=
+                            type) {
+                      notifier.setCategoryId(null);
+                    }
+                  },
+                ),
+                SizedBox(
+                  width: 220,
+                  child: DropdownButtonFormField<String>(
+                    initialValue:
+                        categories.any(
+                          (category) => category.id == criteria.categoryId,
+                        )
+                        ? criteria.categoryId
+                        : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Category',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      const DropdownMenuItem<String>(
+                        child: Text('All categories'),
+                      ),
+                      ...categories.map(
+                        (category) => DropdownMenuItem(
+                          value: category.id,
+                          child: Text(category.name),
+                        ),
+                      ),
+                    ],
+                    onChanged: notifier.setCategoryId,
+                  ),
+                ),
+                SizedBox(
+                  width: 220,
+                  child: DropdownButtonFormField<String>(
+                    initialValue:
+                        accounts.any(
+                          (account) => account.id == criteria.accountId,
+                        )
+                        ? criteria.accountId
+                        : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Account',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: [
+                      const DropdownMenuItem<String>(
+                        child: Text('All accounts'),
+                      ),
+                      ...accounts.map(
+                        (account) => DropdownMenuItem(
+                          value: account.id,
+                          child: Text(account.name),
+                        ),
+                      ),
+                    ],
+                    onChanged: notifier.setAccountId,
+                  ),
+                ),
+                SizedBox(
+                  width: 150,
+                  child: TextField(
+                    controller: _minAmountController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Min amount',
+                      prefixText: 'Rp ',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) {
+                      notifier.setMinAmount(_parseAmount(value));
+                    },
+                  ),
+                ),
+                SizedBox(
+                  width: 150,
+                  child: TextField(
+                    controller: _maxAmountController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Max amount',
+                      prefixText: 'Rp ',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) {
+                      notifier.setMaxAmount(_parseAmount(value));
+                    },
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => _pickDate(
+                    initialDate: criteria.startDate ?? DateTime.now(),
+                    onSelected: notifier.setStartDate,
+                  ),
+                  icon: const Icon(Icons.event_outlined),
+                  label: Text(
+                    criteria.startDate == null
+                        ? 'From'
+                        : formatDate(criteria.startDate!),
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => _pickDate(
+                    initialDate:
+                        criteria.endDate ??
+                        criteria.startDate ??
+                        DateTime.now(),
+                    onSelected: notifier.setEndDate,
+                  ),
+                  icon: const Icon(Icons.event_available_outlined),
+                  label: Text(
+                    criteria.endDate == null
+                        ? 'To'
+                        : formatDate(criteria.endDate!),
+                  ),
+                ),
+                if (criteria.hasActiveFilters)
+                  TextButton.icon(
+                    onPressed: notifier.clear,
+                    icon: const Icon(Icons.filter_alt_off),
+                    label: const Text('Clear'),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickDate({
+    required DateTime initialDate,
+    required ValueChanged<DateTime?> onSelected,
+  }) async {
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (selected == null) {
+      return;
+    }
+
+    onSelected(DateTime(selected.year, selected.month, selected.day));
   }
 }
 
@@ -514,6 +839,47 @@ class _EmptyTransactions extends StatelessWidget {
               onPressed: onCreate,
               icon: const Icon(Icons.add),
               label: const Text('Add transaction'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NoMatchingTransactions extends StatelessWidget {
+  const _NoMatchingTransactions({required this.onClear});
+
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.search_off_outlined,
+              size: 48,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No matching transactions',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Adjust the search or filters to see more transactions.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: onClear,
+              icon: const Icon(Icons.filter_alt_off),
+              label: const Text('Clear filters'),
             ),
           ],
         ),
@@ -676,4 +1042,40 @@ class _CenteredProgress extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Center(child: CircularProgressIndicator());
   }
+}
+
+void _syncController(TextEditingController controller, String value) {
+  if (controller.text == value) {
+    return;
+  }
+
+  controller.value = TextEditingValue(
+    text: value,
+    selection: TextSelection.collapsed(offset: value.length),
+  );
+}
+
+String _amountText(double? value) {
+  if (value == null) {
+    return '';
+  }
+  if (value == value.roundToDouble()) {
+    return value.round().toString();
+  }
+
+  return value.toString();
+}
+
+double? _parseAmount(String value) {
+  final normalized = value
+      .replaceAll('Rp', '')
+      .replaceAll('rp', '')
+      .replaceAll('.', '')
+      .replaceAll(',', '.')
+      .trim();
+  if (normalized.isEmpty) {
+    return null;
+  }
+
+  return double.tryParse(normalized);
 }
