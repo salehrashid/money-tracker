@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/firebase/firebase_app_initializer.dart';
 import 'core/utils/result.dart';
-import 'features/categories/presentation/pages/category_management_page.dart';
+import 'shared/widgets/app_shell.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,13 +23,14 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Money Tracker',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
         useMaterial3: true,
       ),
       home: firebaseResult.when(
-        success: (_) => const CategoryManagementPage(),
+        success: (_) => const AppShell(),
         failure: (failure) => _StartupFailurePage(message: failure.message),
       ),
     );
