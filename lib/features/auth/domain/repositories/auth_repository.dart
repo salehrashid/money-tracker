@@ -9,5 +9,10 @@ abstract interface class AuthRepository {
     required String password,
   });
 
+  Future<Result<AuthUser>> registerWithEmailAndPassword({
+    required String email,
+    required String password,
+  });
+
   Future<Result<void>> signOut();
 }

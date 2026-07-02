@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../features/auth/presentation/pages/account_page.dart';
 import '../../features/categories/presentation/pages/category_management_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../../features/transactions/presentation/pages/transaction_page.dart';
@@ -21,6 +22,7 @@ class _AppShellState extends State<AppShell> {
       0 => const DashboardPage(),
       1 => const TransactionPage(),
       2 => const CategoryManagementPage(),
+      3 => const AccountPage(),
       _ => const DashboardPage(),
     };
 
@@ -49,6 +51,11 @@ class _AppShellState extends State<AppShell> {
                   icon: Icon(Icons.category_outlined),
                   selectedIcon: Icon(Icons.category),
                   label: Text('Categories'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.account_circle_outlined),
+                  selectedIcon: Icon(Icons.account_circle),
+                  label: Text('Account'),
                 ),
               ],
             ),
@@ -81,6 +88,11 @@ class _AppShellState extends State<AppShell> {
             icon: Icon(Icons.category_outlined),
             selectedIcon: Icon(Icons.category),
             label: 'Categories',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.account_circle_outlined),
+            selectedIcon: Icon(Icons.account_circle),
+            label: 'Account',
           ),
         ],
       ),

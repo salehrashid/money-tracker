@@ -35,14 +35,12 @@ class FirebaseAuthRepository implements AuthRepository {
   }) async {
     final normalizedEmail = email.trim();
 
-    if (normalizedEmail.isEmpty || password.isEmpty) {
-      return const Failure(
-        AppFailure(
-          type: AppFailureType.validation,
-          code: 'empty-login-fields',
-          message: 'Email and password are required.',
-        ),
-      );
+    final validationFailure = _validateEmailPassword(
+      email: normalizedEmail,
+      password: password,
+    );
+    if (validationFailure != null) {
+      return Failure(validationFailure);
     }
 
     try {
@@ -58,6 +56,44 @@ class FirebaseAuthRepository implements AuthRepository {
             type: AppFailureType.authentication,
             code: 'missing-auth-user',
             message: 'Sign in failed. Please try again.',
+          ),
+        );
+      }
+
+      return Success(_mapUser(user)!);
+    } catch (error) {
+      return Failure(_errorMapper.map(error));
+    }
+  }
+
+  @override
+  Future<Result<AuthUser>> registerWithEmailAndPassword({
+    required String email,
+    required String password,
+  }) async {
+    final normalizedEmail = email.trim();
+
+    final validationFailure = _validateEmailPassword(
+      email: normalizedEmail,
+      password: password,
+    );
+    if (validationFailure != null) {
+      return Failure(validationFailure);
+    }
+
+    try {
+      final credential = await _dataSource.createUserWithEmailAndPassword(
+        email: normalizedEmail,
+        password: password,
+      );
+      final user = credential.user;
+
+      if (user == null) {
+        return const Failure(
+          AppFailure(
+            type: AppFailureType.authentication,
+            code: 'missing-auth-user',
+            message: 'Registration failed. Please try again.',
           ),
         );
       }
@@ -88,5 +124,28 @@ class FirebaseAuthRepository implements AuthRepository {
       email: user.email,
       isEmailVerified: user.emailVerified,
     );
+  }
+
+  AppFailure? _validateEmailPassword({
+    required String email,
+    required String password,
+  }) {
+    if (email.isEmpty || password.isEmpty) {
+      return const AppFailure(
+        type: AppFailureType.validation,
+        code: 'empty-login-fields',
+        message: 'Email and password are required.',
+      );
+    }
+
+    if (password.length < 6) {
+      return const AppFailure(
+        type: AppFailureType.validation,
+        code: 'weak-password',
+        message: 'Password must be at least 6 characters.',
+      );
+    }
+
+    return null;
   }
 }

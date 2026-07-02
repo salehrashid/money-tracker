@@ -13,6 +13,9 @@ class FirebaseEnvironment {
     'FIREBASE_WEB_API_KEY',
   );
   static const _appIdFromDefine = String.fromEnvironment('FIREBASE_APP_ID');
+  static const _androidAppIdFromDefine = String.fromEnvironment(
+    'FIREBASE_ANDROID_APP_ID',
+  );
   static const _messagingSenderIdFromDefine = String.fromEnvironment(
     'FIREBASE_MESSAGING_SENDER_ID',
   );
@@ -35,10 +38,17 @@ class FirebaseEnvironment {
       'FIREBASE_WEB_API_KEY',
       _fallback(_webApiKeyFromDefine, _apiKeyFromDefine),
     );
+    final messagingSenderId = _read(
+      'FIREBASE_MESSAGING_SENDER_ID',
+      _messagingSenderIdFromDefine,
+    );
+    final appId = _readAppIdForCurrentPlatform();
 
     final missingKeys = <String>[
       if (projectId.isEmpty) 'FIREBASE_PROJECT_ID',
       if (apiKey.isEmpty) 'FIREBASE_WEB_API_KEY',
+      if (messagingSenderId.isEmpty) 'FIREBASE_MESSAGING_SENDER_ID',
+      if (appId.isEmpty) _appIdMissingKeyForCurrentPlatform(),
     ];
 
     if (missingKeys.isNotEmpty) {
@@ -52,14 +62,17 @@ class FirebaseEnvironment {
       );
     }
 
-    final messagingSenderId = _fallback(
-      _read('FIREBASE_MESSAGING_SENDER_ID', _messagingSenderIdFromDefine),
-      projectId,
-    );
-    final appId = _fallback(
-      _read('FIREBASE_APP_ID', _appIdFromDefine),
-      '1:$messagingSenderId:web:$projectId',
-    );
+    final platformMismatch = _appIdPlatformMismatch(appId);
+    if (platformMismatch != null) {
+      return Failure(
+        AppFailure(
+          type: AppFailureType.configuration,
+          code: 'firebase-app-id-platform-mismatch',
+          message: platformMismatch,
+        ),
+      );
+    }
+
     final authDomain = _fallback(
       _read('FIREBASE_AUTH_DOMAIN', _authDomainFromDefine),
       '$projectId.firebaseapp.com',
@@ -113,5 +126,41 @@ class FirebaseEnvironment {
     }
 
     return _optionalValue(value);
+  }
+
+  static String _appIdMissingKeyForCurrentPlatform() {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      return 'FIREBASE_ANDROID_APP_ID or FIREBASE_APP_ID';
+    }
+
+    return 'FIREBASE_APP_ID';
+  }
+
+  static String _readAppIdForCurrentPlatform() {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      final androidAppId = _read(
+        'FIREBASE_ANDROID_APP_ID',
+        _androidAppIdFromDefine,
+      );
+      return _fallback(
+        androidAppId,
+        _read('FIREBASE_APP_ID', _appIdFromDefine),
+      );
+    }
+
+    return _read('FIREBASE_APP_ID', _appIdFromDefine);
+  }
+
+  static String? _appIdPlatformMismatch(String appId) {
+    if (kIsWeb) {
+      return null;
+    }
+
+    if (defaultTargetPlatform == TargetPlatform.android &&
+        appId.contains(':web:')) {
+      return 'This Android build is using a Firebase Web app ID. Add an Android app in Firebase Console for package com.example.money_tracker and set FIREBASE_ANDROID_APP_ID to the :android: app ID.';
+    }
+
+    return null;
   }
 }

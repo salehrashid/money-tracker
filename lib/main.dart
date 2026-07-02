@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/firebase/firebase_app_initializer.dart';
 import 'core/utils/result.dart';
-import 'shared/widgets/app_shell.dart';
+import 'features/auth/presentation/pages/auth_gate.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,7 +30,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       home: firebaseResult.when(
-        success: (_) => const AppShell(),
+        success: (_) => const AuthGate(),
         failure: (failure) => _StartupFailurePage(message: failure.message),
       ),
     );
