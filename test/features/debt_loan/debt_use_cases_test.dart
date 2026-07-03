@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:money_tracker/features/debt_loan/data/dto/debt_dto.dart';
 import 'package:money_tracker/core/errors/app_failure.dart';
 import 'package:money_tracker/core/utils/result.dart';
 import 'package:money_tracker/features/debt_loan/application/usecases/debt_commands.dart';
@@ -8,6 +9,28 @@ import 'package:money_tracker/features/debt_loan/domain/repositories/debt_reposi
 import 'package:money_tracker/shared/models/finance_enums.dart';
 
 void main() {
+  group('DebtDto', () {
+    test('parses a blank note from Firestore data', () {
+      final createdAt = DateTime.utc(2026, 1, 2);
+      final updatedAt = DateTime.utc(2026, 1, 3);
+
+      final dto = DebtDto.fromMap({
+        'id': 'debt-1',
+        'kind': 'debt',
+        'personName': 'Ari',
+        'amount': 100000,
+        'currency': 'IDR',
+        'status': 'open',
+        'dueDate': null,
+        'note': '',
+        'createdAt': createdAt,
+        'updatedAt': updatedAt,
+      });
+
+      expect(dto.note, '');
+    });
+  });
+
   group('CreateDebtUseCase', () {
     test('returns validation failure for an empty person name', () async {
       final repository = _FakeDebtRepository();

@@ -62,7 +62,7 @@ class DebtDto {
       currency: requiredString(data, 'currency'),
       status: DebtStatus.fromFirestore(requiredString(data, 'status')),
       dueDate: optionalDateTime(data, 'dueDate'),
-      note: requiredString(data, 'note'),
+      note: optionalString(data, 'note') ?? '',
       createdAt: requiredDateTime(data, 'createdAt'),
       updatedAt: requiredDateTime(data, 'updatedAt'),
     );
