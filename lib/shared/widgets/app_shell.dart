@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../features/auth/presentation/pages/account_page.dart';
 import '../../features/categories/presentation/pages/category_management_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
+import '../../features/statistics/presentation/pages/statistics_page.dart';
 import '../../features/transactions/presentation/pages/transaction_page.dart';
 
 class AppShell extends StatefulWidget {
@@ -21,8 +22,9 @@ class _AppShellState extends State<AppShell> {
     final page = switch (_selectedIndex) {
       0 => const DashboardPage(),
       1 => const TransactionPage(),
-      2 => const CategoryManagementPage(),
-      3 => const AccountPage(),
+      2 => const StatisticsPage(),
+      3 => const CategoryManagementPage(),
+      4 => const AccountPage(),
       _ => const DashboardPage(),
     };
 
@@ -46,6 +48,11 @@ class _AppShellState extends State<AppShell> {
                   icon: Icon(Icons.receipt_long_outlined),
                   selectedIcon: Icon(Icons.receipt_long),
                   label: Text('Transactions'),
+                ),
+                NavigationRailDestination(
+                  icon: Icon(Icons.bar_chart_outlined),
+                  selectedIcon: Icon(Icons.bar_chart),
+                  label: Text('Statistics'),
                 ),
                 NavigationRailDestination(
                   icon: Icon(Icons.category_outlined),
@@ -83,6 +90,11 @@ class _AppShellState extends State<AppShell> {
             icon: Icon(Icons.receipt_long_outlined),
             selectedIcon: Icon(Icons.receipt_long),
             label: 'Transactions',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.bar_chart_outlined),
+            selectedIcon: Icon(Icons.bar_chart),
+            label: 'Statistics',
           ),
           NavigationDestination(
             icon: Icon(Icons.category_outlined),
