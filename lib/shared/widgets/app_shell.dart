@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../features/auth/presentation/pages/account_page.dart';
 import '../../features/categories/presentation/pages/category_management_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
+import '../../features/debt_loan/presentation/pages/debt_loan_page.dart';
 import '../../features/statistics/presentation/pages/statistics_page.dart';
 import '../../features/transactions/presentation/pages/transaction_page.dart';
 
@@ -23,8 +24,9 @@ class _AppShellState extends State<AppShell> {
       0 => const DashboardPage(),
       1 => const TransactionPage(),
       2 => const StatisticsPage(),
-      3 => const CategoryManagementPage(),
-      4 => const AccountPage(),
+      3 => const DebtLoanPage(),
+      4 => const CategoryManagementPage(),
+      5 => const AccountPage(),
       _ => const DashboardPage(),
     };
 
@@ -55,15 +57,20 @@ class _AppShellState extends State<AppShell> {
                   label: Text('Statistics'),
                 ),
                 NavigationRailDestination(
+                  icon: Icon(Icons.handshake_outlined),
+                  selectedIcon: Icon(Icons.handshake),
+                  label: Text('Debt'),
+                ),
+                NavigationRailDestination(
                   icon: Icon(Icons.category_outlined),
                   selectedIcon: Icon(Icons.category),
                   label: Text('Categories'),
                 ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.account_circle_outlined),
-                  selectedIcon: Icon(Icons.account_circle),
-                  label: Text('Account'),
-                ),
+                // NavigationRailDestination(
+                //   icon: Icon(Icons.account_circle_outlined),
+                //   selectedIcon: Icon(Icons.account_circle),
+                //   label: Text('Account'),
+                // ),
               ],
             ),
             const VerticalDivider(width: 1),
@@ -97,15 +104,20 @@ class _AppShellState extends State<AppShell> {
             label: 'Statistics',
           ),
           NavigationDestination(
+            icon: Icon(Icons.handshake_outlined),
+            selectedIcon: Icon(Icons.handshake),
+            label: 'Debt',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.category_outlined),
             selectedIcon: Icon(Icons.category),
             label: 'Categories',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.account_circle_outlined),
-            selectedIcon: Icon(Icons.account_circle),
-            label: 'Account',
-          ),
+          // NavigationDestination(
+          //   icon: Icon(Icons.account_circle_outlined),
+          //   selectedIcon: Icon(Icons.account_circle),
+          //   label: 'Account',
+          // ),
         ],
       ),
     );
