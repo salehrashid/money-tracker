@@ -107,6 +107,21 @@ class _CategoryContent extends ConsumerWidget {
         );
       }
     });
+    ref.listen<AsyncValue<Result<List<Category>>>>(categoryListProvider(userId), (
+      previous,
+      next,
+    ) {
+      final operationState = ref.read(categoryOperationStateProvider);
+      if (!operationState.isLoading || !next.hasValue) {
+        return;
+      }
+
+      next.value?.when(
+        success: (_) =>
+            ref.read(categoryOperationStateProvider.notifier).setSuccess(),
+        failure: (_) {},
+      );
+    });
 
     return Scaffold(
       appBar: AppBar(

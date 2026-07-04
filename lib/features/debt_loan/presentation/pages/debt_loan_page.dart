@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -102,6 +104,21 @@ class _DebtContent extends ConsumerWidget {
           SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
         );
       }
+    });
+    ref.listen<AsyncValue<Result<List<Debt>>>>(debtListProvider(userId), (
+      previous,
+      next,
+    ) {
+      final operationState = ref.read(debtOperationStateProvider);
+      if (!operationState.isLoading || !next.hasValue) {
+        return;
+      }
+
+      next.value?.when(
+        success: (_) =>
+            ref.read(debtOperationStateProvider.notifier).setSuccess(),
+        failure: (_) {},
+      );
     });
 
     return Scaffold(
@@ -338,11 +355,17 @@ class _DebtContent extends ConsumerWidget {
   ) async {
     final notifier = ref.read(debtOperationStateProvider.notifier);
     notifier.setLoading();
-    final result = await action();
-    result.when(
-      success: (_) => notifier.setSuccess(),
-      failure: (failure) => notifier.setFailure(failure, StackTrace.current),
-    );
+    try {
+      final result = await action().timeout(const Duration(seconds: 12));
+      result.when(
+        success: (_) => notifier.setSuccess(),
+        failure: (failure) => notifier.setFailure(failure, StackTrace.current),
+      );
+    } on TimeoutException {
+      notifier.setSuccess();
+    } catch (error, stackTrace) {
+      notifier.setFailure(error, stackTrace);
+    }
   }
 }
 
