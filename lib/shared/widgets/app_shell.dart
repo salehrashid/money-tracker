@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../features/auth/presentation/pages/account_page.dart';
 import '../../features/categories/presentation/pages/category_management_page.dart';
+import '../../features/csv_import/presentation/pages/csv_import_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../../features/debt_loan/presentation/pages/debt_loan_page.dart';
 import '../../features/statistics/presentation/pages/statistics_page.dart';
@@ -26,7 +27,8 @@ class _AppShellState extends State<AppShell> {
       2 => const StatisticsPage(),
       3 => const DebtLoanPage(),
       4 => const CategoryManagementPage(),
-      5 => const AccountPage(),
+      // 5 => const CsvImportPage(),
+      6 => const AccountPage(),
       _ => const DashboardPage(),
     };
 
@@ -66,6 +68,11 @@ class _AppShellState extends State<AppShell> {
                   selectedIcon: Icon(Icons.category),
                   label: Text('Categories'),
                 ),
+                // NavigationRailDestination(
+                //   icon: Icon(Icons.upload_file_outlined),
+                //   selectedIcon: Icon(Icons.upload_file),
+                //   label: Text('Import CSV'),
+                // ),
                 // NavigationRailDestination(
                 //   icon: Icon(Icons.account_circle_outlined),
                 //   selectedIcon: Icon(Icons.account_circle),
@@ -113,6 +120,11 @@ class _AppShellState extends State<AppShell> {
             selectedIcon: Icon(Icons.category),
             label: 'Categories',
           ),
+          // NavigationDestination(
+          //   icon: Icon(Icons.upload_file_outlined),
+          //   selectedIcon: Icon(Icons.upload_file),
+          //   label: 'Import CSV',
+          // ),
           // NavigationDestination(
           //   icon: Icon(Icons.account_circle_outlined),
           //   selectedIcon: Icon(Icons.account_circle),
