@@ -1,25 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/presentation/pages/account_page.dart';
 import '../../features/categories/presentation/pages/category_management_page.dart';
-import '../../features/csv_import/presentation/pages/csv_import_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../../features/debt_loan/presentation/pages/debt_loan_page.dart';
+import '../../features/notification_reader/presentation/pages/notification_debug_page.dart';
+import '../../features/notification_reader/presentation/providers/notification_listener_providers.dart';
 import '../../features/statistics/presentation/pages/statistics_page.dart';
 import '../../features/transactions/presentation/pages/transaction_page.dart';
 
-class AppShell extends StatefulWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
 
   @override
-  State<AppShell> createState() => _AppShellState();
+  ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends ConsumerState<AppShell> {
   var _selectedIndex = 0;
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(notificationDetectionControllerProvider);
+
     final isWide = MediaQuery.sizeOf(context).width >= 720;
     final page = switch (_selectedIndex) {
       0 => const DashboardPage(),
@@ -28,6 +33,7 @@ class _AppShellState extends State<AppShell> {
       3 => const DebtLoanPage(),
       4 => const CategoryManagementPage(),
       // 5 => const CsvImportPage(),
+      5 when kDebugMode => const NotificationDebugPage(),
       6 => const AccountPage(),
       _ => const DashboardPage(),
     };
@@ -42,32 +48,38 @@ class _AppShellState extends State<AppShell> {
                 setState(() => _selectedIndex = index);
               },
               labelType: NavigationRailLabelType.all,
-              destinations: const [
-                NavigationRailDestination(
+              destinations: [
+                const NavigationRailDestination(
                   icon: Icon(Icons.dashboard_outlined),
                   selectedIcon: Icon(Icons.dashboard),
                   label: Text('Dashboard'),
                 ),
-                NavigationRailDestination(
+                const NavigationRailDestination(
                   icon: Icon(Icons.receipt_long_outlined),
                   selectedIcon: Icon(Icons.receipt_long),
                   label: Text('Transactions'),
                 ),
-                NavigationRailDestination(
+                const NavigationRailDestination(
                   icon: Icon(Icons.bar_chart_outlined),
                   selectedIcon: Icon(Icons.bar_chart),
                   label: Text('Statistics'),
                 ),
-                NavigationRailDestination(
+                const NavigationRailDestination(
                   icon: Icon(Icons.handshake_outlined),
                   selectedIcon: Icon(Icons.handshake),
                   label: Text('Debt'),
                 ),
-                NavigationRailDestination(
+                const NavigationRailDestination(
                   icon: Icon(Icons.category_outlined),
                   selectedIcon: Icon(Icons.category),
                   label: Text('Categories'),
                 ),
+                if (kDebugMode)
+                  const NavigationRailDestination(
+                    icon: Icon(Icons.bug_report_outlined),
+                    selectedIcon: Icon(Icons.bug_report),
+                    label: Text('Notify Debug'),
+                  ),
                 // NavigationRailDestination(
                 //   icon: Icon(Icons.upload_file_outlined),
                 //   selectedIcon: Icon(Icons.upload_file),
@@ -94,32 +106,38 @@ class _AppShellState extends State<AppShell> {
         onDestinationSelected: (index) {
           setState(() => _selectedIndex = index);
         },
-        destinations: const [
-          NavigationDestination(
+        destinations: [
+          const NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
             selectedIcon: Icon(Icons.dashboard),
             label: 'Dashboard',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.receipt_long_outlined),
             selectedIcon: Icon(Icons.receipt_long),
             label: 'Transactions',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.bar_chart_outlined),
             selectedIcon: Icon(Icons.bar_chart),
             label: 'Statistics',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.handshake_outlined),
             selectedIcon: Icon(Icons.handshake),
             label: 'Debt',
           ),
-          NavigationDestination(
+          const NavigationDestination(
             icon: Icon(Icons.category_outlined),
             selectedIcon: Icon(Icons.category),
             label: 'Categories',
           ),
+          if (kDebugMode)
+            const NavigationDestination(
+              icon: Icon(Icons.bug_report_outlined),
+              selectedIcon: Icon(Icons.bug_report),
+              label: 'Notify Debug',
+            ),
           // NavigationDestination(
           //   icon: Icon(Icons.upload_file_outlined),
           //   selectedIcon: Icon(Icons.upload_file),
