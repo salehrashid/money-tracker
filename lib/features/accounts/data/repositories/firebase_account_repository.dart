@@ -4,6 +4,7 @@ import '../../../../core/utils/result.dart';
 import '../../domain/entities/account.dart';
 import '../../domain/repositories/account_repository.dart';
 import '../datasources/firebase_account_data_source.dart';
+import '../dto/account_dto.dart';
 
 class FirebaseAccountRepository implements AccountRepository {
   const FirebaseAccountRepository({
@@ -25,6 +26,27 @@ class FirebaseAccountRepository implements AccountRepository {
       }
     } catch (error) {
       yield Failure(_mapError(error));
+    }
+  }
+
+  @override
+  Future<Result<bool>> hasAnyAccount() async {
+    try {
+      final exists = await _dataSource.hasAnyAccount();
+      return Success(exists);
+    } catch (error) {
+      return Failure(_mapError(error));
+    }
+  }
+
+  @override
+  Future<Result<void>> createAccount(Account account) async {
+    try {
+      final dto = AccountDto.fromDomain(account);
+      await _dataSource.createAccount(dto);
+      return const Success(null);
+    } catch (error) {
+      return Failure(_mapError(error));
     }
   }
 

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/utils/result.dart';
+import '../../../../features/accounts/presentation/providers/account_providers.dart';
 import '../../../../shared/widgets/app_shell.dart';
+import '../../domain/entities/auth_user.dart';
 import '../providers/auth_providers.dart';
 import 'auth_page.dart';
 
@@ -11,6 +14,21 @@ class AuthGate extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateProvider);
+
+    // Whenever the auth state transitions to a signed-in user, ensure a
+    // default financial account exists. This is intentionally a fire-and-forget
+    // side-effect that runs once per auth-state change, not on every rebuild.
+    ref.listen(authStateProvider, (_, next) {
+      next.whenData((result) {
+        if (result case Success<AuthUser?>(:final value)) {
+          final user = value;
+          if (user == null) return;
+          ref
+              .read(ensureDefaultAccountUseCaseProvider(user.id))
+              .execute(user.id);
+        }
+      });
+    });
 
     return authState.when(
       loading: () => const _AuthLoadingPage(),

@@ -131,7 +131,7 @@ class _TransactionContent extends ConsumerWidget {
           transactions: applyFilters.execute(
             transactions: data.transactions,
             categories: data.categories,
-            accounts: data.accounts,
+            // accounts: data.accounts,
             criteria: filterCriteria,
           ),
           filterCriteria: filterCriteria,
@@ -140,7 +140,7 @@ class _TransactionContent extends ConsumerWidget {
             ref.invalidate(transactionListProvider(userId));
             ref.invalidate(pendingTransactionDraftListProvider(userId));
             ref.invalidate(categoryListProvider(userId));
-            ref.invalidate(accountListProvider(userId));
+            // ref.invalidate(accountListProvider(userId));
           },
           onCreate: () => _showCreateDialog(context, ref, data),
           onEdit: (transaction) =>
@@ -316,15 +316,6 @@ class _TransactionBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (data.categories.isEmpty || data.accounts.isEmpty) {
-      return _MessageState(
-        icon: Icons.tune_outlined,
-        title: 'Setup required',
-        message: data.categories.isEmpty
-            ? 'Create at least one category before adding transactions.'
-            : 'Create at least one account before adding transactions.',
-      );
-    }
 
     return RefreshIndicator(
       onRefresh: onRefresh,

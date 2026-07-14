@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_tracker/core/utils/result.dart';
-import 'package:money_tracker/features/accounts/domain/entities/account.dart';
 import 'package:money_tracker/features/categories/domain/entities/category.dart';
 import 'package:money_tracker/features/transactions/application/usecases/transaction_commands.dart';
 import 'package:money_tracker/features/transactions/application/usecases/transaction_filter.dart';
@@ -110,11 +109,7 @@ void main() {
           _category(id: 'food', name: 'Food'),
           _category(id: 'salary', name: 'Salary', type: TransactionType.income),
         ],
-        accounts: [
-          _account(id: 'cash', name: 'Cash'),
-          _account(id: 'bank', name: 'BCA'),
-        ],
-        criteria: const TransactionFilterCriteria(searchQuery: 'bca'),
+        criteria: const TransactionFilterCriteria(searchQuery: 'pay'),
       );
 
       expect(result.map((transaction) => transaction.id), ['transaction-2']);
@@ -150,10 +145,6 @@ void main() {
         categories: [
           _category(id: 'food', name: 'Food'),
           _category(id: 'salary', name: 'Salary', type: TransactionType.income),
-        ],
-        accounts: [
-          _account(id: 'cash', name: 'Cash'),
-          _account(id: 'bank', name: 'BCA'),
         ],
         criteria: TransactionFilterCriteria(
           type: TransactionType.expense,
@@ -301,16 +292,3 @@ Category _category({
   );
 }
 
-Account _account({required String id, required String name}) {
-  final now = DateTime.utc(2026);
-  return Account(
-    id: id,
-    name: name,
-    type: AccountType.cash,
-    currency: 'IDR',
-    openingBalance: 0,
-    isArchived: false,
-    createdAt: now,
-    updatedAt: now,
-  );
-}

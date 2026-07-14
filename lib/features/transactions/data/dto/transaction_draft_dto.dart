@@ -70,7 +70,7 @@ class TransactionDraftDto {
       ),
       detectedAmount: requiredDouble(data, 'detectedAmount'),
       detectedCurrency: requiredString(data, 'detectedCurrency'),
-      detectedText: requiredString(data, 'detectedText'),
+      detectedText: optionalString(data, 'detectedText') ?? '',
       suggestedCategoryId: optionalString(data, 'suggestedCategoryId'),
       status: TransactionDraftStatus.fromFirestore(
         requiredString(data, 'status'),

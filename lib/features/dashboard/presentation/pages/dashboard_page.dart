@@ -7,7 +7,12 @@ import '../../domain/entities/dashboard_overview.dart';
 import '../providers/dashboard_providers.dart';
 
 class DashboardPage extends ConsumerWidget {
-  const DashboardPage({super.key});
+  const DashboardPage({super.key, this.onAddTransaction});
+
+  /// Optional callback invoked when the user taps 'Add Transaction' from the
+  /// empty state. Typically used by the parent shell to switch to the
+  /// Transactions tab.
+  final VoidCallback? onAddTransaction;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -37,7 +42,10 @@ class DashboardPage extends ConsumerWidget {
               );
             }
 
-            return _DashboardContent(userId: user.id);
+            return _DashboardContent(
+              userId: user.id,
+              onAddTransaction: onAddTransaction,
+            );
           },
         ),
       ),
@@ -46,9 +54,13 @@ class DashboardPage extends ConsumerWidget {
 }
 
 class _DashboardContent extends ConsumerWidget {
-  const _DashboardContent({required this.userId});
+  const _DashboardContent({
+    required this.userId,
+    this.onAddTransaction,
+  });
 
   final String userId;
+  final VoidCallback? onAddTransaction;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -69,11 +81,8 @@ class _DashboardContent extends ConsumerWidget {
         ),
         success: (overview) {
           if (overview.isEmpty) {
-            return const _MessageState(
-              icon: Icons.dashboard_outlined,
-              title: 'No overview yet',
-              message:
-                  'Add accounts and transactions to see your financial summary.',
+            return _NoTransactionsState(
+              onAddTransaction: onAddTransaction,
             );
           }
 
@@ -411,6 +420,49 @@ class _InlineEmptyState extends StatelessWidget {
             Icon(icon, color: Theme.of(context).colorScheme.primary),
             const SizedBox(height: 8),
             Text(message, textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Onboarding empty state shown when the user has a default Cash account but
+/// no transactions yet.
+class _NoTransactionsState extends StatelessWidget {
+  const _NoTransactionsState({this.onAddTransaction});
+
+  final VoidCallback? onAddTransaction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.receipt_long_outlined,
+              size: 48,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'No transactions yet',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Add your first income or expense transaction to start tracking your finances.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: onAddTransaction,
+              icon: const Icon(Icons.add),
+              label: const Text('Add Transaction'),
+            ),
           ],
         ),
       ),

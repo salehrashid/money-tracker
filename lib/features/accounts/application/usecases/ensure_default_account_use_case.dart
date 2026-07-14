@@ -1,0 +1,59 @@
+import 'package:flutter/foundation.dart';
+
+import '../../../../core/utils/result.dart';
+import '../../../../shared/models/finance_enums.dart';
+import '../../domain/entities/account.dart';
+import '../../domain/repositories/account_repository.dart';
+
+/// Ensures every authenticated user has at least one financial account.
+///
+/// This use case is idempotent: calling it multiple times is safe and will
+/// never create duplicate accounts. The default account is a Cash account with
+/// an opening balance of 0 in IDR.
+class EnsureDefaultAccountUseCase {
+  const EnsureDefaultAccountUseCase(this._repository);
+
+  final AccountRepository _repository;
+
+  Future<void> execute(String uid) async {
+    debugPrint('[DefaultAccount] Current UID: $uid');
+    debugPrint('[DefaultAccount] Checking default account...');
+
+    final hasAccountResult = await _repository.hasAnyAccount();
+
+    switch (hasAccountResult) {
+      case Failure(:final failure):
+        debugPrint('[DefaultAccount] Firestore error: ${failure.message}');
+        return;
+
+      case Success(:final value):
+        if (value) {
+          debugPrint('[DefaultAccount] Default account already exists.');
+          return;
+        }
+    }
+
+    debugPrint('[DefaultAccount] Creating default account...');
+
+    final now = DateTime.now().toUtc();
+    final defaultAccount = Account(
+      id: '${uid}_cash_default',
+      name: 'Cash',
+      type: AccountType.cash,
+      currency: 'IDR',
+      openingBalance: 0,
+      isArchived: false,
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    final createResult = await _repository.createAccount(defaultAccount);
+
+    switch (createResult) {
+      case Success():
+        debugPrint('[DefaultAccount] Default account created successfully.');
+      case Failure(:final failure):
+        debugPrint('[DefaultAccount] Firestore error: ${failure.message}');
+    }
+  }
+}

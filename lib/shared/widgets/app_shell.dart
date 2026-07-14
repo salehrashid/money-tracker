@@ -27,7 +27,9 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     final isWide = MediaQuery.sizeOf(context).width >= 720;
     final page = switch (_selectedIndex) {
-      0 => const DashboardPage(),
+      0 => DashboardPage(
+        onAddTransaction: () => setState(() => _selectedIndex = 1),
+      ),
       1 => const TransactionPage(),
       2 => const StatisticsPage(),
       3 => const DebtLoanPage(),
@@ -35,7 +37,9 @@ class _AppShellState extends ConsumerState<AppShell> {
       // 5 => const CsvImportPage(),
       5 when kDebugMode => const NotificationDebugPage(),
       6 => const AccountPage(),
-      _ => const DashboardPage(),
+      _ => DashboardPage(
+        onAddTransaction: () => setState(() => _selectedIndex = 1),
+      ),
     };
 
     if (isWide) {
@@ -74,12 +78,12 @@ class _AppShellState extends ConsumerState<AppShell> {
                   selectedIcon: Icon(Icons.category),
                   label: Text('Categories'),
                 ),
-                if (kDebugMode)
-                  const NavigationRailDestination(
-                    icon: Icon(Icons.bug_report_outlined),
-                    selectedIcon: Icon(Icons.bug_report),
-                    label: Text('Notify Debug'),
-                  ),
+                // if (kDebugMode)
+                //   const NavigationRailDestination(
+                //     icon: Icon(Icons.bug_report_outlined),
+                //     selectedIcon: Icon(Icons.bug_report),
+                //     label: Text('Notify Debug'),
+                //   ),
                 // NavigationRailDestination(
                 //   icon: Icon(Icons.upload_file_outlined),
                 //   selectedIcon: Icon(Icons.upload_file),
@@ -132,12 +136,12 @@ class _AppShellState extends ConsumerState<AppShell> {
             selectedIcon: Icon(Icons.category),
             label: 'Categories',
           ),
-          if (kDebugMode)
-            const NavigationDestination(
-              icon: Icon(Icons.bug_report_outlined),
-              selectedIcon: Icon(Icons.bug_report),
-              label: 'Notify Debug',
-            ),
+          // if (kDebugMode)
+          //   const NavigationDestination(
+          //     icon: Icon(Icons.bug_report_outlined),
+          //     selectedIcon: Icon(Icons.bug_report),
+          //     label: 'Notify Debug',
+          //   ),
           // NavigationDestination(
           //   icon: Icon(Icons.upload_file_outlined),
           //   selectedIcon: Icon(Icons.upload_file),

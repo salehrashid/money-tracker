@@ -1,4 +1,3 @@
-import '../../../../features/accounts/domain/entities/account.dart';
 import '../../../../features/categories/domain/entities/category.dart';
 import '../../../../shared/models/finance_enums.dart';
 import '../../domain/entities/transaction.dart';
@@ -71,13 +70,13 @@ class ApplyTransactionFiltersUseCase {
   List<TransactionEntity> execute({
     required List<TransactionEntity> transactions,
     required List<Category> categories,
-    required List<Account> accounts,
+    // required List<Account> accounts,
     required TransactionFilterCriteria criteria,
   }) {
     final categoryById = {
       for (final category in categories) category.id: category,
     };
-    final accountById = {for (final account in accounts) account.id: account};
+    // final accountById = {for (final account in accounts) account.id: account};
     final query = criteria.searchQuery.trim().toLowerCase();
     final startDate = criteria.startDate == null
         ? null
@@ -133,7 +132,7 @@ class ApplyTransactionFiltersUseCase {
           }
 
           final category = categoryById[transaction.categoryId];
-          final account = accountById[transaction.accountId];
+          // final account = accountById[transaction.accountId];
           final searchableText = [
             transaction.note,
             transaction.amount.toStringAsFixed(0),
@@ -141,7 +140,7 @@ class ApplyTransactionFiltersUseCase {
             transaction.type.firestoreValue,
             transaction.source.firestoreValue,
             category?.name ?? '',
-            account?.name ?? '',
+            // account?.name ?? '',
           ].join(' ').toLowerCase();
 
           return searchableText.contains(query);

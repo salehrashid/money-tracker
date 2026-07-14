@@ -70,7 +70,7 @@ class TransactionDto {
       currency: requiredString(data, 'currency'),
       categoryId: requiredString(data, 'categoryId'),
       accountId: requiredString(data, 'accountId'),
-      note: requiredString(data, 'note'),
+      note: optionalString(data, 'note') ?? '',
       source: TransactionSource.fromFirestore(requiredString(data, 'source')),
       transactionDate: requiredDateTime(data, 'transactionDate'),
       createdAt: requiredDateTime(data, 'createdAt'),
