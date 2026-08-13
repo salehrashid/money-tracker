@@ -24,13 +24,24 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   Widget build(BuildContext context) {
     ref.watch(notificationDetectionControllerProvider);
+    final pendingDetectedTransaction = ref.watch(
+      pendingDetectedTransactionProvider,
+    );
+
+    ref.listen(pendingDetectedTransactionProvider, (previous, next) {
+      if (next != null && _selectedIndex != 1) {
+        setState(() => _selectedIndex = 1);
+      }
+    });
 
     final isWide = MediaQuery.sizeOf(context).width >= 720;
     final page = switch (_selectedIndex) {
       0 => DashboardPage(
         onAddTransaction: () => setState(() => _selectedIndex = 1),
       ),
-      1 => const TransactionPage(),
+      1 => TransactionPage(
+        initialDetectedTransaction: pendingDetectedTransaction,
+      ),
       2 => const StatisticsPage(),
       3 => const DebtLoanPage(),
       4 => const CategoryManagementPage(),

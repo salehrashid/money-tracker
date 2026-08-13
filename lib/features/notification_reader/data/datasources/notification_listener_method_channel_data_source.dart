@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 
 import '../../domain/entities/android_notification_payload.dart';
+import '../../domain/entities/detected_transaction.dart';
 
 class NotificationListenerMethodChannelDataSource {
   NotificationListenerMethodChannelDataSource({
@@ -16,9 +17,15 @@ class NotificationListenerMethodChannelDataSource {
   final MethodChannel _channel;
   final _notificationsController =
       StreamController<AndroidNotificationPayload>.broadcast();
+  final _transactionReviewRequestsController =
+      StreamController<DetectedTransaction>.broadcast();
 
   Stream<AndroidNotificationPayload> get notifications {
     return _notificationsController.stream;
+  }
+
+  Stream<DetectedTransaction> get transactionReviewRequests {
+    return _transactionReviewRequestsController.stream;
   }
 
   Future<bool> isNotificationListenerEnabled() async {
@@ -67,29 +74,48 @@ class NotificationListenerMethodChannelDataSource {
     });
   }
 
-  Future<void> showConfirmationNotification(
-    AndroidNotificationPayload payload,
-  ) {
+  Future<void> showConfirmationNotification(DetectedTransaction transaction) {
     return _channel.invokeMethod<void>('showConfirmationNotification', {
-      ...payload.toPlatformMap(),
-      'filterAccepted': true,
+      ...transaction.toNotificationPayload(),
     });
+  }
+
+  Future<DetectedTransaction?> getInitialTransactionReviewRequest() async {
+    final result = await _channel.invokeMapMethod<Object?, Object?>(
+      'getInitialTransactionReviewRequest',
+    );
+    if (result == null) {
+      return null;
+    }
+    return DetectedTransaction.fromNotificationPayload(result);
   }
 
   Future<void> dispose() async {
     _channel.setMethodCallHandler(null);
     await _notificationsController.close();
+    await _transactionReviewRequestsController.close();
   }
 
   Future<void> _handleMethodCall(MethodCall call) async {
-    if (call.method != 'notificationPosted') {
+    final arguments = call.arguments;
+    if (call.method == 'notificationPosted') {
+      if (arguments is Map<Object?, Object?>) {
+        final payload = AndroidNotificationPayload.fromPlatformMap(arguments);
+        _notificationsController.add(payload);
+      }
       return;
     }
 
-    final arguments = call.arguments;
-    if (arguments is Map<Object?, Object?>) {
-      final payload = AndroidNotificationPayload.fromPlatformMap(arguments);
-      _notificationsController.add(payload);
+    if (call.method == 'transactionReviewRequested') {
+      if (arguments is Map<Object?, Object?>) {
+        try {
+          _transactionReviewRequestsController.add(
+            DetectedTransaction.fromNotificationPayload(arguments),
+          );
+        } on FormatException {
+          return;
+        }
+      }
     }
   }
 }

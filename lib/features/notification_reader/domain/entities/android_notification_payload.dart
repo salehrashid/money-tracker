@@ -5,8 +5,10 @@ class AndroidNotificationPayload {
     required this.title,
     required this.body,
     required this.receivedAt,
+    this.notificationKey = '',
     this.subText = '',
     this.bigText = '',
+    this.textLines = const [],
     this.channelId = '',
     this.postTime,
     this.notificationId,
@@ -18,10 +20,12 @@ class AndroidNotificationPayload {
 
   final String packageName;
   final String appName;
+  final String notificationKey;
   final String title;
   final String body;
   final String subText;
   final String bigText;
+  final List<String> textLines;
   final String channelId;
   final DateTime? postTime;
   final int? notificationId;
@@ -36,6 +40,7 @@ class AndroidNotificationPayload {
       body.trim().isNotEmpty ||
       subText.trim().isNotEmpty ||
       bigText.trim().isNotEmpty ||
+      textLines.any((line) => line.trim().isNotEmpty) ||
       ticker.trim().isNotEmpty;
 
   String get displayBody {
@@ -45,12 +50,16 @@ class AndroidNotificationPayload {
     if (bigText.trim().isNotEmpty) {
       return bigText;
     }
+    if (textLines.isNotEmpty) {
+      return textLines.join('\n');
+    }
     return subText;
   }
 
   String get dedupeHash {
     final input = [
       packageName.trim().toLowerCase(),
+      notificationKey.trim(),
       title.trim(),
       displayBody.trim(),
       receivedAt.millisecondsSinceEpoch.toString(),
@@ -72,10 +81,12 @@ class AndroidNotificationPayload {
     return AndroidNotificationPayload(
       packageName: _readString(map, 'packageName'),
       appName: _readString(map, 'appName'),
+      notificationKey: _readString(map, 'notificationKey'),
       title: _readString(map, 'title'),
       body: _readString(map, 'body'),
       subText: _readString(map, 'subText'),
       bigText: _readString(map, 'bigText'),
+      textLines: _readStringList(map, 'textLines'),
       channelId: _readString(map, 'channelId'),
       postTime: postTimeMillis is int
           ? DateTime.fromMillisecondsSinceEpoch(postTimeMillis)
@@ -95,10 +106,12 @@ class AndroidNotificationPayload {
     return {
       'packageName': packageName,
       'appName': appName,
+      'notificationKey': notificationKey,
       'title': title,
       'body': body,
       'subText': subText,
       'bigText': bigText,
+      'textLines': textLines,
       'channelId': channelId,
       'postTimeMillis': postTime?.millisecondsSinceEpoch,
       'notificationId': notificationId,
@@ -132,5 +145,17 @@ class AndroidNotificationPayload {
     return value.map(
       (key, value) => MapEntry(key?.toString() ?? '', value?.toString() ?? ''),
     )..removeWhere((key, _) => key.isEmpty);
+  }
+
+  static List<String> _readStringList(Map<Object?, Object?> map, String key) {
+    final value = map[key];
+    if (value is! List<Object?>) {
+      return const [];
+    }
+
+    return value
+        .map((entry) => entry?.toString().trim() ?? '')
+        .where((entry) => entry.isNotEmpty)
+        .toList(growable: false);
   }
 }

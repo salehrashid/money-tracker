@@ -1,5 +1,6 @@
 import '../../../../core/utils/result.dart';
 import '../../domain/entities/android_notification_payload.dart';
+import '../../domain/entities/detected_transaction.dart';
 import '../../domain/entities/notification_listener_status.dart';
 import '../../domain/repositories/notification_listener_repository.dart';
 
@@ -68,7 +69,27 @@ class ShowNotificationReviewConfirmationUseCase {
 
   final NotificationListenerRepository _repository;
 
-  Future<Result<void>> execute(AndroidNotificationPayload payload) {
-    return _repository.showConfirmationNotification(payload);
+  Future<Result<void>> execute(DetectedTransaction transaction) {
+    return _repository.showConfirmationNotification(transaction);
+  }
+}
+
+class GetInitialTransactionReviewRequestUseCase {
+  const GetInitialTransactionReviewRequestUseCase(this._repository);
+
+  final NotificationListenerRepository _repository;
+
+  Future<Result<DetectedTransaction?>> execute() {
+    return _repository.getInitialTransactionReviewRequest();
+  }
+}
+
+class WatchTransactionReviewRequestsUseCase {
+  const WatchTransactionReviewRequestsUseCase(this._repository);
+
+  final NotificationListenerRepository _repository;
+
+  Stream<DetectedTransaction> execute() {
+    return _repository.watchTransactionReviewRequests();
   }
 }

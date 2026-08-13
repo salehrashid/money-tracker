@@ -8,6 +8,8 @@ import '../../../../features/accounts/presentation/providers/account_providers.d
 import '../../../../features/auth/presentation/providers/auth_providers.dart';
 import '../../../../features/categories/domain/entities/category.dart';
 import '../../../../features/categories/presentation/providers/category_providers.dart';
+import '../../../../features/notification_reader/domain/entities/detected_transaction.dart';
+import '../../../../features/notification_reader/presentation/providers/notification_listener_providers.dart';
 import '../../../../shared/models/finance_enums.dart';
 import '../../application/usecases/transaction_commands.dart';
 import '../../application/usecases/transaction_filter.dart';
@@ -18,7 +20,9 @@ import '../widgets/transaction_form_dialog.dart';
 import '../widgets/transaction_formatters.dart';
 
 class TransactionPage extends ConsumerWidget {
-  const TransactionPage({super.key});
+  const TransactionPage({this.initialDetectedTransaction, super.key});
+
+  final DetectedTransaction? initialDetectedTransaction;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -53,7 +57,10 @@ class TransactionPage extends ConsumerWidget {
               );
             }
 
-            return _TransactionContent(userId: user.id);
+            return _TransactionContent(
+              userId: user.id,
+              initialDetectedTransaction: initialDetectedTransaction,
+            );
           },
         );
       },
@@ -62,9 +69,13 @@ class TransactionPage extends ConsumerWidget {
 }
 
 class _TransactionContent extends ConsumerWidget {
-  const _TransactionContent({required this.userId});
+  const _TransactionContent({
+    required this.userId,
+    required this.initialDetectedTransaction,
+  });
 
   final String userId;
+  final DetectedTransaction? initialDetectedTransaction;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -101,6 +112,23 @@ class _TransactionContent extends ConsumerWidget {
         loaded.data != null &&
         loaded.data!.categories.isNotEmpty &&
         loaded.data!.accounts.isNotEmpty;
+    final detectedTransaction = initialDetectedTransaction;
+    if (detectedTransaction != null && loaded.data != null && canCreate) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) {
+          return;
+        }
+        ref
+            .read(pendingDetectedTransactionProvider.notifier)
+            .markHandled(detectedTransaction);
+        _showCreateDialog(
+          context,
+          ref,
+          loaded.data!,
+          initialDetectedTransaction: detectedTransaction,
+        );
+      });
+    }
 
     return _PageScaffold(
       action: IconButton(
@@ -163,13 +191,15 @@ class _TransactionContent extends ConsumerWidget {
   Future<void> _showCreateDialog(
     BuildContext context,
     WidgetRef ref,
-    _TransactionScreenData data,
-  ) async {
+    _TransactionScreenData data, {
+    DetectedTransaction? initialDetectedTransaction,
+  }) async {
     final command = await showDialog<SaveTransactionCommand>(
       context: context,
       builder: (_) => TransactionFormDialog(
         categories: data.categories,
         accounts: data.accounts,
+        detectedTransaction: initialDetectedTransaction,
       ),
     );
     if (command == null || !context.mounted) {
@@ -316,7 +346,6 @@ class _TransactionBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: CustomScrollView(

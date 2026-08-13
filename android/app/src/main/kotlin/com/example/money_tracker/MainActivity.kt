@@ -3,6 +3,7 @@ package com.example.money_tracker
 import android.Manifest
 import android.content.Intent
 import android.os.Build
+import android.os.Bundle
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -10,6 +11,17 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        MoneyNotificationBridge.handleLaunchIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        MoneyNotificationBridge.handleLaunchIntent(intent)
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
@@ -47,6 +59,9 @@ class MainActivity : FlutterActivity() {
             }
             "getRecentNotifications" -> {
                 result.success(MoneyNotificationBridge.recentNotifications())
+            }
+            "getInitialTransactionReviewRequest" -> {
+                result.success(MoneyNotificationBridge.getInitialTransactionReviewRequest())
             }
             "setMonitoredPackages" -> {
                 val packageNames = call.argument<List<String>>("packageNames").orEmpty()

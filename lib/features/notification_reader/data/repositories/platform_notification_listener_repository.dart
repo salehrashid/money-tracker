@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../../../core/errors/app_failure.dart';
 import '../../../../core/utils/result.dart';
 import '../../domain/entities/android_notification_payload.dart';
+import '../../domain/entities/detected_transaction.dart';
 import '../../domain/entities/notification_listener_status.dart';
 import '../../domain/repositories/notification_listener_repository.dart';
 import '../datasources/notification_listener_method_channel_data_source.dart';
@@ -128,26 +129,55 @@ class PlatformNotificationListenerRepository
 
   @override
   Future<Result<void>> showConfirmationNotification(
-    AndroidNotificationPayload payload,
+    DetectedTransaction transaction,
   ) async {
     if (!_isSupported) {
       return const Failure(_unsupportedFailure);
     }
-    if (!payload.hasContent) {
+    if (transaction.amount <= 0) {
       return const Failure(
         AppFailure(
           type: AppFailureType.validation,
-          message: 'Notification content is empty.',
+          message: 'Detected transaction amount is invalid.',
         ),
       );
     }
 
     try {
-      await _dataSource.showConfirmationNotification(payload);
+      await _dataSource.showConfirmationNotification(transaction);
       return const Success(null);
     } on Object catch (error) {
       return Failure(_mapPlatformFailure(error));
     }
+  }
+
+  @override
+  Future<Result<DetectedTransaction?>>
+  getInitialTransactionReviewRequest() async {
+    if (!_isSupported) {
+      return const Success(null);
+    }
+
+    try {
+      return Success(await _dataSource.getInitialTransactionReviewRequest());
+    } on FormatException {
+      return const Failure(
+        AppFailure(
+          type: AppFailureType.validation,
+          message: 'Transaction notification payload is invalid.',
+        ),
+      );
+    } on Object catch (error) {
+      return Failure(_mapPlatformFailure(error));
+    }
+  }
+
+  @override
+  Stream<DetectedTransaction> watchTransactionReviewRequests() {
+    if (!_isSupported) {
+      return const Stream.empty();
+    }
+    return _dataSource.transactionReviewRequests;
   }
 
   static bool get isAndroidSupported {

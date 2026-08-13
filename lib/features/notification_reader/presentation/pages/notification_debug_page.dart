@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/utils/result.dart';
 import '../../domain/entities/android_notification_payload.dart';
 import '../../domain/entities/notification_listener_status.dart';
+import '../../domain/services/notification_filter.dart';
 import '../providers/notification_listener_providers.dart';
 
 class NotificationDebugPage extends ConsumerWidget {
@@ -49,16 +50,15 @@ class NotificationDebugPage extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Accepted myBCA transaction notifications '
-              '(${state.notifications.length})',
+              'Received notifications (${state.results.length})',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
-            if (state.notifications.isEmpty)
+            if (state.results.isEmpty)
               const _EmptyNotifications()
             else
-              for (final notification in state.notifications)
-                _NotificationDebugCard(notification: notification),
+              for (final result in state.results)
+                _NotificationDebugCard(result: result),
           ],
         ),
       ),
@@ -225,21 +225,23 @@ class _EmptyNotifications extends StatelessWidget {
       ),
       child: const Padding(
         padding: EdgeInsets.all(24),
-        child: Text('No accepted myBCA transaction notifications yet.'),
+        child: Text('No Android notifications received yet.'),
       ),
     );
   }
 }
 
 class _NotificationDebugCard extends StatelessWidget {
-  const _NotificationDebugCard({required this.notification});
+  const _NotificationDebugCard({required this.result});
 
-  final AndroidNotificationPayload notification;
+  final NotificationFilterResult result;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final notification = result.notification;
     final time = notification.postTime ?? notification.receivedAt;
+    final transaction = result.detectedTransaction;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -253,12 +255,55 @@ class _NotificationDebugCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Row(
+                children: [
+                  Icon(
+                    result.isAccepted
+                        ? Icons.check_circle_outline
+                        : Icons.info_outline,
+                    color: result.isAccepted
+                        ? colorScheme.primary
+                        : colorScheme.outline,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      result.isAccepted ? 'Transaction detected' : 'Ignored',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _Field(label: 'Classification', value: result.type.logValue),
+              _Field(label: 'Source', value: result.source.name),
+              _Field(
+                label: 'Type',
+                value: transaction?.type.firestoreValue ?? '',
+              ),
+              _Field(
+                label: 'Amount',
+                value: transaction?.amount.toStringAsFixed(0) ?? '',
+              ),
               _Field(label: 'Package', value: notification.packageName),
               _Field(label: 'Application', value: notification.appName),
+              _Field(
+                label: 'Notification Key',
+                value: notification.notificationKey,
+              ),
               _Field(label: 'Title', value: notification.title),
               _Field(label: 'Body', value: notification.body),
               _Field(label: 'Sub Text', value: notification.subText),
               _Field(label: 'Big Text', value: notification.bigText),
+              if (notification.textLines.isNotEmpty)
+                _Field(
+                  label: 'Text Lines',
+                  value: notification.textLines.join('\n'),
+                ),
+              _Field(
+                label: 'Normalized Text',
+                value: result.normalizedNotification.searchableText,
+              ),
               _Field(label: 'Channel ID', value: notification.channelId),
               _Field(label: 'Time', value: _formatTime(time)),
               _Field(

@@ -26,12 +26,10 @@ class MoneyNotificationListenerService : NotificationListenerService() {
 
         val payload = buildPayload(sbn)
         MoneyNotificationBridge.logNotification("Notification Posted", payload)
+        
+        NativeNotificationPipeline.processNotification(this, payload)
+        
         MoneyNotificationBridge.dispatchNotification(payload)
-
-        if (sbn.packageName == applicationContext.packageName) {
-            return
-        }
-        MoneyNotificationBridge.showConfirmationNotification(applicationContext, payload)
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
@@ -52,13 +50,15 @@ class MoneyNotificationListenerService : NotificationListenerService() {
         return mapOf(
             "packageName" to packageName,
             "appName" to appNameFor(packageName),
+            "notificationKey" to sbn.key.orEmpty(),
             "title" to readNotificationText(notification, Notification.EXTRA_TITLE),
             "body" to readNotificationText(notification, Notification.EXTRA_TEXT),
             "subText" to readNotificationText(notification, Notification.EXTRA_SUB_TEXT),
             "bigText" to readNotificationText(notification, Notification.EXTRA_BIG_TEXT),
+            "textLines" to readNotificationTextLines(notification),
             "channelId" to readChannelId(notification),
             "postTimeMillis" to sbn.postTime,
-            "receivedAtMillis" to sbn.postTime,
+            "receivedAtMillis" to System.currentTimeMillis(),
             "notificationId" to sbn.id,
             "tag" to sbn.tag.orEmpty(),
             "ticker" to notification.tickerText?.toString()?.trim().orEmpty(),
@@ -70,6 +70,14 @@ class MoneyNotificationListenerService : NotificationListenerService() {
     private fun readNotificationText(notification: Notification, key: String): String {
         val value = notification.extras?.getCharSequence(key)
         return value?.toString()?.trim().orEmpty()
+    }
+
+    private fun readNotificationTextLines(notification: Notification): List<String> {
+        val lines = notification.extras?.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)
+            ?: return emptyList()
+        return lines
+            .mapNotNull { it?.toString()?.trim() }
+            .filter { it.isNotEmpty() }
     }
 
     private fun readChannelId(notification: Notification): String {

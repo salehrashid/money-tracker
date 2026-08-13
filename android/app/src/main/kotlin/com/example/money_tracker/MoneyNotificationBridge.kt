@@ -14,6 +14,8 @@ import android.os.Build
 import android.provider.Settings
 import android.util.Log
 import io.flutter.plugin.common.MethodChannel
+import java.text.NumberFormat
+import java.util.Locale
 
 object MoneyNotificationBridge {
     const val channelName = "money_tracker/notification_listener"
@@ -22,11 +24,13 @@ object MoneyNotificationBridge {
     private const val preferencesName = "money_tracker_notification_listener"
     private const val monitoredPackagesKey = "monitored_packages"
     private const val confirmationChannelId = "money_tracker_notification_review"
-    private const val confirmationNotificationId = 7101
     private const val maxRecentNotifications = 100
+    private const val reviewIntentAction = "com.example.money_tracker.ADD_TRANSACTION_REVIEW"
 
     @Volatile
     private var channel: MethodChannel? = null
+    @Volatile
+    private var initialTransactionReviewRequest: Map<String, Any?>? = null
     private val recentNotifications = mutableListOf<Map<String, Any?>>()
 
     fun attachChannel(methodChannel: MethodChannel) {
@@ -46,6 +50,16 @@ object MoneyNotificationBridge {
         return synchronized(recentNotifications) {
             recentNotifications.toList()
         }
+    }
+
+    fun getInitialTransactionReviewRequest(): Map<String, Any?>? {
+        return initialTransactionReviewRequest
+    }
+
+    fun handleLaunchIntent(intent: Intent?) {
+        val payload = transactionPayloadFromIntent(intent) ?: return
+        initialTransactionReviewRequest = payload
+        channel?.invokeMethod("transactionReviewRequested", payload)
     }
 
     fun isNotificationListenerEnabled(context: Context): Boolean {
@@ -105,7 +119,7 @@ object MoneyNotificationBridge {
     }
 
     fun showConfirmationNotification(context: Context, payload: Map<*, *>) {
-        if (payload["filterAccepted"] != true) {
+        if (payload["action"] != "add_transaction" || payload["source"] != "mybca_notification") {
             return
         }
         if (!areConfirmationNotificationsAllowed(context)) {
@@ -114,14 +128,31 @@ object MoneyNotificationBridge {
 
         createConfirmationChannel(context)
 
-        val title = payload["title"] as? String ?: "Notification captured"
-        val body = bodyFromPayload(payload)
-        val appName = payload["appName"] as? String ?: "Money Tracker"
+        val transactionType = (payload["transactionType"] as? String).orEmpty()
+        val amount = readDouble(payload["amount"]) ?: return
+        val typeLabel = when (transactionType) {
+            "income" -> "Income"
+            "expense" -> "Expense"
+            else -> return
+        }
+        val notificationId = reviewNotificationId(payload)
+        val title = "New $typeLabel Detected"
+        val sourceApplication = (payload["sourceApplication"] as? String)
+            ?.takeIf { it.isNotBlank() }
+            ?: "notification"
+        val body = "$typeLabel ${formatIdr(amount)} was detected from $sourceApplication. Tap to review and add the transaction."
         val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-            ?: Intent(context, MainActivity::class.java)
+            ?.apply {
+                action = reviewIntentAction
+                putTransactionExtras(payload)
+            }
+            ?: Intent(context, MainActivity::class.java).apply {
+                action = reviewIntentAction
+                putTransactionExtras(payload)
+            }
         val pendingIntent = PendingIntent.getActivity(
             context,
-            confirmationNotificationId,
+            notificationId,
             launchIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -135,15 +166,15 @@ object MoneyNotificationBridge {
 
         val notification = builder
             .setSmallIcon(R.drawable.ic_stat_notification)
-            .setContentTitle("Review captured transaction")
-            .setContentText("$appName: ${title.ifBlank { body }}")
-            .setStyle(Notification.BigTextStyle().bigText(body.ifBlank { title }))
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(Notification.BigTextStyle().bigText(body))
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .setPriority(Notification.PRIORITY_DEFAULT)
             .build()
 
-        notificationManager(context).notify(confirmationNotificationId, notification)
+        notificationManager(context).notify(notificationId, notification)
     }
 
     fun logLifecycle(message: String) {
@@ -161,20 +192,26 @@ object MoneyNotificationBridge {
             Package:
             ${payload["packageName"].orEmptyText()}
 
+            Notification Key:
+            ${payload["notificationKey"].orEmptyText()}
+
             Application:
             ${payload["appName"].orEmptyText()}
 
             Title:
-            ${payload["title"].orEmptyText()}
+            ${payload["title"].orEmptyText().redactSensitiveNumbers()}
 
             Body:
-            ${payload["body"].orEmptyText()}
+            ${payload["body"].orEmptyText().redactSensitiveNumbers()}
 
             Sub Text:
-            ${payload["subText"].orEmptyText()}
+            ${payload["subText"].orEmptyText().redactSensitiveNumbers()}
 
             Big Text:
-            ${payload["bigText"].orEmptyText()}
+            ${payload["bigText"].orEmptyText().redactSensitiveNumbers()}
+
+            Text Lines:
+            ${payload["textLines"].orEmptyText().redactSensitiveNumbers()}
 
             Channel ID:
             ${payload["channelId"].orEmptyText()}
@@ -186,10 +223,10 @@ object MoneyNotificationBridge {
             ${payload["notificationId"].orEmptyText()}
 
             Ticker:
-            ${payload["ticker"].orEmptyText()}
+            ${payload["ticker"].orEmptyText().redactSensitiveNumbers()}
 
             Extras:
-            ${payload["extras"].orEmptyText()}
+            ${payload["extras"].orEmptyText().redactSensitiveNumbers()}
 
             Result:
             ${payload["result"].orEmptyText()}
@@ -232,22 +269,85 @@ object MoneyNotificationBridge {
         }
     }
 
-    private fun bodyFromPayload(payload: Map<*, *>): String {
-        val body = payload["body"] as? String ?: ""
-        if (body.isNotBlank()) {
-            return body
-        }
-
-        val bigText = payload["bigText"] as? String ?: ""
-        if (bigText.isNotBlank()) {
-            return bigText
-        }
-
-        return payload["subText"] as? String ?: "Open Money Tracker to review."
-    }
-
     private fun Any?.orEmptyText(): String {
         return this?.toString().orEmpty()
+    }
+
+    private fun String.redactSensitiveNumbers(): String {
+        return replace(Regex("\\d{4,}"), "[number]")
+    }
+
+    private fun Intent.putTransactionExtras(payload: Map<*, *>) {
+        putExtra("action", "add_transaction")
+        putExtra("source", "mybca_notification")
+        putExtra("transactionType", payload["transactionType"] as? String)
+        putExtra("amount", readDouble(payload["amount"]) ?: 0.0)
+        putExtra("description", payload["description"] as? String)
+        putExtra("detectedAtMillis", readLong(payload["detectedAtMillis"]) ?: 0L)
+        putExtra("sourcePackage", payload["sourcePackage"] as? String)
+        putExtra("sourceApplication", payload["sourceApplication"] as? String ?: "myBCA")
+        putExtra("originalText", payload["originalText"] as? String)
+    }
+
+    private fun transactionPayloadFromIntent(intent: Intent?): Map<String, Any?>? {
+        if (intent?.action != reviewIntentAction) {
+            return null
+        }
+
+        val transactionType = intent.getStringExtra("transactionType") ?: return null
+        val amount = intent.getDoubleExtra("amount", 0.0)
+        if (amount <= 0.0) {
+            return null
+        }
+
+        return mapOf(
+            "action" to "add_transaction",
+            "source" to "mybca_notification",
+            "transactionType" to transactionType,
+            "amount" to amount,
+            "description" to intent.getStringExtra("description").orEmpty(),
+            "detectedAtMillis" to intent.getLongExtra("detectedAtMillis", 0L),
+            "sourcePackage" to intent.getStringExtra("sourcePackage").orEmpty(),
+            "sourceApplication" to intent.getStringExtra("sourceApplication").orEmpty(),
+            "originalText" to intent.getStringExtra("originalText").orEmpty(),
+        )
+    }
+
+    private fun reviewNotificationId(payload: Map<*, *>): Int {
+        val input = listOf(
+            payload["sourcePackage"].orEmptyText(),
+            payload["transactionType"].orEmptyText(),
+            payload["amount"].orEmptyText(),
+            payload["detectedAtMillis"].orEmptyText(),
+            payload["description"].orEmptyText(),
+        ).joinToString("|")
+        return 7101 + (input.hashCode() and 0x0fffffff)
+    }
+
+    private fun readDouble(value: Any?): Double? {
+        return when (value) {
+            is Double -> value
+            is Float -> value.toDouble()
+            is Int -> value.toDouble()
+            is Long -> value.toDouble()
+            is String -> value.toDoubleOrNull()
+            else -> null
+        }
+    }
+
+    private fun readLong(value: Any?): Long? {
+        return when (value) {
+            is Long -> value
+            is Int -> value.toLong()
+            is Double -> value.toLong()
+            is String -> value.toLongOrNull()
+            else -> null
+        }
+    }
+
+    private fun formatIdr(amount: Double): String {
+        val formatter = NumberFormat.getIntegerInstance(Locale("id", "ID"))
+        return "Rp${formatter.format(amount.toLong())}"
     }
 
     private fun preferences(context: Context) = context.getSharedPreferences(

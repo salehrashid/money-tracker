@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../features/accounts/domain/entities/account.dart';
 import '../../../../features/categories/domain/entities/category.dart';
+import '../../../../features/notification_reader/domain/entities/detected_transaction.dart';
 import '../../../../shared/models/finance_enums.dart';
 import '../../application/usecases/transaction_commands.dart';
 import '../../domain/entities/transaction.dart';
@@ -14,6 +15,7 @@ class TransactionFormDialog extends StatefulWidget {
     required this.accounts,
     this.transaction,
     this.draft,
+    this.detectedTransaction,
     super.key,
   });
 
@@ -21,6 +23,7 @@ class TransactionFormDialog extends StatefulWidget {
   final List<Account> accounts;
   final TransactionEntity? transaction;
   final TransactionDraft? draft;
+  final DetectedTransaction? detectedTransaction;
 
   @override
   State<TransactionFormDialog> createState() => _TransactionFormDialogState();
@@ -39,13 +42,25 @@ class _TransactionFormDialogState extends State<TransactionFormDialog> {
     super.initState();
     final transaction = widget.transaction;
     final draft = widget.draft;
-    _type = transaction?.type ?? draft?.detectedType ?? TransactionType.expense;
-    _date = transaction?.transactionDate.toLocal() ?? DateTime.now();
+    final detectedTransaction = widget.detectedTransaction;
+    _type =
+        transaction?.type ??
+        draft?.detectedType ??
+        detectedTransaction?.type ??
+        TransactionType.expense;
+    _date =
+        transaction?.transactionDate.toLocal() ??
+        detectedTransaction?.detectedAt.toLocal() ??
+        DateTime.now();
     _amountController = TextEditingController(
-      text: _initialAmount(transaction, draft),
+      text: _initialAmount(transaction, draft, detectedTransaction),
     );
     _noteController = TextEditingController(
-      text: transaction?.note ?? draft?.detectedText ?? '',
+      text:
+          transaction?.note ??
+          draft?.detectedText ??
+          detectedTransaction?.description ??
+          '',
     );
     _categoryId = transaction?.categoryId ?? draft?.suggestedCategoryId;
     _accountId = transaction?.accountId;
@@ -276,8 +291,15 @@ class _TransactionFormDialogState extends State<TransactionFormDialog> {
   }
 }
 
-String _initialAmount(TransactionEntity? transaction, TransactionDraft? draft) {
-  final amount = transaction?.amount ?? draft?.detectedAmount;
+String _initialAmount(
+  TransactionEntity? transaction,
+  TransactionDraft? draft,
+  DetectedTransaction? detectedTransaction,
+) {
+  final amount =
+      transaction?.amount ??
+      draft?.detectedAmount ??
+      detectedTransaction?.amount;
   if (amount == null) {
     return '';
   }

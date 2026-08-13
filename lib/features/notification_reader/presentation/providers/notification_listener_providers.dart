@@ -5,6 +5,7 @@ import '../../application/usecases/notification_listener_use_cases.dart';
 import '../../data/datasources/notification_listener_method_channel_data_source.dart';
 import '../../data/repositories/platform_notification_listener_repository.dart';
 import '../../domain/entities/android_notification_payload.dart';
+import '../../domain/entities/detected_transaction.dart';
 import '../../domain/entities/notification_listener_status.dart';
 import '../../domain/repositories/notification_listener_repository.dart';
 import '../../domain/services/notification_filter.dart';
@@ -73,6 +74,20 @@ final showNotificationReviewConfirmationUseCaseProvider =
       );
     });
 
+final getInitialTransactionReviewRequestUseCaseProvider =
+    Provider<GetInitialTransactionReviewRequestUseCase>((ref) {
+      return GetInitialTransactionReviewRequestUseCase(
+        ref.watch(notificationListenerRepositoryProvider),
+      );
+    });
+
+final watchTransactionReviewRequestsUseCaseProvider =
+    Provider<WatchTransactionReviewRequestsUseCase>((ref) {
+      return WatchTransactionReviewRequestsUseCase(
+        ref.watch(notificationListenerRepositoryProvider),
+      );
+    });
+
 final notificationListenerStatusProvider =
     FutureProvider.autoDispose<Result<NotificationListenerStatus>>((ref) {
       return ref.watch(getNotificationListenerStatusUseCaseProvider).execute();
@@ -99,24 +114,29 @@ final notificationFilterProvider = Provider<NotificationFilter>((ref) {
   );
 });
 
+final androidNotificationDetectionResultProvider =
+    StreamProvider.autoDispose<NotificationFilterResult>((ref) {
+      final filter = ref.watch(notificationFilterProvider);
+      return ref
+          .watch(watchAndroidNotificationsUseCaseProvider)
+          .execute()
+          .map(filter.evaluate);
+    });
+
 final acceptedAndroidNotificationPayloadProvider =
-    StreamProvider.autoDispose<AndroidNotificationPayload>((ref) {
+    StreamProvider.autoDispose<NotificationFilterResult>((ref) {
       final filter = ref.watch(notificationFilterProvider);
       return ref
           .watch(watchAndroidNotificationsUseCaseProvider)
           .execute()
           .map(filter.evaluate)
-          .where((result) => result.isAccepted)
-          .map((result) => result.notification);
+          .where((result) => result.isAccepted);
     });
 
 final notificationDetectionControllerProvider =
     Provider.autoDispose<NotificationDetectionController>((ref) {
       final controller = NotificationDetectionController(ref);
-      ref.listen<AsyncValue<AndroidNotificationPayload>>(
-        acceptedAndroidNotificationPayloadProvider,
-        (previous, next) => next.whenData(controller.confirmDetection),
-      );
+      // Removed confirmDetection call since native now handles it
       return controller;
     });
 
@@ -125,33 +145,107 @@ class NotificationDetectionController {
 
   final Ref _ref;
 
-  Future<void> confirmDetection(AndroidNotificationPayload notification) async {
+  Future<void> confirmDetection(NotificationFilterResult result) async {
+    final transaction = result.detectedTransaction;
+    if (transaction == null) {
+      return;
+    }
+
     await _ref
         .read(showNotificationReviewConfirmationUseCaseProvider)
-        .execute(notification);
+        .execute(transaction);
   }
 }
+
+final pendingDetectedTransactionProvider =
+    NotifierProvider<
+      PendingDetectedTransactionController,
+      DetectedTransaction?
+    >(PendingDetectedTransactionController.new);
+
+class PendingDetectedTransactionController
+    extends Notifier<DetectedTransaction?> {
+  var _handledKeys = <String>{};
+
+  @override
+  DetectedTransaction? build() {
+    Future.microtask(_loadInitialRequest);
+    ref.listen<AsyncValue<DetectedTransaction>>(
+      transactionReviewRequestStreamProvider,
+      (_, next) => next.whenData(requestReview),
+    );
+    return null;
+  }
+
+  void requestReview(DetectedTransaction transaction) {
+    final key = _keyFor(transaction);
+    if (_handledKeys.contains(key)) {
+      return;
+    }
+    _handledKeys = {..._handledKeys, key};
+    state = transaction;
+  }
+
+  void markHandled(DetectedTransaction transaction) {
+    if (state == transaction) {
+      state = null;
+      return;
+    }
+    if (state != null && _keyFor(state!) == _keyFor(transaction)) {
+      state = null;
+    }
+  }
+
+  Future<void> _loadInitialRequest() async {
+    final result = await ref
+        .read(getInitialTransactionReviewRequestUseCaseProvider)
+        .execute();
+    result.when(
+      success: (transaction) {
+        if (transaction != null) {
+          requestReview(transaction);
+        }
+      },
+      failure: (_) {},
+    );
+  }
+
+  String _keyFor(DetectedTransaction transaction) {
+    return [
+      transaction.type.firestoreValue,
+      transaction.amount.toStringAsFixed(2),
+      transaction.detectedAt.millisecondsSinceEpoch,
+      transaction.sourcePackage,
+      transaction.description ?? '',
+    ].join('|');
+  }
+}
+
+final transactionReviewRequestStreamProvider =
+    StreamProvider.autoDispose<DetectedTransaction>((ref) {
+      return ref.watch(watchTransactionReviewRequestsUseCaseProvider).execute();
+    });
 
 class NotificationDebugState {
   const NotificationDebugState({
     required this.status,
-    required this.notifications,
+    required this.results,
     this.message,
   });
 
   final AsyncValue<Result<NotificationListenerStatus>> status;
-  final List<AndroidNotificationPayload> notifications;
+  final List<NotificationFilterResult> results;
   final String? message;
 
   NotificationDebugState copyWith({
     AsyncValue<Result<NotificationListenerStatus>>? status,
-    List<AndroidNotificationPayload>? notifications,
+    List<NotificationFilterResult>? results,
     String? message,
     bool clearMessage = false,
   }) {
     return NotificationDebugState(
       status: status ?? this.status,
-      notifications: notifications ?? this.notifications,
+      results: results ?? this.results,
       message: clearMessage ? null : message ?? this.message,
     );
   }
@@ -166,10 +260,10 @@ final notificationDebugControllerProvider =
 class NotificationDebugController extends Notifier<NotificationDebugState> {
   @override
   NotificationDebugState build() {
-    ref.listen<AsyncValue<AndroidNotificationPayload>>(
-      acceptedAndroidNotificationPayloadProvider,
+    ref.listen<AsyncValue<NotificationFilterResult>>(
+      androidNotificationDetectionResultProvider,
       (previous, next) {
-        next.whenData(_prependNotification);
+        next.whenData(_prependResult);
       },
     );
 
@@ -177,7 +271,7 @@ class NotificationDebugController extends Notifier<NotificationDebugState> {
 
     return const NotificationDebugState(
       status: AsyncValue.loading(),
-      notifications: [],
+      results: [],
     );
   }
 
@@ -197,25 +291,19 @@ class NotificationDebugController extends Notifier<NotificationDebugState> {
       notificationAllowedPackageNamesProvider,
     );
 
-    final notifications = recentResult.when(
+    final results = recentResult.when(
       success: (value) {
         final filter = NotificationFilter(
           allowedPackageNames: allowedPackageNames,
         );
-        return value
-            .map(filter.evaluate)
-            .where((result) => result.isAccepted)
-            .map((result) => result.notification)
-            .toList()
-            .reversed
-            .toList();
+        return value.map(filter.evaluate).toList().reversed.toList();
       },
-      failure: (_) => state.notifications,
+      failure: (_) => state.results,
     );
 
     state = state.copyWith(
       status: AsyncValue.data(statusResult),
-      notifications: notifications,
+      results: results,
       message: recentResult.when(
         success: (_) => null,
         failure: (failure) => failure.message,
@@ -248,12 +336,12 @@ class NotificationDebugController extends Notifier<NotificationDebugState> {
   }
 
   void clearNotifications() {
-    state = state.copyWith(notifications: []);
+    state = state.copyWith(results: []);
   }
 
-  void _prependNotification(AndroidNotificationPayload payload) {
+  void _prependResult(NotificationFilterResult result) {
     state = state.copyWith(
-      notifications: [payload, ...state.notifications].take(100).toList(),
+      results: [result, ...state.results].take(100).toList(),
       clearMessage: true,
     );
   }

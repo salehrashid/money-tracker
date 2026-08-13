@@ -1,5 +1,6 @@
 import '../../../../core/utils/result.dart';
 import '../entities/android_notification_payload.dart';
+import '../entities/detected_transaction.dart';
 import '../entities/notification_listener_status.dart';
 
 abstract interface class NotificationListenerRepository {
@@ -16,6 +17,10 @@ abstract interface class NotificationListenerRepository {
   Future<Result<void>> setMonitoredPackages(List<String> packageNames);
 
   Future<Result<void>> showConfirmationNotification(
-    AndroidNotificationPayload payload,
+    DetectedTransaction transaction,
   );
+
+  Future<Result<DetectedTransaction?>> getInitialTransactionReviewRequest();
+
+  Stream<DetectedTransaction> watchTransactionReviewRequests();
 }

@@ -1,14 +1,18 @@
 import 'dart:developer' as developer;
 
 import '../entities/android_notification_payload.dart';
+import '../entities/detected_transaction.dart';
+import '../../../../shared/models/finance_enums.dart';
 
 enum NotificationFilterResultType {
   accepted('ACCEPTED'),
-  rejectedPackage('REJECTED_PACKAGE'),
-  rejectedTitle('REJECTED_TITLE'),
-  rejectedBody('REJECTED_BODY'),
-  rejectedAmount('REJECTED_AMOUNT'),
-  rejectedDuplicate('REJECTED_DUPLICATE');
+  unknownPackage('UNKNOWN_PACKAGE'),
+  notTransaction('NOT_TRANSACTION'),
+  transactionTypeNotFound('TRANSACTION_TYPE_NOT_FOUND'),
+  amountNotFound('AMOUNT_NOT_FOUND'),
+  invalidAmount('INVALID_AMOUNT'),
+  duplicateNotification('DUPLICATE_NOTIFICATION'),
+  invalidNotification('INVALID_NOTIFICATION');
 
   const NotificationFilterResultType(this.logValue);
 
@@ -19,14 +23,20 @@ class NotificationFilterResult {
   const NotificationFilterResult({
     required this.type,
     required this.notification,
-    this.amount,
+    required this.normalizedNotification,
+    required this.source,
+    this.detectedTransaction,
   });
 
   final NotificationFilterResultType type;
   final AndroidNotificationPayload notification;
-  final double? amount;
+  final NormalizedNotification normalizedNotification;
+  final NotificationSource source;
+  final DetectedTransaction? detectedTransaction;
 
   bool get isAccepted => type == NotificationFilterResultType.accepted;
+  double? get amount => detectedTransaction?.amount;
+  String get reason => type.logValue;
 }
 
 class NotificationFilter {
@@ -50,46 +60,72 @@ class NotificationFilter {
   }
 
   NotificationFilterResult _evaluate(AndroidNotificationPayload notification) {
-    final packageName = notification.packageName.trim().toLowerCase();
-    if (!_allowedPackageNames.contains(packageName)) {
+    final normalized = NormalizedNotification.fromPayload(notification);
+    if (normalized.packageName.isEmpty || !notification.hasContent) {
       return NotificationFilterResult(
-        type: NotificationFilterResultType.rejectedPackage,
+        type: NotificationFilterResultType.invalidNotification,
         notification: notification,
+        normalizedNotification: normalized,
+        source: NotificationSource.unknown,
       );
     }
 
-    if (!notification.title.toLowerCase().contains('catatan finansial')) {
+    final source = _classifySource(normalized);
+    if (source == NotificationSource.unknown) {
       return NotificationFilterResult(
-        type: NotificationFilterResultType.rejectedTitle,
+        type: NotificationFilterResultType.unknownPackage,
         notification: notification,
+        normalizedNotification: normalized,
+        source: source,
       );
     }
 
-    final body = _searchableBody(notification);
-    final lowerBody = body.toLowerCase();
-    final hasTransactionKeyword =
-        lowerBody.contains('pengeluaran') || lowerBody.contains('pemasukan');
-    if (!hasTransactionKeyword || !lowerBody.contains('idr')) {
+    final transactionType = _extractTransactionType(normalized.lowerText);
+    if (transactionType == null) {
       return NotificationFilterResult(
-        type: NotificationFilterResultType.rejectedBody,
+        type: NotificationFilterResultType.transactionTypeNotFound,
         notification: notification,
+        normalizedNotification: normalized,
+        source: source,
       );
     }
 
-    final amount = _extractAmount(body);
+    final amount = _extractAmount(normalized.searchableText);
     if (amount == null) {
       return NotificationFilterResult(
-        type: NotificationFilterResultType.rejectedAmount,
+        type: NotificationFilterResultType.amountNotFound,
         notification: notification,
+        normalizedNotification: normalized,
+        source: source,
+      );
+    }
+    if (amount <= 0) {
+      return NotificationFilterResult(
+        type: NotificationFilterResultType.invalidAmount,
+        notification: notification,
+        normalizedNotification: normalized,
+        source: source,
       );
     }
 
-    final dedupeKey = _dedupeKey(notification);
+    final detectedTransaction = DetectedTransaction(
+      type: transactionType,
+      amount: amount,
+      description: _extractDescription(normalized.searchableText),
+      originalText: normalized.searchableText,
+      detectedAt: notification.postTime ?? notification.receivedAt,
+      sourcePackage: notification.packageName,
+      source: source.label(notification),
+    );
+
+    final dedupeKey = _dedupeKey(notification, detectedTransaction);
     if (_seenKeys.contains(dedupeKey)) {
       return NotificationFilterResult(
-        type: NotificationFilterResultType.rejectedDuplicate,
+        type: NotificationFilterResultType.duplicateNotification,
         notification: notification,
-        amount: amount,
+        normalizedNotification: normalized,
+        source: source,
+        detectedTransaction: detectedTransaction,
       );
     }
 
@@ -97,42 +133,110 @@ class NotificationFilter {
     return NotificationFilterResult(
       type: NotificationFilterResultType.accepted,
       notification: notification,
-      amount: amount,
+      normalizedNotification: normalized,
+      source: source,
+      detectedTransaction: detectedTransaction,
     );
   }
 
-  double? _extractAmount(String body) {
-    final match = RegExp(
-      r'\bIDR\s+([0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]{2})?|[0-9]+(?:\.[0-9]{2})?)\b',
-      caseSensitive: false,
-    ).firstMatch(body);
+  NotificationSource _classifySource(NormalizedNotification notification) {
+    if (notification.packageName == myBcaPackageName) {
+      return NotificationSource.myBca;
+    }
+
+    if (_allowedPackageNames.contains(notification.packageName)) {
+      return NotificationSource.simulator;
+    }
+
+    if (notification.lowerText.contains('catatan finansial')) {
+      return NotificationSource.simulator;
+    }
+
+    return NotificationSource.unknown;
+  }
+
+  TransactionType? _extractTransactionType(String lowerText) {
+    if (lowerText.contains('pengeluaran')) {
+      return TransactionType.expense;
+    }
+    if (lowerText.contains('pemasukkan') || lowerText.contains('pemasukan')) {
+      return TransactionType.income;
+    }
+    return null;
+  }
+
+  double? _extractAmount(String text) {
+    final match = _amountPattern.firstMatch(text);
     if (match == null) {
       return null;
     }
 
-    final rawAmount = match.group(1);
-    if (rawAmount == null) {
+    final rawCurrency = match.group(1)?.toLowerCase();
+    final rawAmount = match.group(2);
+    if (rawAmount == null || rawCurrency == null) {
       return null;
     }
 
-    return double.tryParse(rawAmount.replaceAll(',', ''));
+    final normalized = rawCurrency == 'rp'
+        ? rawAmount.replaceAll('.', '').replaceAll(',', '.')
+        : rawAmount.replaceAll(',', '');
+    return double.tryParse(normalized);
   }
 
-  String _dedupeKey(AndroidNotificationPayload notification) {
+  String? _extractDescription(String text) {
+    final match = RegExp(
+      r'\b(?:untuk|di|ke|dari)\s+(.+)$',
+      caseSensitive: false,
+      multiLine: true,
+    ).firstMatch(text.replaceAll('\n', ' '));
+    final description = match
+        ?.group(1)
+        ?.replaceAll(_amountPattern, '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim()
+        .replaceFirst(RegExp(r'[.!]+$'), '');
+    if (description == null || description.isEmpty) {
+      return null;
+    }
+    if (_looksSensitive(description)) {
+      return null;
+    }
+    return description.length > 120
+        ? description.substring(0, 120).trim()
+        : description;
+  }
+
+  bool _looksSensitive(String value) {
+    final digits = RegExp(r'\d').allMatches(value).length;
+    return digits >= 8;
+  }
+
+  String _dedupeKey(
+    AndroidNotificationPayload notification,
+    DetectedTransaction detectedTransaction,
+  ) {
+    final stablePlatformKey = [
+      notification.packageName.trim().toLowerCase(),
+      notification.notificationKey.trim(),
+      notification.notificationId?.toString() ?? '',
+      notification.tag.trim(),
+      (notification.postTime ?? notification.receivedAt).millisecondsSinceEpoch
+          .toString(),
+    ].join('|');
+    if (notification.notificationKey.trim().isNotEmpty ||
+        notification.notificationId != null ||
+        notification.tag.trim().isNotEmpty) {
+      return stablePlatformKey;
+    }
+
+    final normalized = NormalizedNotification.fromPayload(notification);
     return [
       notification.packageName.trim().toLowerCase(),
-      notification.title.trim().toLowerCase(),
-      notification.displayBody.trim(),
-      notification.receivedAt.millisecondsSinceEpoch,
+      detectedTransaction.type.firestoreValue,
+      detectedTransaction.amount.toStringAsFixed(2),
+      normalized.searchableText.trim().toLowerCase(),
+      (notification.postTime ?? notification.receivedAt).millisecondsSinceEpoch,
     ].join('|');
-  }
-
-  String _searchableBody(AndroidNotificationPayload notification) {
-    return [
-      notification.body,
-      notification.bigText,
-      notification.subText,
-    ].where((value) => value.trim().isNotEmpty).join('\n');
   }
 
   void _remember(String key) {
@@ -155,11 +259,125 @@ Title
 ${notification.title}
 
 Body
-${notification.displayBody}
+${_redactSensitiveNumbers(notification.displayBody)}
+
+Normalized Text
+${_redactSensitiveNumbers(result.normalizedNotification.searchableText)}
 
 Result
 ${result.type.logValue}
+
+Source
+${result.source.name}
+
+Type
+${result.detectedTransaction?.type.firestoreValue ?? '-'}
+
+Amount
+${result.detectedTransaction?.amount.toStringAsFixed(0) ?? '-'}
 ------------------------------------------------
 ''', name: 'NotificationFilter');
+  }
+
+  String _redactSensitiveNumbers(String value) {
+    return value.replaceAll(RegExp(r'\d{4,}'), '[number]');
+  }
+
+  static final _amountPattern = RegExp(
+    r'\b(IDR|Rp)\s*([0-9]{1,3}(?:(?:[.,][0-9]{3})+)(?:\.[0-9]{2})?|[0-9]+(?:\.[0-9]{2})?)\b',
+    caseSensitive: false,
+  );
+
+  static const myBcaPackageName = 'com.bca.mybca.omni.android';
+}
+
+enum NotificationSource {
+  myBca,
+  simulator,
+  unknown;
+
+  String label(AndroidNotificationPayload notification) {
+    return switch (this) {
+      NotificationSource.myBca => 'myBCA',
+      NotificationSource.simulator =>
+        notification.appName.trim().isEmpty
+            ? 'Simulator'
+            : notification.appName,
+      NotificationSource.unknown =>
+        notification.appName.trim().isEmpty ? 'Unknown' : notification.appName,
+    };
+  }
+}
+
+class NormalizedNotification {
+  const NormalizedNotification({
+    required this.packageName,
+    required this.searchableText,
+    required this.lowerText,
+  });
+
+  final String packageName;
+  final String searchableText;
+  final String lowerText;
+
+  factory NormalizedNotification.fromPayload(
+    AndroidNotificationPayload notification,
+  ) {
+    final parts = <String>[
+      notification.title,
+      notification.body,
+      notification.bigText,
+      ...notification.textLines,
+      notification.subText,
+      notification.ticker,
+      ..._interestingExtras(notification.extras),
+    ];
+
+    final seen = <String>{};
+    final normalizedParts = <String>[];
+    for (final part in parts) {
+      final normalized = _normalizeText(part);
+      if (normalized.isEmpty) {
+        continue;
+      }
+      final comparable = normalized.toLowerCase();
+      if (seen.add(comparable)) {
+        normalizedParts.add(normalized);
+      }
+    }
+
+    final searchableText = normalizedParts.join('\n');
+    return NormalizedNotification(
+      packageName: notification.packageName.trim().toLowerCase(),
+      searchableText: searchableText,
+      lowerText: searchableText.toLowerCase(),
+    );
+  }
+
+  static Iterable<String> _interestingExtras(Map<String, String> extras) {
+    const interestingKeys = {
+      'android.title',
+      'android.text',
+      'android.bigText',
+      'android.subText',
+      'android.summaryText',
+      'android.infoText',
+      'android.textLines',
+    };
+
+    return extras.entries
+        .where((entry) => interestingKeys.contains(entry.key))
+        .map((entry) => entry.value);
+  }
+
+  static String _normalizeText(String value) {
+    return value
+        .replaceAll(RegExp(r'[\u00a0\u2000-\u200b\u202f\u205f\u3000]'), ' ')
+        .replaceAll(RegExp(r'\r\n?'), '\n')
+        .split('\n')
+        .map((line) => line.replaceAll(RegExp(r'\s+'), ' ').trim())
+        .where((line) => line.isNotEmpty)
+        .join('\n')
+        .trim();
   }
 }
