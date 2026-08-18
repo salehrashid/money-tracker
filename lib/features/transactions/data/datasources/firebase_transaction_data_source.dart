@@ -74,7 +74,12 @@ class FirebaseTransactionDataSource {
           )
         : transaction;
 
-    await document.set(savedTransaction.toFirestore(), SetOptions(merge: true));
+    await document.set({
+      ...savedTransaction.toFirestore(),
+      if (transaction.id.isEmpty)
+        'serverCreatedAt': FieldValue.serverTimestamp(),
+      'serverUpdatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
     return savedTransaction;
   }
 
@@ -104,12 +109,15 @@ class FirebaseTransactionDataSource {
     );
 
     await _collections.userDocument.firestore.runTransaction((db) async {
-      db.set(transactionDocument, savedTransaction.toFirestore());
-      db.set(
-        draftDocument,
-        TransactionDraftDto.fromDomain(savedDraft).toFirestore(),
-        SetOptions(merge: true),
-      );
+      db.set(transactionDocument, {
+        ...savedTransaction.toFirestore(),
+        'serverCreatedAt': FieldValue.serverTimestamp(),
+        'serverUpdatedAt': FieldValue.serverTimestamp(),
+      });
+      db.set(draftDocument, {
+        ...TransactionDraftDto.fromDomain(savedDraft).toFirestore(),
+        'serverUpdatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
     });
 
     return savedTransaction;

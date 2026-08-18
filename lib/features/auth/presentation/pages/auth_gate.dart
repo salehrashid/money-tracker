@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/result.dart';
 import '../../../../features/accounts/presentation/providers/account_providers.dart';
+import '../../../../core/firebase/firebase_providers.dart';
 import '../../../../shared/widgets/app_shell.dart';
 import '../../domain/entities/auth_user.dart';
 import '../providers/auth_providers.dart';
@@ -23,6 +24,13 @@ class AuthGate extends ConsumerWidget {
         if (result case Success<AuthUser?>(:final value)) {
           final user = value;
           if (user == null) return;
+          ref
+              .read(firestoreUserProfileServiceProvider(user.id))
+              .upsertProfile(user)
+              .catchError(
+                (Object error) =>
+                    debugPrint('[UserProfile] Firestore error: $error'),
+              );
           ref
               .read(ensureDefaultAccountUseCaseProvider(user.id))
               .execute(user.id);

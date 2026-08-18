@@ -43,7 +43,11 @@ class FirebaseDebtDataSource {
           )
         : debt;
 
-    await document.set(savedDebt.toFirestore(), SetOptions(merge: true));
+    await document.set({
+      ...savedDebt.toFirestore(),
+      if (debt.id.isEmpty) 'serverCreatedAt': FieldValue.serverTimestamp(),
+      'serverUpdatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
     return savedDebt;
   }
 

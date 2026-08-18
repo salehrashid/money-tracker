@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/result.dart';
-import '../../domain/entities/android_notification_payload.dart';
 import '../../domain/entities/notification_listener_status.dart';
 import '../../domain/services/notification_filter.dart';
 import '../providers/notification_listener_providers.dart';

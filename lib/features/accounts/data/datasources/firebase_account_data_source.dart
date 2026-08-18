@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../../../../core/firebase/firestore_user_collections.dart';
 import '../dto/account_dto.dart';
 
@@ -21,6 +23,10 @@ class FirebaseAccountDataSource {
 
   /// Writes [dto] as a new account document. Uses [dto.id] as the document ID.
   Future<void> createAccount(AccountDto dto) async {
-    await _collections.accounts.doc(dto.id).set(dto.toFirestore());
+    await _collections.accounts.doc(dto.id).set({
+      ...dto.toFirestore(),
+      'serverCreatedAt': FieldValue.serverTimestamp(),
+      'serverUpdatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 }

@@ -47,7 +47,11 @@ class FirebaseCategoryDataSource {
           )
         : category;
 
-    await document.set(savedCategory.toFirestore(), SetOptions(merge: true));
+    await document.set({
+      ...savedCategory.toFirestore(),
+      if (category.id.isEmpty) 'serverCreatedAt': FieldValue.serverTimestamp(),
+      'serverUpdatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
     return savedCategory;
   }
 

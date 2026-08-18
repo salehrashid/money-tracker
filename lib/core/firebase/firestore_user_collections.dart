@@ -10,8 +10,16 @@ class FirestoreUserCollections {
   final FirebaseFirestore _firestore;
   final String _userId;
 
+  String get _validUserId {
+    final userId = _userId.trim();
+    if (userId.isEmpty) {
+      throw StateError('Firestore user collections require a Firebase UID.');
+    }
+    return userId;
+  }
+
   DocumentReference<Map<String, dynamic>> get userDocument {
-    return _firestore.collection('users').doc(_userId);
+    return _firestore.collection('users').doc(_validUserId);
   }
 
   CollectionReference<Map<String, dynamic>> collection(String collectionId) {
