@@ -164,6 +164,11 @@ object MoneyNotificationBridge {
             Notification.Builder(context)
         }
 
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            @Suppress("DEPRECATION")
+            builder.setPriority(Notification.PRIORITY_DEFAULT)
+        }
+
         val notification = builder
             .setSmallIcon(R.drawable.ic_stat_notification)
             .setContentTitle(title)
@@ -171,7 +176,6 @@ object MoneyNotificationBridge {
             .setStyle(Notification.BigTextStyle().bigText(body))
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
-            .setPriority(Notification.PRIORITY_DEFAULT)
             .build()
 
         notificationManager(context).notify(notificationId, notification)
@@ -346,7 +350,7 @@ object MoneyNotificationBridge {
     }
 
     private fun formatIdr(amount: Double): String {
-        val formatter = NumberFormat.getIntegerInstance(Locale("id", "ID"))
+        val formatter = NumberFormat.getIntegerInstance(Locale.forLanguageTag("id-ID"))
         return "Rp${formatter.format(amount.toLong())}"
     }
 

@@ -1,16 +1,38 @@
-# money_tracker
+# Money Tracker
 
-A new Flutter project.
+Money Tracker is a private personal finance app built with Flutter, Riverpod,
+Firebase Authentication, and Cloud Firestore. It tracks income, expenses,
+categories, debts, receivables, dashboard summaries, statistics, CSV imports,
+and Android-only myBCA notification transaction drafts.
 
-## Getting Started
+## Supported Platforms
 
-This project is a starting point for a Flutter application.
+- Android: full feature set, including notification access for myBCA draft
+  detection.
+- Windows and Linux: core finance features, dashboard, statistics, categories,
+  and CSV import.
+- Web: optional core finance features when Firebase Web configuration is
+  available.
 
-A few resources to get you started if this is your first Flutter project:
+## Configuration
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Copy `assets/env.sample` to `.env` and fill in the Firebase values for the
+target Firebase project. The app also accepts the same Firebase keys through
+`--dart-define` values for build environments that do not use `.env`.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Development Commands
+
+```bash
+flutter pub get
+flutter analyze
+flutter test
+flutter build apk
+```
+
+Android native notification parser tests live under `android/app/src/test` and
+can be run with:
+
+```bash
+cd android
+./gradlew testDebugUnitTest
+```

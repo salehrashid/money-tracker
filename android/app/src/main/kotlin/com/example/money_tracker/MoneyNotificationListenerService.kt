@@ -26,9 +26,9 @@ class MoneyNotificationListenerService : NotificationListenerService() {
 
         val payload = buildPayload(sbn)
         MoneyNotificationBridge.logNotification("Notification Posted", payload)
-        
+
         NativeNotificationPipeline.processNotification(this, payload)
-        
+
         MoneyNotificationBridge.dispatchNotification(payload)
     }
 
@@ -93,9 +93,12 @@ class MoneyNotificationListenerService : NotificationListenerService() {
             return emptyMap()
         }
 
-        return bundle.keySet().associateWith { key ->
-            bundle.get(key)?.toString().orEmpty()
-        }
+        return bundle.keySet().associateWith { key -> readBundleValue(bundle, key) }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun readBundleValue(bundle: Bundle, key: String): String {
+        return bundle.get(key)?.toString().orEmpty()
     }
 
     private fun appNameFor(packageName: String): String {

@@ -16,24 +16,24 @@ class EnsureDefaultAccountUseCase {
   final AccountRepository _repository;
 
   Future<void> execute(String uid) async {
-    debugPrint('[DefaultAccount] Current UID: $uid');
-    debugPrint('[DefaultAccount] Checking default account...');
+    _log('Current UID: $uid');
+    _log('Checking default account...');
 
     final hasAccountResult = await _repository.hasAnyAccount();
 
     switch (hasAccountResult) {
       case Failure(:final failure):
-        debugPrint('[DefaultAccount] Firestore error: ${failure.message}');
+        _log('Firestore error: ${failure.message}');
         return;
 
       case Success(:final value):
         if (value) {
-          debugPrint('[DefaultAccount] Default account already exists.');
+          _log('Default account already exists.');
           return;
         }
     }
 
-    debugPrint('[DefaultAccount] Creating default account...');
+    _log('Creating default account...');
 
     final now = DateTime.now().toUtc();
     final defaultAccount = Account(
@@ -51,9 +51,15 @@ class EnsureDefaultAccountUseCase {
 
     switch (createResult) {
       case Success():
-        debugPrint('[DefaultAccount] Default account created successfully.');
+        _log('Default account created successfully.');
       case Failure(:final failure):
-        debugPrint('[DefaultAccount] Firestore error: ${failure.message}');
+        _log('Firestore error: ${failure.message}');
+    }
+  }
+
+  void _log(String message) {
+    if (kDebugMode) {
+      debugPrint('[DefaultAccount] $message');
     }
   }
 }

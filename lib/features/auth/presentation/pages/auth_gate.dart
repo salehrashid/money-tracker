@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -27,10 +28,11 @@ class AuthGate extends ConsumerWidget {
           ref
               .read(firestoreUserProfileServiceProvider(user.id))
               .upsertProfile(user)
-              .catchError(
-                (Object error) =>
-                    debugPrint('[UserProfile] Firestore error: $error'),
-              );
+              .catchError((Object error) {
+                if (kDebugMode) {
+                  debugPrint('[UserProfile] Firestore error: $error');
+                }
+              });
           ref
               .read(ensureDefaultAccountUseCaseProvider(user.id))
               .execute(user.id);
