@@ -38,7 +38,7 @@ class _AccountPageState extends ConsumerState<AccountPage> {
               return const _MessageState(
                 icon: Icons.lock_outline,
                 title: 'Signed out',
-                message: 'Sign in to access your Money Tracker data.',
+                message: 'Sign in to access your Fleeca data.',
               );
             }
 

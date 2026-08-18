@@ -1,10 +1,10 @@
-# Money Tracker Personal Finance App
+# Fleeca Personal Finance App
 
 This documentation is the source of truth for a personal-use Flutter finance tracking application.
 
 ## Product Summary
 
-Money Tracker is a private, multi-platform personal finance app built with Flutter and Firebase. It helps the owner record income, expenses, categories, debts, receivables, receipt OCR results, CSV imports, and Android-only myBCA notification transaction drafts.
+Fleeca is a private, multi-platform personal finance app built with Flutter and Firebase. It helps the owner record income, expenses, categories, debts, receivables, receipt OCR results, CSV imports, and Android-only myBCA notification transaction drafts.
 
 ## Main Goal
 

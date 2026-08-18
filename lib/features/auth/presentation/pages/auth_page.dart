@@ -64,7 +64,7 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Money Tracker',
+                      'Fleeca',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.headlineSmall,
                     ),

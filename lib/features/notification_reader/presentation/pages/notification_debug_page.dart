@@ -104,7 +104,7 @@ class _PermissionPanel extends StatelessWidget {
           error: (_, _) => _PermissionContent(
             title: 'Unable to check notification access',
             message:
-                'Open Android Notification Access and enable Money Tracker.',
+                'Open Android Notification Access and enable Fleeca.',
             color: colorScheme.error,
             onOpenSettings: onOpenSettings,
             onRequestPostPermission: onRequestPostPermission,
@@ -117,7 +117,7 @@ class _PermissionPanel extends StatelessWidget {
                   : 'Notification Access is off',
               message: value.isListenerEnabled
                   ? 'Waiting for posted notifications.'
-                  : 'Enable Money Tracker in Android Notification Access.',
+                  : 'Enable Fleeca in Android Notification Access.',
               color: value.isListenerEnabled
                   ? colorScheme.primary
                   : colorScheme.error,

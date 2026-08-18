@@ -19,7 +19,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Unable to start Money Tracker'), findsOneWidget);
+    expect(find.text('Unable to start Fleeca'), findsOneWidget);
     expect(
       find.text('Firebase is not configured for this build.'),
       findsOneWidget,

@@ -24,7 +24,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Money Tracker',
+      title: 'Fleeca',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
         useMaterial3: true,
@@ -47,7 +47,7 @@ class _StartupFailurePage extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Money Tracker')),
+      appBar: AppBar(title: const Text('Fleeca')),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -57,7 +57,7 @@ class _StartupFailurePage extends StatelessWidget {
               Icon(Icons.error_outline, size: 48, color: colorScheme.error),
               const SizedBox(height: 12),
               Text(
-                'Unable to start Money Tracker',
+                'Unable to start Fleeca',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 8),
