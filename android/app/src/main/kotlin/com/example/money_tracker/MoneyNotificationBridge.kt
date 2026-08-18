@@ -170,7 +170,7 @@ object MoneyNotificationBridge {
         }
 
         val notification = builder
-            .setSmallIcon(R.drawable.ic_stat_notification)
+            .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(Notification.BigTextStyle().bigText(body))
