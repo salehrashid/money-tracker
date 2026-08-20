@@ -5,11 +5,12 @@ import '../../../../shared/models/finance_enums.dart';
 import '../../domain/entities/account.dart';
 import '../../domain/repositories/account_repository.dart';
 
-/// Ensures every authenticated user has at least one financial account.
+/// Ensures every authenticated user has at least the default financial accounts.
 ///
 /// This use case is idempotent: calling it multiple times is safe and will
-/// never create duplicate accounts. The default account is a Cash account with
-/// an opening balance of 0 in IDR.
+/// never create duplicate accounts. Two default accounts are created:
+/// a Cash account and a Rekening (bank) account, both with an opening balance
+/// of 0 in IDR.
 class EnsureDefaultAccountUseCase {
   const EnsureDefaultAccountUseCase(this._repository);
 
@@ -17,44 +18,67 @@ class EnsureDefaultAccountUseCase {
 
   Future<void> execute(String uid) async {
     _log('Current UID: $uid');
-    _log('Checking default account...');
+    _log('Checking default accounts...');
 
-    final hasAccountResult = await _repository.hasAnyAccount();
+    final accountsResult = await _repository.watchAccounts().first;
 
-    switch (hasAccountResult) {
+    switch (accountsResult) {
       case Failure(:final failure):
         _log('Firestore error: ${failure.message}');
         return;
 
       case Success(:final value):
-        if (value) {
-          _log('Default account already exists.');
+        final defaultAccounts = _buildDefaultAccounts(uid);
+        final existingAccountIds = value.map((account) => account.id).toSet();
+        final missingDefaultAccounts = defaultAccounts
+            .where((account) => !existingAccountIds.contains(account.id))
+            .toList(growable: false);
+
+        if (missingDefaultAccounts.isEmpty) {
+          _log('Default accounts already exist.');
           return;
         }
+
+        _log('Creating missing default accounts...');
+
+        for (final account in missingDefaultAccounts) {
+          final createResult = await _repository.createAccount(account);
+          switch (createResult) {
+            case Success():
+              _log('Default account "${account.name}" created successfully.');
+            case Failure(:final failure):
+              _log(
+                'Firestore error creating "${account.name}": ${failure.message}',
+              );
+          }
+        }
     }
+  }
 
-    _log('Creating default account...');
-
+  List<Account> _buildDefaultAccounts(String uid) {
     final now = DateTime.now().toUtc();
-    final defaultAccount = Account(
-      id: '${uid}_cash_default',
-      name: 'Cash',
-      type: AccountType.cash,
-      currency: 'IDR',
-      openingBalance: 0,
-      isArchived: false,
-      createdAt: now,
-      updatedAt: now,
-    );
-
-    final createResult = await _repository.createAccount(defaultAccount);
-
-    switch (createResult) {
-      case Success():
-        _log('Default account created successfully.');
-      case Failure(:final failure):
-        _log('Firestore error: ${failure.message}');
-    }
+    return [
+      Account(
+        id: '${uid}_cash_default',
+        name: 'Cash',
+        type: AccountType.cash,
+        currency: 'IDR',
+        openingBalance: 0,
+        isArchived: false,
+        createdAt: now,
+        updatedAt: now,
+      ),
+      Account(
+        id: '${uid}_rekening_default',
+        name: 'Rekening',
+        type: AccountType.bank,
+        currency: 'IDR',
+        openingBalance: 0,
+        isArchived: false,
+        createdAt: now,
+        updatedAt: now,
+      ),
+    ];
   }
 
   void _log(String message) {
