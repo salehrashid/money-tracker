@@ -2,6 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../shared/models/finance_enums.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../shared/widgets/app_scaffold.dart';
+import '../../../../shared/widgets/app_page_header.dart';
+import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/app_empty_state.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/entities/dashboard_overview.dart';
 import '../providers/dashboard_providers.dart';
@@ -9,45 +14,51 @@ import '../providers/dashboard_providers.dart';
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key, this.onAddTransaction});
 
-  /// Optional callback invoked when the user taps 'Add Transaction' from the
-  /// empty state. Typically used by the parent shell to switch to the
-  /// Transactions tab.
   final VoidCallback? onAddTransaction;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Dashboard')),
-      body: authState.when(
-        loading: () => const _CenteredProgress(),
-        error: (_, _) => const _MessageState(
-          icon: Icons.error_outline,
-          title: 'Unable to check sign-in status',
-          message: 'Please restart the app and try again.',
-        ),
-        data: (result) => result.when(
-          failure: (failure) => _MessageState(
-            icon: Icons.error_outline,
-            title: 'Unable to check sign-in status',
-            message: failure.message,
+    return AppScaffold(
+      body: Column(
+        children: [
+          const AppPageHeader(
+            title: 'Dashboard',
+            subtitle: 'Your financial overview',
           ),
-          success: (user) {
-            if (user == null) {
-              return const _MessageState(
-                icon: Icons.lock_outline,
-                title: 'Sign in required',
-                message: 'Sign in to view your dashboard.',
-              );
-            }
+          Expanded(
+            child: authState.when(
+              loading: () => const _CenteredProgress(),
+              error: (_, _) => const AppEmptyState(
+                icon: Icons.error_outline,
+                title: 'Unable to check sign-in status',
+                description: 'Please restart the app and try again.',
+              ),
+              data: (result) => result.when(
+                failure: (failure) => AppEmptyState(
+                  icon: Icons.error_outline,
+                  title: 'Unable to check sign-in status',
+                  description: failure.message,
+                ),
+                success: (user) {
+                  if (user == null) {
+                    return const AppEmptyState(
+                      icon: Icons.lock_outline,
+                      title: 'Sign in required',
+                      description: 'Sign in to view your dashboard.',
+                    );
+                  }
 
-            return _DashboardContent(
-              userId: user.id,
-              onAddTransaction: onAddTransaction,
-            );
-          },
-        ),
+                  return _DashboardContent(
+                    userId: user.id,
+                    onAddTransaction: onAddTransaction,
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -68,21 +79,25 @@ class _DashboardContent extends ConsumerWidget {
 
     return overviewState.when(
       loading: () => const _CenteredProgress(),
-      error: (_, _) => const _MessageState(
+      error: (_, _) => const AppEmptyState(
         icon: Icons.error_outline,
         title: 'Unable to load dashboard',
-        message: 'Please check your connection and try again.',
+        description: 'Please check your connection and try again.',
       ),
       data: (result) => result.when(
-        failure: (failure) => _MessageState(
+        failure: (failure) => AppEmptyState(
           icon: Icons.error_outline,
           title: 'Unable to load dashboard',
-          message: failure.message,
+          description: failure.message,
         ),
         success: (overview) {
           if (overview.isEmpty) {
-            return _NoTransactionsState(
-              onAddTransaction: onAddTransaction,
+            return AppEmptyState(
+              icon: Icons.account_balance_wallet_outlined,
+              title: 'No transactions yet',
+              description: 'Add your first income or expense transaction to start tracking your finances.',
+              actionLabel: 'Add Transaction',
+              onAction: onAddTransaction,
             );
           }
 
@@ -110,43 +125,39 @@ class _DashboardBody extends StatelessWidget {
     return CustomScrollView(
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
           sliver: SliverToBoxAdapter(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1100),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _SummaryGrid(overview: overview, isWide: isWide),
-                    const SizedBox(height: 16),
-                    if (isWide)
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: _ExpenseBreakdownCard(
-                              items: overview.expenseBreakdown,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _RecentTransactionsCard(
-                              transactions: overview.recentTransactions,
-                            ),
-                          ),
-                        ],
-                      )
-                    else ...[
-                      _ExpenseBreakdownCard(items: overview.expenseBreakdown),
-                      const SizedBox(height: 16),
-                      _RecentTransactionsCard(
-                        transactions: overview.recentTransactions,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _SummaryGrid(overview: overview, isWide: isWide),
+                const SizedBox(height: 24),
+                if (isWide)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _ExpenseBreakdownCard(
+                          items: overview.expenseBreakdown,
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        child: _RecentTransactionsCard(
+                          transactions: overview.recentTransactions,
+                        ),
                       ),
                     ],
-                  ],
-                ),
-              ),
+                  )
+                else ...[
+                  _ExpenseBreakdownCard(items: overview.expenseBreakdown),
+                  const SizedBox(height: 24),
+                  _RecentTransactionsCard(
+                    transactions: overview.recentTransactions,
+                  ),
+                ],
+                const SizedBox(height: 48), // Bottom padding
+              ],
             ),
           ),
         ),
@@ -165,24 +176,25 @@ class _SummaryGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final cards = [
       _SummaryCard(
-        title: 'Total balance',
+        title: 'Total Balance',
         value: _formatIdr(overview.totalBalance),
-        icon: Icons.account_balance_wallet_outlined,
+        icon: Icons.account_balance_wallet,
+        tone: _SummaryTone.neutral,
       ),
       _SummaryCard(
-        title: 'Monthly income',
+        title: 'Income',
         value: _formatIdr(overview.monthlyIncome),
-        icon: Icons.trending_up,
+        icon: Icons.arrow_downward,
         tone: _SummaryTone.positive,
       ),
       _SummaryCard(
-        title: 'Monthly expense',
+        title: 'Expense',
         value: _formatIdr(overview.monthlyExpense),
-        icon: Icons.trending_down,
+        icon: Icons.arrow_upward,
         tone: _SummaryTone.negative,
       ),
       _SummaryCard(
-        title: 'Net cash flow',
+        title: 'Cash Flow',
         value: _formatIdr(overview.netCashFlow),
         icon: Icons.swap_vert,
         tone: overview.netCashFlow >= 0
@@ -193,9 +205,9 @@ class _SummaryGrid extends StatelessWidget {
 
     return GridView.count(
       crossAxisCount: isWide ? 4 : 2,
-      childAspectRatio: isWide ? 1.55 : 1.22,
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
+      childAspectRatio: isWide ? 1.4 : 1.3,
+      crossAxisSpacing: 16,
+      mainAxisSpacing: 16,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       children: cards,
@@ -218,37 +230,45 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final color = switch (tone) {
-      _SummaryTone.positive => Colors.teal,
-      _SummaryTone.negative => colorScheme.error,
-      _SummaryTone.neutral => colorScheme.primary,
+      _SummaryTone.positive => AppColors.income,
+      _SummaryTone.negative => AppColors.expense,
+      _SummaryTone.neutral => AppColors.primary,
+    };
+    final bgColor = switch (tone) {
+      _SummaryTone.positive => AppColors.incomeLight,
+      _SummaryTone.negative => AppColors.expenseLight,
+      _SummaryTone.neutral => AppColors.primaryLight,
     };
 
-    return Card(
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color),
-            const Spacer(),
-            Text(title, style: Theme.of(context).textTheme.labelLarge),
-            const SizedBox(height: 6),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                value,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+    return AppCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: bgColor,
+                foregroundColor: color,
+                radius: 18,
+                child: Icon(icon, size: 20),
               ),
+              const Spacer(),
+            ],
+          ),
+          const Spacer(),
+          Text(title, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: color),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -261,28 +281,26 @@ class _ExpenseBreakdownCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Monthly expense by category',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 12),
-            if (items.isEmpty)
-              const _InlineEmptyState(
-                icon: Icons.pie_chart_outline,
-                message: 'No expenses recorded this month.',
-              )
-            else
-              ...items.map((item) => _ExpenseBar(item: item)),
-          ],
-        ),
+    return AppCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Monthly expense by category',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 20),
+          if (items.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: Text('No expenses recorded this month.', style: TextStyle(color: AppColors.textSecondary)),
+              ),
+            )
+          else
+            ...items.map((item) => _ExpenseBar(item: item)),
+        ],
       ),
     );
   }
@@ -295,10 +313,8 @@ class _ExpenseBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -309,20 +325,40 @@ class _ExpenseBar extends StatelessWidget {
                   item.categoryName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
                 ),
               ),
               const SizedBox(width: 12),
-              Text(_formatIdr(item.amount)),
+              Text(
+                _formatIdr(item.amount),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
             ],
           ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              minHeight: 8,
-              value: item.share.clamp(0, 1),
-              backgroundColor: colorScheme.surfaceContainerHighest,
-            ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    minHeight: 8,
+                    value: item.share.clamp(0, 1),
+                    backgroundColor: AppColors.divider,
+                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.expense),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 40,
+                child: Text(
+                  '${(item.share * 100).toStringAsFixed(0)}%',
+                  textAlign: TextAlign.end,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.textSecondary),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -337,31 +373,42 @@ class _RecentTransactionsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Recent transactions',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            if (transactions.isEmpty)
-              const _InlineEmptyState(
-                icon: Icons.receipt_long_outlined,
-                message: 'No transactions recorded yet.',
-              )
-            else
-              ...transactions.map(
-                (transaction) =>
-                    _RecentTransactionTile(transaction: transaction),
+    return AppCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Recent transactions',
+                style: Theme.of(context).textTheme.titleMedium,
               ),
-          ],
-        ),
+              TextButton(
+                onPressed: () {
+                  // This should theoretically change tab to transactions
+                },
+                child: const Text('View all'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (transactions.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: Text('No transactions recorded yet.', style: TextStyle(color: AppColors.textSecondary)),
+              ),
+            )
+          else
+            ...transactions.map(
+              (transaction) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _RecentTransactionTile(transaction: transaction),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -375,128 +422,63 @@ class _RecentTransactionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIncome = transaction.type == TransactionType.income;
-    final color = isIncome ? Colors.teal : Theme.of(context).colorScheme.error;
-    final amountPrefix = isIncome ? '+' : '-';
+    final color = isIncome ? AppColors.income : AppColors.expense;
+    final bgColor = isIncome ? AppColors.incomeLight : AppColors.expenseLight;
+    final amountPrefix = isIncome ? '+' : '';
 
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: CircleAvatar(
-        backgroundColor: color.withValues(alpha: 0.14),
-        foregroundColor: color,
-        child: Icon(isIncome ? Icons.add : Icons.remove),
-      ),
-      title: Text(
-        '$amountPrefix${_formatIdr(transaction.amount)}',
-        style: TextStyle(color: color, fontWeight: FontWeight.w700),
-      ),
-      subtitle: Text(
-        [
-          transaction.categoryName,
-          transaction.accountName,
-          _formatDate(transaction.transactionDate),
-          ?transaction.note.isNotEmpty ? transaction.note : null,
-        ].join(' - '),
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-      ),
-    );
-  }
-}
-
-class _InlineEmptyState extends StatelessWidget {
-  const _InlineEmptyState({required this.icon, required this.message});
-
-  final IconData icon;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 24),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 8),
-            Text(message, textAlign: TextAlign.center),
-          ],
+    return Row(
+      children: [
+        CircleAvatar(
+          backgroundColor: bgColor,
+          foregroundColor: color,
+          radius: 20,
+          child: Icon(isIncome ? Icons.arrow_downward : Icons.arrow_upward, size: 20),
         ),
-      ),
-    );
-  }
-}
-
-/// Onboarding empty state shown when the user has a default Cash account but
-/// no transactions yet.
-class _NoTransactionsState extends StatelessWidget {
-  const _NoTransactionsState({this.onAddTransaction});
-
-  final VoidCallback? onAddTransaction;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                [transaction.categoryName, transaction.accountName].where((e) => e.isNotEmpty).join(' • '),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _formatDate(transaction.transactionDate),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Icon(
-              Icons.receipt_long_outlined,
-              size: 48,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(height: 12),
             Text(
-              'No transactions yet',
-              style: Theme.of(context).textTheme.titleLarge,
+              '$amountPrefix${_formatIdr(transaction.amount)}',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Add your first income or expense transaction to start tracking your finances.',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: onAddTransaction,
-              icon: const Icon(Icons.add),
-              label: const Text('Add Transaction'),
+            const SizedBox(height: 2),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceVariant,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                'Manual', // Mocking source badge for now
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(fontSize: 10),
+              ),
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _MessageState extends StatelessWidget {
-  const _MessageState({
-    required this.icon,
-    required this.title,
-    required this.message,
-  });
-
-  final IconData icon;
-  final String title;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 48, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 12),
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            Text(message, textAlign: TextAlign.center),
-          ],
-        ),
-      ),
+      ],
     );
   }
 }

@@ -130,7 +130,6 @@ class _TransactionFormDialogState extends State<TransactionFormDialog> {
                 decoration: const InputDecoration(
                   labelText: 'Amount',
                   prefixText: 'Rp ',
-                  border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 16),
@@ -138,7 +137,6 @@ class _TransactionFormDialogState extends State<TransactionFormDialog> {
                 initialValue: _categoryId,
                 decoration: const InputDecoration(
                   labelText: 'Category',
-                  border: OutlineInputBorder(),
                 ),
                 items: availableCategories
                     .map(
@@ -157,7 +155,6 @@ class _TransactionFormDialogState extends State<TransactionFormDialog> {
                 initialValue: _accountId,
                 decoration: const InputDecoration(
                   labelText: 'Account',
-                  border: OutlineInputBorder(),
                 ),
                 items: activeAccounts
                     .map(
@@ -186,7 +183,6 @@ class _TransactionFormDialogState extends State<TransactionFormDialog> {
                 maxLines: 4,
                 decoration: const InputDecoration(
                   labelText: 'Note',
-                  border: OutlineInputBorder(),
                 ),
               ),
             ],

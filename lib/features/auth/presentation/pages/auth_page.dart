@@ -110,8 +110,7 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                       textInputAction: TextInputAction.next,
                       autofillHints: const [AutofillHints.email],
                       decoration: const InputDecoration(
-                        border: OutlineInputBorder(),
-                        labelText: 'Email',
+                              labelText: 'Email',
                         prefixIcon: Icon(Icons.email_outlined),
                       ),
                       validator: (value) {
@@ -135,8 +134,7 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                           : TextInputAction.done,
                       autofillHints: const [AutofillHints.password],
                       decoration: InputDecoration(
-                        border: const OutlineInputBorder(),
-                        labelText: 'Password',
+                              labelText: 'Password',
                         prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
                           tooltip: _obscurePassword
@@ -181,8 +179,7 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                         textInputAction: TextInputAction.done,
                         autofillHints: const [AutofillHints.newPassword],
                         decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          labelText: 'Confirm password',
+                                  labelText: 'Confirm password',
                           prefixIcon: Icon(Icons.lock_reset),
                         ),
                         validator: (value) {

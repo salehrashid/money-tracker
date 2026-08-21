@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/theme/app_colors.dart';
 import '../../features/auth/presentation/pages/account_page.dart';
 import '../../features/categories/presentation/pages/category_management_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
@@ -20,6 +21,7 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell> {
   var _selectedIndex = 0;
+  bool _isSidebarCollapsed = false;
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +37,14 @@ class _AppShellState extends ConsumerState<AppShell> {
     });
 
     final isWide = MediaQuery.sizeOf(context).width >= 720;
+    
+    // Auto-collapse sidebar on smaller desktop windows
+    if (isWide && MediaQuery.sizeOf(context).width < 900) {
+      _isSidebarCollapsed = true;
+    } else if (isWide && MediaQuery.sizeOf(context).width >= 900) {
+      _isSidebarCollapsed = false;
+    }
+
     final page = switch (_selectedIndex) {
       0 => DashboardPage(
         onAddTransaction: () => setState(() => _selectedIndex = 1),
@@ -45,7 +55,6 @@ class _AppShellState extends ConsumerState<AppShell> {
       2 => const StatisticsPage(),
       3 => const DebtLoanPage(),
       4 => const CategoryManagementPage(),
-      // 5 => const CsvImportPage(),
       5 when kDebugMode => const NotificationDebugPage(),
       6 => const AccountPage(),
       _ => DashboardPage(
@@ -53,61 +62,95 @@ class _AppShellState extends ConsumerState<AppShell> {
       ),
     };
 
+    final destinations = [
+      const _NavDestination('Dashboard', Icons.dashboard_outlined, Icons.dashboard),
+      const _NavDestination('Transactions', Icons.receipt_long_outlined, Icons.receipt_long),
+      const _NavDestination('Statistics', Icons.bar_chart_outlined, Icons.bar_chart),
+      const _NavDestination('Debt', Icons.handshake_outlined, Icons.handshake),
+      const _NavDestination('Categories', Icons.category_outlined, Icons.category),
+    ];
+
     if (isWide) {
       return Scaffold(
         body: Row(
           children: [
-            NavigationRail(
-              selectedIndex: _selectedIndex,
-              onDestinationSelected: (index) {
-                setState(() => _selectedIndex = index);
-              },
-              labelType: NavigationRailLabelType.all,
-              destinations: [
-                const NavigationRailDestination(
-                  icon: Icon(Icons.dashboard_outlined),
-                  selectedIcon: Icon(Icons.dashboard),
-                  label: Text('Dashboard'),
+            Material(
+              color: AppColors.surface,
+              elevation: 1,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: _isSidebarCollapsed ? 80 : 250,
+                child: Column(
+                  children: [
+                    const SizedBox(height: 32),
+                    if (_isSidebarCollapsed)
+                      const Icon(Icons.account_balance_wallet, color: AppColors.primary, size: 32)
+                    else
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.account_balance_wallet, color: AppColors.primary, size: 32),
+                            const SizedBox(width: 12),
+                            Text('Fleeca', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    const SizedBox(height: 32),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: destinations.length,
+                        itemBuilder: (context, index) {
+                          final dest = destinations[index];
+                          final isSelected = _selectedIndex == index;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: () => setState(() => _selectedIndex = index),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  color: isSelected ? AppColors.primaryLight : Colors.transparent,
+                                ),
+                                child: _isSidebarCollapsed
+                                    ? Tooltip(
+                                        message: dest.label,
+                                        child: Icon(isSelected ? dest.selectedIcon : dest.icon, color: isSelected ? AppColors.primary : AppColors.textSecondary),
+                                      )
+                                    : Row(
+                                        children: [
+                                          const SizedBox(width: 16),
+                                          Icon(isSelected ? dest.selectedIcon : dest.icon, color: isSelected ? AppColors.primary : AppColors.textSecondary),
+                                          const SizedBox(width: 16),
+                                          Text(
+                                            dest.label,
+                                            style: TextStyle(
+                                              color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const Divider(),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                      child: IconButton(
+                        icon: const Icon(Icons.settings_outlined, color: AppColors.textSecondary),
+                        onPressed: () {}, // Settings placeholder
+                      ),
+                    ),
+                  ],
                 ),
-                const NavigationRailDestination(
-                  icon: Icon(Icons.receipt_long_outlined),
-                  selectedIcon: Icon(Icons.receipt_long),
-                  label: Text('Transactions'),
-                ),
-                const NavigationRailDestination(
-                  icon: Icon(Icons.bar_chart_outlined),
-                  selectedIcon: Icon(Icons.bar_chart),
-                  label: Text('Statistics'),
-                ),
-                const NavigationRailDestination(
-                  icon: Icon(Icons.handshake_outlined),
-                  selectedIcon: Icon(Icons.handshake),
-                  label: Text('Debt'),
-                ),
-                const NavigationRailDestination(
-                  icon: Icon(Icons.category_outlined),
-                  selectedIcon: Icon(Icons.category),
-                  label: Text('Categories'),
-                ),
-                // if (kDebugMode)
-                //   const NavigationRailDestination(
-                //     icon: Icon(Icons.bug_report_outlined),
-                //     selectedIcon: Icon(Icons.bug_report),
-                //     label: Text('Notify Debug'),
-                //   ),
-                // NavigationRailDestination(
-                //   icon: Icon(Icons.upload_file_outlined),
-                //   selectedIcon: Icon(Icons.upload_file),
-                //   label: Text('Import CSV'),
-                // ),
-                // NavigationRailDestination(
-                //   icon: Icon(Icons.account_circle_outlined),
-                //   selectedIcon: Icon(Icons.account_circle),
-                //   label: Text('Account'),
-                // ),
-              ],
+              ),
             ),
-            const VerticalDivider(width: 1),
             Expanded(child: page),
           ],
         ),
@@ -121,50 +164,21 @@ class _AppShellState extends ConsumerState<AppShell> {
         onDestinationSelected: (index) {
           setState(() => _selectedIndex = index);
         },
-        destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Dashboard',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
-            label: 'Transactions',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined),
-            selectedIcon: Icon(Icons.bar_chart),
-            label: 'Statistics',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.handshake_outlined),
-            selectedIcon: Icon(Icons.handshake),
-            label: 'Debt',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.category_outlined),
-            selectedIcon: Icon(Icons.category),
-            label: 'Categories',
-          ),
-          // if (kDebugMode)
-          //   const NavigationDestination(
-          //     icon: Icon(Icons.bug_report_outlined),
-          //     selectedIcon: Icon(Icons.bug_report),
-          //     label: 'Notify Debug',
-          //   ),
-          // NavigationDestination(
-          //   icon: Icon(Icons.upload_file_outlined),
-          //   selectedIcon: Icon(Icons.upload_file),
-          //   label: 'Import CSV',
-          // ),
-          // NavigationDestination(
-          //   icon: Icon(Icons.account_circle_outlined),
-          //   selectedIcon: Icon(Icons.account_circle),
-          //   label: 'Account',
-          // ),
-        ],
+        destinations: destinations.map((d) {
+          return NavigationDestination(
+            icon: Icon(d.icon),
+            selectedIcon: Icon(d.selectedIcon),
+            label: d.label,
+          );
+        }).toList(),
       ),
     );
   }
+}
+
+class _NavDestination {
+  final String label;
+  final IconData icon;
+  final IconData selectedIcon;
+  const _NavDestination(this.label, this.icon, this.selectedIcon);
 }

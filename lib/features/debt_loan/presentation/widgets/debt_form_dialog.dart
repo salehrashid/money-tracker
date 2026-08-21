@@ -81,7 +81,6 @@ class _DebtFormDialogState extends State<DebtFormDialog> {
                 maxLength: 72,
                 decoration: const InputDecoration(
                   labelText: 'Person name',
-                  border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 16),
@@ -93,7 +92,6 @@ class _DebtFormDialogState extends State<DebtFormDialog> {
                 decoration: const InputDecoration(
                   labelText: 'Amount',
                   prefixText: 'Rp ',
-                  border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 16),
@@ -101,7 +99,6 @@ class _DebtFormDialogState extends State<DebtFormDialog> {
                 initialValue: _status,
                 decoration: const InputDecoration(
                   labelText: 'Status',
-                  border: OutlineInputBorder(),
                 ),
                 items: DebtStatus.values
                     .map(
@@ -148,7 +145,6 @@ class _DebtFormDialogState extends State<DebtFormDialog> {
                 maxLines: 4,
                 decoration: const InputDecoration(
                   labelText: 'Note',
-                  border: OutlineInputBorder(),
                 ),
               ),
             ],

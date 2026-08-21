@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/theme/app_colors.dart';
+import '../../../../shared/widgets/app_scaffold.dart';
+import '../../../../shared/widgets/app_page_header.dart';
+import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/app_empty_state.dart';
+
 import '../../../../shared/models/finance_enums.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../transactions/presentation/widgets/transaction_formatters.dart';
@@ -14,33 +20,42 @@ class StatisticsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Statistics')),
-      body: authState.when(
-        loading: () => const _CenteredProgress(),
-        error: (_, _) => const _MessageState(
-          icon: Icons.error_outline,
-          title: 'Unable to check sign-in status',
-          message: 'Please restart the app and try again.',
-        ),
-        data: (result) => result.when(
-          failure: (failure) => _MessageState(
-            icon: Icons.error_outline,
-            title: 'Unable to check sign-in status',
-            message: failure.message,
+    return AppScaffold(
+      body: Column(
+        children: [
+          const AppPageHeader(
+            title: 'Statistics',
+            subtitle: 'Understand your financial habits.',
           ),
-          success: (user) {
-            if (user == null) {
-              return const _MessageState(
-                icon: Icons.lock_outline,
-                title: 'Sign in required',
-                message: 'Sign in to view your statistics.',
-              );
-            }
+          Expanded(
+            child: authState.when(
+              loading: () => const _CenteredProgress(),
+              error: (_, _) => const AppEmptyState(
+                icon: Icons.error_outline,
+                title: 'Unable to check sign-in status',
+                description: 'Please restart the app and try again.',
+              ),
+              data: (result) => result.when(
+                failure: (failure) => AppEmptyState(
+                  icon: Icons.error_outline,
+                  title: 'Unable to check sign-in status',
+                  description: failure.message,
+                ),
+                success: (user) {
+                  if (user == null) {
+                    return const AppEmptyState(
+                      icon: Icons.lock_outline,
+                      title: 'Sign in required',
+                      description: 'Sign in to view your statistics.',
+                    );
+                  }
 
-            return _StatisticsContent(userId: user.id);
-          },
-        ),
+                  return _StatisticsContent(userId: user.id);
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -57,24 +72,23 @@ class _StatisticsContent extends ConsumerWidget {
 
     return statisticsState.when(
       loading: () => const _CenteredProgress(),
-      error: (_, _) => const _MessageState(
+      error: (_, _) => const AppEmptyState(
         icon: Icons.error_outline,
         title: 'Unable to load statistics',
-        message: 'Please check your connection and try again.',
+        description: 'Please check your connection and try again.',
       ),
       data: (result) => result.when(
-        failure: (failure) => _MessageState(
+        failure: (failure) => AppEmptyState(
           icon: Icons.error_outline,
           title: 'Unable to load statistics',
-          message: failure.message,
+          description: failure.message,
         ),
         success: (overview) {
           if (overview.isEmpty) {
-            return const _MessageState(
+            return const AppEmptyState(
               icon: Icons.bar_chart_outlined,
               title: 'No statistics yet',
-              message:
-                  'Add income and expense transactions to see your analytics.',
+              description: 'Add income and expense transactions to see your analytics.',
             );
           }
 
@@ -213,37 +227,45 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final color = switch (tone) {
-      _SummaryTone.positive => Colors.teal,
-      _SummaryTone.negative => colorScheme.error,
-      _SummaryTone.neutral => colorScheme.primary,
+      _SummaryTone.positive => AppColors.income,
+      _SummaryTone.negative => AppColors.expense,
+      _SummaryTone.neutral => AppColors.primary,
+    };
+    final bgColor = switch (tone) {
+      _SummaryTone.positive => AppColors.incomeLight,
+      _SummaryTone.negative => AppColors.expenseLight,
+      _SummaryTone.neutral => AppColors.primaryLight,
     };
 
-    return Card(
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color),
-            const Spacer(),
-            Text(title, style: Theme.of(context).textTheme.labelLarge),
-            const SizedBox(height: 6),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                value,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+    return AppCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: bgColor,
+                foregroundColor: color,
+                radius: 18,
+                child: Icon(icon, size: 20),
               ),
+              const Spacer(),
+            ],
+          ),
+          const Spacer(),
+          Text(title, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: color),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -528,19 +550,15 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 14),
-            child,
-          ],
-        ),
+    return AppCard(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 24),
+          child,
+        ],
       ),
     );
   }
@@ -574,42 +592,7 @@ class _InlineEmptyState extends StatelessWidget {
   }
 }
 
-class _MessageState extends StatelessWidget {
-  const _MessageState({
-    required this.icon,
-    required this.title,
-    required this.message,
-  });
 
-  final IconData icon;
-  final String title;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 40, color: colorScheme.onSurfaceVariant),
-            const SizedBox(height: 16),
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: colorScheme.onSurfaceVariant),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _CenteredProgress extends StatelessWidget {
   const _CenteredProgress();

@@ -3,6 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/theme/app_colors.dart';
+import '../../../../shared/widgets/app_scaffold.dart';
+import '../../../../shared/widgets/app_page_header.dart';
+import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/app_empty_state.dart';
+
 import '../../../../core/errors/app_failure.dart';
 import '../../../../core/utils/result.dart';
 import '../../../../features/auth/presentation/providers/auth_providers.dart';
@@ -52,33 +58,45 @@ class DebtLoanPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateProvider);
 
-    return authState.when(
-      loading: () => const _CenteredProgress(),
-      error: (_, _) => const _MessageState(
-        icon: Icons.error_outline,
-        title: 'Unable to check sign-in status',
-        message: 'Please restart the app and try again.',
-      ),
-      data: (result) {
-        return result.when(
-          failure: (failure) => _MessageState(
-            icon: Icons.error_outline,
-            title: 'Unable to check sign-in status',
-            message: failure.message,
+    return AppScaffold(
+      body: Column(
+        children: [
+          const AppPageHeader(
+            title: 'Debt & Receivables',
+            subtitle: 'Track money you owe or are owed.',
           ),
-          success: (user) {
-            if (user == null) {
-              return const _MessageState(
-                icon: Icons.lock_outline,
-                title: 'Sign in required',
-                message: 'Sign in to manage debts and receivables.',
-              );
-            }
+          Expanded(
+            child: authState.when(
+              loading: () => const _CenteredProgress(),
+              error: (_, _) => const AppEmptyState(
+                icon: Icons.error_outline,
+                title: 'Unable to check sign-in status',
+                description: 'Please restart the app and try again.',
+              ),
+              data: (result) {
+                return result.when(
+                  failure: (failure) => AppEmptyState(
+                    icon: Icons.error_outline,
+                    title: 'Unable to check sign-in status',
+                    description: failure.message,
+                  ),
+                  success: (user) {
+                    if (user == null) {
+                      return const AppEmptyState(
+                        icon: Icons.lock_outline,
+                        title: 'Sign in required',
+                        description: 'Sign in to manage debts and receivables.',
+                      );
+                    }
 
-            return _DebtContent(userId: user.id);
-          },
-        );
-      },
+                    return _DebtContent(userId: user.id);
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -121,141 +139,134 @@ class _DebtContent extends ConsumerWidget {
       );
     });
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Debt & Receivables'),
-        actions: [
-          IconButton(
-            tooltip: 'Add debt record',
-            onPressed: operationState.isLoading
-                ? null
-                : () => _showCreateDialog(context, ref, userId),
-            icon: const Icon(Icons.add),
+    return Stack(
+      children: [
+        debtState.when(
+          loading: () => const _CenteredProgress(),
+          error: (_, _) => const AppEmptyState(
+            icon: Icons.error_outline,
+            title: 'Unable to load records',
+            description: 'Please try again.',
           ),
-        ],
-      ),
-      body: debtState.when(
-        loading: () => const _CenteredProgress(),
-        error: (_, _) => const _MessageState(
-          icon: Icons.error_outline,
-          title: 'Unable to load records',
-          message: 'Please try again.',
-        ),
-        data: (result) {
-          return result.when(
-            failure: (failure) => _MessageState(
-              icon: Icons.error_outline,
-              title: 'Unable to load records',
-              message: failure.message,
-            ),
-            success: (debts) {
-              final filtered = debts
-                  .where((debt) {
-                    final matchesKind =
-                        selectedKind == null || debt.kind == selectedKind;
-                    final matchesStatus =
-                        selectedStatus == null || debt.status == selectedStatus;
-                    return matchesKind && matchesStatus;
-                  })
-                  .toList(growable: false);
+          data: (result) {
+            return result.when(
+              failure: (failure) => AppEmptyState(
+                icon: Icons.error_outline,
+                title: 'Unable to load records',
+                description: failure.message,
+              ),
+              success: (debts) {
+                final filtered = debts
+                    .where((debt) {
+                      final matchesKind =
+                          selectedKind == null || debt.kind == selectedKind;
+                      final matchesStatus =
+                          selectedStatus == null || debt.status == selectedStatus;
+                      return matchesKind && matchesStatus;
+                    })
+                    .toList(growable: false);
 
-              return RefreshIndicator(
-                onRefresh: () async => ref.refresh(debtListProvider(userId)),
-                child: CustomScrollView(
-                  slivers: [
-                    SliverToBoxAdapter(
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 980),
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                            child: _DebtHeader(
-                              debts: debts,
-                              selectedKind: selectedKind,
-                              selectedStatus: selectedStatus,
-                              onKindChanged: (value) => ref
-                                  .read(_debtKindFilterProvider.notifier)
-                                  .set(value),
-                              onStatusChanged: (value) => ref
-                                  .read(_debtStatusFilterProvider.notifier)
-                                  .set(value),
+                return RefreshIndicator(
+                  onRefresh: () async => ref.refresh(debtListProvider(userId)),
+                  child: CustomScrollView(
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 980),
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                              child: _DebtHeader(
+                                debts: debts,
+                                selectedKind: selectedKind,
+                                selectedStatus: selectedStatus,
+                                onKindChanged: (value) => ref
+                                    .read(_debtKindFilterProvider.notifier)
+                                    .set(value),
+                                onStatusChanged: (value) => ref
+                                    .read(_debtStatusFilterProvider.notifier)
+                                    .set(value),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    if (operationState.isLoading)
-                      const SliverToBoxAdapter(
-                        child: LinearProgressIndicator(minHeight: 2),
-                      ),
-                    if (debts.isEmpty)
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: _EmptyDebts(
-                          onCreate: operationState.isLoading
-                              ? null
-                              : () => _showCreateDialog(context, ref, userId),
+                      if (operationState.isLoading)
+                        const SliverToBoxAdapter(
+                          child: LinearProgressIndicator(minHeight: 2),
                         ),
-                      )
-                    else if (filtered.isEmpty)
-                      const SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: _MessageState(
-                          icon: Icons.filter_alt_off,
-                          title: 'No matching records',
-                          message: 'Adjust the filters to see more records.',
-                        ),
-                      )
-                    else
-                      SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
-                        sliver: SliverList.separated(
-                          itemCount: filtered.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 8),
-                          itemBuilder: (context, index) {
-                            final debt = filtered[index];
-                            return Center(
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 980,
-                                ),
-                                child: _DebtTile(
-                                  debt: debt,
-                                  isBusy: operationState.isLoading,
-                                  onEdit: () => _showEditDialog(
-                                    context,
-                                    ref,
-                                    userId,
-                                    debt,
+                      if (debts.isEmpty)
+                        SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: _EmptyDebts(
+                            onCreate: operationState.isLoading
+                                ? null
+                                : () => _showCreateDialog(context, ref, userId),
+                          ),
+                        )
+                      else if (filtered.isEmpty)
+                        const SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: AppEmptyState(
+                            icon: Icons.filter_alt_off,
+                            title: 'No matching records',
+                            description: 'Adjust the filters to see more records.',
+                          ),
+                        )
+                      else
+                        SliverPadding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+                          sliver: SliverList.separated(
+                            itemCount: filtered.length,
+                            separatorBuilder: (_, _) => const SizedBox(height: 8),
+                            itemBuilder: (context, index) {
+                              final debt = filtered[index];
+                              return Center(
+                                child: ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxWidth: 980,
                                   ),
-                                  onStatusChanged: (status) =>
-                                      _setStatus(ref, userId, debt, status),
-                                  onDelete: () => _confirmDelete(
-                                    context,
-                                    ref,
-                                    userId,
-                                    debt,
+                                  child: _DebtTile(
+                                    debt: debt,
+                                    isBusy: operationState.isLoading,
+                                    onEdit: () => _showEditDialog(
+                                      context,
+                                      ref,
+                                      userId,
+                                      debt,
+                                    ),
+                                    onStatusChanged: (status) =>
+                                        _setStatus(ref, userId, debt, status),
+                                    onDelete: () => _confirmDelete(
+                                      context,
+                                      ref,
+                                      userId,
+                                      debt,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            );
-                          },
+                              );
+                            },
+                          ),
                         ),
-                      ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: operationState.isLoading
-            ? null
-            : () => _showCreateDialog(context, ref, userId),
-        icon: const Icon(Icons.add),
-        label: const Text('Record'),
-      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        ),
+        Positioned(
+          bottom: 24,
+          right: 24,
+          child: FloatingActionButton(
+            onPressed: operationState.isLoading
+                ? null
+                : () => _showCreateDialog(context, ref, userId),
+            child: const Icon(Icons.add),
+          ),
+        ),
+      ],
     );
   }
 
@@ -478,10 +489,29 @@ class _SummaryChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Chip(
-      avatar: Icon(icon, size: 18),
-      label: Text('$label: $value'),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: AppColors.primary),
+          const SizedBox(width: 8),
+          Text(
+            '$label:',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -503,113 +533,117 @@ class _DebtTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final kindColor = debtKindColor(context, debt.kind);
+    final isDebt = debt.kind == DebtKind.debt;
+    final color = isDebt ? AppColors.expense : AppColors.income;
+    final bgColor = isDebt ? AppColors.expenseLight : AppColors.incomeLight;
+    final isOverdue = _isOverdue(debt);
 
-    return Card(
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CircleAvatar(
-              backgroundColor: kindColor.withValues(alpha: 0.16),
-              foregroundColor: kindColor,
-              child: Icon(debtKindIcon(debt.kind)),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    debt.personName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 4),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 4,
-                    children: [
-                      Text(debtKindLabel(debt.kind)),
-                      Text(debtStatusLabel(debt.status)),
-                      if (debt.dueDate != null)
-                        Text(
-                          'Due ${formatDebtDate(debt.dueDate!)}',
-                          style: TextStyle(
-                            color: _isOverdue(debt)
-                                ? colorScheme.error
-                                : colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                    ],
-                  ),
-                  if (debt.note.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+    return AppCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            backgroundColor: bgColor,
+            foregroundColor: color,
+            radius: 20,
+            child: Icon(debtKindIcon(debt.kind), size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  debt.personName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 4,
+                  children: [
                     Text(
-                      debt.note,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      debtStatusLabel(debt.status),
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.textSecondary),
                     ),
+                    if (debt.dueDate != null)
+                      Text(
+                        'Due ${formatDebtDate(debt.dueDate!)}',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: isOverdue ? AppColors.expense : AppColors.textSecondary,
+                              fontWeight: isOverdue ? FontWeight.bold : null,
+                            ),
+                      ),
                   ],
-                  const SizedBox(height: 8),
+                ),
+                if (debt.note.isNotEmpty) ...[
+                  const SizedBox(height: 6),
                   Text(
-                    formatDebtIdr(debt.amount),
-                    style: Theme.of(context).textTheme.titleMedium,
+                    debt.note,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 168),
-              child: Wrap(
-                alignment: WrapAlignment.end,
-                spacing: 4,
-                runSpacing: 4,
-                children: [
-                  IconButton(
-                    tooltip: 'Edit',
-                    onPressed: isBusy ? null : onEdit,
-                    icon: const Icon(Icons.edit_outlined),
+                const SizedBox(height: 8),
+                Text(
+                  formatDebtIdr(debt.amount),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.bold,
                   ),
-                  if (debt.status == DebtStatus.open)
-                    IconButton(
-                      tooltip: 'Mark paid',
-                      onPressed: isBusy
-                          ? null
-                          : () => onStatusChanged(DebtStatus.paid),
-                      icon: const Icon(Icons.check_circle_outline),
-                    )
-                  else
-                    IconButton(
-                      tooltip: 'Reopen',
-                      onPressed: isBusy
-                          ? null
-                          : () => onStatusChanged(DebtStatus.open),
-                      icon: const Icon(Icons.refresh),
-                    ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 168),
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 0,
+              runSpacing: 0,
+              children: [
+                IconButton(
+                  tooltip: 'Edit',
+                  onPressed: isBusy ? null : onEdit,
+                  icon: const Icon(Icons.edit_outlined, color: AppColors.textSecondary, size: 20),
+                ),
+                if (debt.status == DebtStatus.open)
                   IconButton(
-                    tooltip: 'Cancel',
-                    onPressed: isBusy || debt.status == DebtStatus.cancelled
+                    tooltip: 'Mark paid',
+                    onPressed: isBusy
                         ? null
-                        : () => onStatusChanged(DebtStatus.cancelled),
-                    icon: const Icon(Icons.cancel_outlined),
-                  ),
+                        : () => onStatusChanged(DebtStatus.paid),
+                    icon: const Icon(Icons.check_circle_outline, color: AppColors.primary, size: 20),
+                  )
+                else
                   IconButton(
-                    tooltip: 'Delete',
-                    onPressed: isBusy ? null : onDelete,
-                    icon: const Icon(Icons.delete_outline),
+                    tooltip: 'Reopen',
+                    onPressed: isBusy
+                        ? null
+                        : () => onStatusChanged(DebtStatus.open),
+                    icon: const Icon(Icons.refresh, color: AppColors.textSecondary, size: 20),
                   ),
-                ],
-              ),
+                IconButton(
+                  tooltip: 'Cancel',
+                  onPressed: isBusy || debt.status == DebtStatus.cancelled
+                      ? null
+                      : () => onStatusChanged(DebtStatus.cancelled),
+                  icon: const Icon(Icons.cancel_outlined, color: AppColors.textSecondary, size: 20),
+                ),
+                IconButton(
+                  tooltip: 'Delete',
+                  onPressed: isBusy ? null : onDelete,
+                  icon: const Icon(Icons.delete_outline, color: AppColors.expense, size: 20),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -622,70 +656,17 @@ class _EmptyDebts extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.handshake_outlined,
-              size: 48,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'No debt records yet',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Track money you borrowed or money someone owes you.',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: onCreate,
-              icon: const Icon(Icons.add),
-              label: const Text('Add record'),
-            ),
-          ],
-        ),
-      ),
+    return AppEmptyState(
+      icon: Icons.handshake_outlined,
+      title: 'No debt records yet',
+      description: 'Track money you borrowed or money someone owes you.',
+      actionLabel: 'Add record',
+      onAction: onCreate,
     );
   }
 }
 
-class _MessageState extends StatelessWidget {
-  const _MessageState({
-    required this.icon,
-    required this.title,
-    required this.message,
-  });
 
-  final IconData icon;
-  final String title;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 48, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 12),
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            Text(message, textAlign: TextAlign.center),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _CenteredProgress extends StatelessWidget {
   const _CenteredProgress();

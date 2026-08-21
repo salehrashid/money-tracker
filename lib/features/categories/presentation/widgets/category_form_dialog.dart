@@ -57,7 +57,6 @@ class _CategoryFormDialogState extends State<CategoryFormDialog> {
                 maxLength: 48,
                 decoration: const InputDecoration(
                   labelText: 'Name',
-                  border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
@@ -86,7 +85,6 @@ class _CategoryFormDialogState extends State<CategoryFormDialog> {
                     : categoryIconOptions.last,
                 decoration: const InputDecoration(
                   labelText: 'Icon',
-                  border: OutlineInputBorder(),
                 ),
                 items: categoryIconOptions
                     .map((icon) {

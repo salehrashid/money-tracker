@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/theme/app_colors.dart';
+import '../../../../shared/widgets/app_scaffold.dart';
+import '../../../../shared/widgets/app_page_header.dart';
+import '../../../../shared/widgets/app_card.dart';
+import '../../../../shared/widgets/app_empty_state.dart';
+
 import '../../../../core/errors/app_failure.dart';
 import '../../../../core/utils/result.dart';
 import '../../../../features/accounts/domain/entities/account.dart';
@@ -28,42 +34,48 @@ class TransactionPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateProvider);
 
-    return authState.when(
-      loading: () => const _PageScaffold(body: _CenteredProgress()),
-      error: (_, _) => const _PageScaffold(
-        body: _MessageState(
-          icon: Icons.error_outline,
-          title: 'Unable to check sign-in status',
-          message: 'Please restart the app and try again.',
-        ),
-      ),
-      data: (result) {
-        return result.when(
-          failure: (failure) => _PageScaffold(
-            body: _MessageState(
-              icon: Icons.error_outline,
-              title: 'Unable to check sign-in status',
-              message: failure.message,
+    return AppScaffold(
+      body: Column(
+        children: [
+          const AppPageHeader(
+            title: 'Transactions',
+            subtitle: 'Manage your income and expenses.',
+          ),
+          Expanded(
+            child: authState.when(
+              loading: () => const _CenteredProgress(),
+              error: (_, _) => const AppEmptyState(
+                icon: Icons.error_outline,
+                title: 'Unable to check sign-in status',
+                description: 'Please restart the app and try again.',
+              ),
+              data: (result) {
+                return result.when(
+                  failure: (failure) => AppEmptyState(
+                    icon: Icons.error_outline,
+                    title: 'Unable to check sign-in status',
+                    description: failure.message,
+                  ),
+                  success: (user) {
+                    if (user == null) {
+                      return const AppEmptyState(
+                        icon: Icons.lock_outline,
+                        title: 'Sign in required',
+                        description: 'Sign in to manage your transactions.',
+                      );
+                    }
+
+                    return _TransactionContent(
+                      userId: user.id,
+                      initialDetectedTransaction: initialDetectedTransaction,
+                    );
+                  },
+                );
+              },
             ),
           ),
-          success: (user) {
-            if (user == null) {
-              return const _PageScaffold(
-                body: _MessageState(
-                  icon: Icons.lock_outline,
-                  title: 'Sign in required',
-                  message: 'Sign in to manage your transactions.',
-                ),
-              );
-            }
-
-            return _TransactionContent(
-              userId: user.id,
-              initialDetectedTransaction: initialDetectedTransaction,
-            );
-          },
-        );
-      },
+        ],
+      ),
     );
   }
 }
@@ -130,61 +142,56 @@ class _TransactionContent extends ConsumerWidget {
       });
     }
 
-    return _PageScaffold(
-      action: IconButton(
-        tooltip: 'Add transaction',
-        onPressed: operationState.isLoading || !canCreate
-            ? null
-            : () => _showCreateDialog(context, ref, loaded.data!),
-        icon: const Icon(Icons.add),
-      ),
-      floatingActionButton: loaded.data == null
-          ? null
-          : FloatingActionButton.extended(
+    return Stack(
+      children: [
+        switch (loaded) {
+          _LoadedData(isLoading: true) => const _CenteredProgress(),
+          _LoadedData(failure: final failure?) => AppEmptyState(
+            icon: Icons.error_outline,
+            title: 'Unable to load transactions',
+            description: failure.message,
+          ),
+          _LoadedData(data: final data?) => _TransactionBody(
+            data: data,
+            transactions: applyFilters.execute(
+              transactions: data.transactions,
+              categories: data.categories,
+              criteria: filterCriteria,
+            ),
+            filterCriteria: filterCriteria,
+            isBusy: operationState.isLoading,
+            onRefresh: () async {
+              ref.invalidate(transactionListProvider(userId));
+              ref.invalidate(pendingTransactionDraftListProvider(userId));
+              ref.invalidate(categoryListProvider(userId));
+            },
+            onCreate: () => _showCreateDialog(context, ref, data),
+            onEdit: (transaction) =>
+                _showEditDialog(context, ref, data, transaction),
+            onDelete: (transaction) =>
+                _confirmDelete(context, ref, data.userId, transaction),
+            onSaveDraft: (draft) => _showDraftDialog(context, ref, data, draft),
+            onClearFilters: () =>
+                ref.read(transactionFilterProvider.notifier).clear(),
+          ),
+          _ => const AppEmptyState(
+            icon: Icons.error_outline,
+            title: 'Unable to load transactions',
+            description: 'Please try again.',
+          ),
+        },
+        if (loaded.data != null)
+          Positioned(
+            bottom: 24,
+            right: 24,
+            child: FloatingActionButton(
               onPressed: operationState.isLoading || !canCreate
                   ? null
                   : () => _showCreateDialog(context, ref, loaded.data!),
-              icon: const Icon(Icons.add),
-              label: const Text('Transaction'),
+              child: const Icon(Icons.add),
             ),
-      body: switch (loaded) {
-        _LoadedData(isLoading: true) => const _CenteredProgress(),
-        _LoadedData(failure: final failure?) => _MessageState(
-          icon: Icons.error_outline,
-          title: 'Unable to load transactions',
-          message: failure.message,
-        ),
-        _LoadedData(data: final data?) => _TransactionBody(
-          data: data,
-          transactions: applyFilters.execute(
-            transactions: data.transactions,
-            categories: data.categories,
-            // accounts: data.accounts,
-            criteria: filterCriteria,
           ),
-          filterCriteria: filterCriteria,
-          isBusy: operationState.isLoading,
-          onRefresh: () async {
-            ref.invalidate(transactionListProvider(userId));
-            ref.invalidate(pendingTransactionDraftListProvider(userId));
-            ref.invalidate(categoryListProvider(userId));
-            // ref.invalidate(accountListProvider(userId));
-          },
-          onCreate: () => _showCreateDialog(context, ref, data),
-          onEdit: (transaction) =>
-              _showEditDialog(context, ref, data, transaction),
-          onDelete: (transaction) =>
-              _confirmDelete(context, ref, data.userId, transaction),
-          onSaveDraft: (draft) => _showDraftDialog(context, ref, data, draft),
-          onClearFilters: () =>
-              ref.read(transactionFilterProvider.notifier).clear(),
-        ),
-        _ => const _MessageState(
-          icon: Icons.error_outline,
-          title: 'Unable to load transactions',
-          message: 'Please try again.',
-        ),
-      },
+      ],
     );
   }
 
@@ -571,7 +578,6 @@ class _TransactionFilterPanelState
                         },
                         icon: const Icon(Icons.close),
                       ),
-                border: const OutlineInputBorder(),
               ),
               onChanged: notifier.setSearchQuery,
             ),
@@ -624,8 +630,7 @@ class _TransactionFilterPanelState
                         : null,
                     decoration: const InputDecoration(
                       labelText: 'Category',
-                      border: OutlineInputBorder(),
-                    ),
+                        ),
                     items: [
                       const DropdownMenuItem<String>(
                         child: Text('All categories'),
@@ -651,8 +656,7 @@ class _TransactionFilterPanelState
                         : null,
                     decoration: const InputDecoration(
                       labelText: 'Account',
-                      border: OutlineInputBorder(),
-                    ),
+                        ),
                     items: [
                       const DropdownMenuItem<String>(
                         child: Text('All accounts'),
@@ -677,8 +681,7 @@ class _TransactionFilterPanelState
                     decoration: const InputDecoration(
                       labelText: 'Min amount',
                       prefixText: 'Rp ',
-                      border: OutlineInputBorder(),
-                    ),
+                        ),
                     onChanged: (value) {
                       notifier.setMinAmount(_parseAmount(value));
                     },
@@ -694,8 +697,7 @@ class _TransactionFilterPanelState
                     decoration: const InputDecoration(
                       labelText: 'Max amount',
                       prefixText: 'Rp ',
-                      border: OutlineInputBorder(),
-                    ),
+                        ),
                     onChanged: (value) {
                       notifier.setMaxAmount(_parseAmount(value));
                     },
@@ -779,48 +781,80 @@ class _TransactionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = transactionTypeColor(context, transaction.type);
-    final signedAmount = transaction.type == TransactionType.income ? '+' : '-';
+    final isIncome = transaction.type == TransactionType.income;
+    final color = isIncome ? AppColors.income : AppColors.expense;
+    final bgColor = isIncome ? AppColors.incomeLight : AppColors.expenseLight;
+    final signedAmount = isIncome ? '+' : '-';
 
-    return Card(
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: color.withValues(alpha: 0.14),
-          foregroundColor: color,
-          child: Icon(transactionTypeIcon(transaction.type)),
-        ),
-        title: Text(
-          '$signedAmount${formatIdr(transaction.amount)}',
-          style: TextStyle(color: color, fontWeight: FontWeight.w700),
-        ),
-        subtitle: Text(
-          [
-            category?.name ?? 'Unknown category',
-            account?.name ?? 'Unknown account',
-            formatDate(transaction.transactionDate),
-            transactionSourceLabel(transaction.source),
-            ?transaction.note.isNotEmpty ? transaction.note : null,
-          ].join(' - '),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: Wrap(
-          spacing: 4,
-          children: [
-            IconButton(
-              tooltip: 'Edit',
-              onPressed: isBusy ? null : onEdit,
-              icon: const Icon(Icons.edit_outlined),
+    return AppCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: bgColor,
+            foregroundColor: color,
+            radius: 20,
+            child: Icon(transactionTypeIcon(transaction.type), size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  [
+                    category?.name ?? 'Unknown',
+                    account?.name ?? 'Unknown',
+                  ].join(' • '),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  formatDate(transaction.transactionDate),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.textSecondary),
+                ),
+              ],
             ),
-            IconButton(
-              tooltip: 'Delete',
-              onPressed: isBusy ? null : onDelete,
-              icon: const Icon(Icons.delete_outline),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '$signedAmount${formatIdr(transaction.amount)}',
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: color,
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 2),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceVariant,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  transactionSourceLabel(transaction.source),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(fontSize: 10),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 12),
+          IconButton(
+            tooltip: 'Edit',
+            onPressed: isBusy ? null : onEdit,
+            icon: const Icon(Icons.edit_outlined, color: AppColors.textSecondary, size: 20),
+          ),
+          IconButton(
+            tooltip: 'Delete',
+            onPressed: isBusy ? null : onDelete,
+            icon: const Icon(Icons.delete_outline, color: AppColors.expense, size: 20),
+          ),
+        ],
       ),
     );
   }
@@ -833,36 +867,12 @@ class _EmptyTransactions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.receipt_long_outlined,
-              size: 48,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'No transactions yet',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Add income or expenses to start tracking your money.',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: onCreate,
-              icon: const Icon(Icons.add),
-              label: const Text('Add transaction'),
-            ),
-          ],
-        ),
-      ),
+    return AppEmptyState(
+      icon: Icons.receipt_long_outlined,
+      title: 'No transactions yet',
+      description: 'Start tracking your income and expenses.',
+      actionLabel: 'Add transaction',
+      onAction: onCreate,
     );
   }
 }
@@ -874,36 +884,12 @@ class _NoMatchingTransactions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.search_off_outlined,
-              size: 48,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'No matching transactions',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Adjust the search or filters to see more transactions.',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: onClear,
-              icon: const Icon(Icons.filter_alt_off),
-              label: const Text('Clear filters'),
-            ),
-          ],
-        ),
-      ),
+    return AppEmptyState(
+      icon: Icons.search_off_outlined,
+      title: 'No matching transactions',
+      description: 'Adjust the search or filters to see more transactions.',
+      actionLabel: 'Clear filters',
+      onAction: onClear,
     );
   }
 }
@@ -1003,57 +989,6 @@ class _TransactionScreenData {
   final Map<String, Account> accountById;
 }
 
-class _PageScaffold extends StatelessWidget {
-  const _PageScaffold({
-    required this.body,
-    this.action,
-    this.floatingActionButton,
-  });
-
-  final Widget body;
-  final Widget? action;
-  final Widget? floatingActionButton;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Transactions'), actions: [?action]),
-      body: body,
-      floatingActionButton: floatingActionButton,
-    );
-  }
-}
-
-class _MessageState extends StatelessWidget {
-  const _MessageState({
-    required this.icon,
-    required this.title,
-    required this.message,
-  });
-
-  final IconData icon;
-  final String title;
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 48, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(height: 12),
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            Text(message, textAlign: TextAlign.center),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _CenteredProgress extends StatelessWidget {
   const _CenteredProgress();
