@@ -30,6 +30,7 @@ class TransactionFormDialog extends StatefulWidget {
 }
 
 class _TransactionFormDialogState extends State<TransactionFormDialog> {
+  final _formKey = GlobalKey<FormState>();
   late final TextEditingController _amountController;
   late final TextEditingController _noteController;
   late TransactionType _type;
@@ -94,102 +95,107 @@ class _TransactionFormDialogState extends State<TransactionFormDialog> {
       content: SizedBox(
         width: 480,
         child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SegmentedButton<TransactionType>(
-                segments: const [
-                  ButtonSegment(
-                    value: TransactionType.expense,
-                    icon: Icon(Icons.remove_circle_outline),
-                    label: Text('Expense'),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SegmentedButton<TransactionType>(
+                  segments: const [
+                    ButtonSegment(
+                      value: TransactionType.expense,
+                      icon: Icon(Icons.remove_circle_outline),
+                      label: Text('Expense'),
+                    ),
+                    ButtonSegment(
+                      value: TransactionType.income,
+                      icon: Icon(Icons.add_circle_outline),
+                      label: Text('Income'),
+                    ),
+                  ],
+                  selected: {_type},
+                  onSelectionChanged: (values) {
+                    setState(() {
+                      _type = values.first;
+                      _categoryId = null;
+                      _ensureValidSelections();
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _amountController,
+                  autofocus: true,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
                   ),
-                  ButtonSegment(
-                    value: TransactionType.income,
-                    icon: Icon(Icons.add_circle_outline),
-                    label: Text('Income'),
+                  decoration: const InputDecoration(
+                    labelText: 'Amount',
+                    prefixText: 'Rp ',
                   ),
-                ],
-                selected: {_type},
-                onSelectionChanged: (values) {
-                  setState(() {
-                    _type = values.first;
-                    _categoryId = null;
-                    _ensureValidSelections();
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _amountController,
-                autofocus: true,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
+                  validator: (value) {
+                    final amount = _parseAmount(value ?? '');
+                    return amount == null || amount <= 0
+                        ? 'Enter an amount above zero'
+                        : null;
+                  },
                 ),
-                decoration: const InputDecoration(
-                  labelText: 'Amount',
-                  prefixText: 'Rp ',
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  initialValue: _categoryId,
+                  decoration: const InputDecoration(labelText: 'Category'),
+                  items: availableCategories
+                      .map(
+                        (category) => DropdownMenuItem(
+                          value: category.id,
+                          child: Text(category.name),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: availableCategories.isEmpty
+                      ? null
+                      : (value) => setState(() => _categoryId = value),
+                  validator: (value) =>
+                      value == null ? 'Select a category' : null,
                 ),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                initialValue: _categoryId,
-                decoration: const InputDecoration(
-                  labelText: 'Category',
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  initialValue: _accountId,
+                  decoration: const InputDecoration(labelText: 'Account'),
+                  items: activeAccounts
+                      .map(
+                        (account) => DropdownMenuItem(
+                          value: account.id,
+                          child: Text('${account.name} (${account.currency})'),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: activeAccounts.isEmpty
+                      ? null
+                      : (value) => setState(() => _accountId = value),
+                  validator: (value) =>
+                      value == null ? 'Select a financial account' : null,
                 ),
-                items: availableCategories
-                    .map(
-                      (category) => DropdownMenuItem(
-                        value: category.id,
-                        child: Text(category.name),
-                      ),
-                    )
-                    .toList(growable: false),
-                onChanged: availableCategories.isEmpty
-                    ? null
-                    : (value) => setState(() => _categoryId = value),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                initialValue: _accountId,
-                decoration: const InputDecoration(
-                  labelText: 'Account',
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: _pickDate,
+                  icon: const Icon(Icons.calendar_today_outlined),
+                  label: Text(formatDate(_date)),
                 ),
-                items: activeAccounts
-                    .map(
-                      (account) => DropdownMenuItem(
-                        value: account.id,
-                        child: Text('${account.name} (${account.currency})'),
-                      ),
-                    )
-                    .toList(growable: false),
-                onChanged: activeAccounts.isEmpty
-                    ? null
-                    : (value) => setState(() => _accountId = value),
-              ),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: _pickDate,
-                icon: const Icon(Icons.calendar_today_outlined),
-                label: Text(formatDate(_date)),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _noteController,
-                textCapitalization: TextCapitalization.sentences,
-                maxLength: 120,
-                minLines: 2,
-                maxLines: 4,
-                decoration: const InputDecoration(
-                  labelText: 'Note',
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _noteController,
+                  textCapitalization: TextCapitalization.sentences,
+                  maxLength: 120,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Notes (optional)',
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -200,14 +206,11 @@ class _TransactionFormDialogState extends State<TransactionFormDialog> {
         ),
         FilledButton.icon(
           onPressed: () {
+            if (!(_formKey.currentState?.validate() ?? false)) {
+              return;
+            }
             final command = _command();
             if (command == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Enter a valid amount, category, and account.'),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
               return;
             }
 

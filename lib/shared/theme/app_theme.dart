@@ -27,6 +27,8 @@ abstract final class AppSpacing {
   static const lg = 20.0;
   static const xl = 24.0;
   static const xxl = 32.0;
+  static const xxxl = 40.0;
+  static const huge = 48.0;
 }
 
 abstract final class AppRadius {
@@ -34,6 +36,18 @@ abstract final class AppRadius {
   static const card = 16.0;
   static const panel = 20.0;
   static const dialog = 24.0;
+  static const pill = 999.0;
+}
+
+abstract final class AppBreakpoints {
+  static const mobile = 600.0;
+  static const desktop = 1024.0;
+
+  static bool isMobile(BuildContext context) =>
+      MediaQuery.sizeOf(context).width < mobile;
+
+  static bool isDesktop(BuildContext context) =>
+      MediaQuery.sizeOf(context).width >= desktop;
 }
 
 ThemeData buildAppTheme() {
@@ -87,6 +101,17 @@ ThemeData buildAppTheme() {
       fontSize: 14,
       letterSpacing: 0,
     ),
+    bodyLarge: base.textTheme.bodyLarge?.copyWith(
+      color: AppColors.textPrimary,
+      fontSize: 16,
+      letterSpacing: 0,
+    ),
+    labelMedium: base.textTheme.labelMedium?.copyWith(
+      color: AppColors.textSecondary,
+      fontSize: 13,
+      fontWeight: FontWeight.w500,
+      letterSpacing: 0,
+    ),
     bodySmall: base.textTheme.bodySmall?.copyWith(
       color: AppColors.textSecondary,
       fontSize: 13,
@@ -116,6 +141,14 @@ ThemeData buildAppTheme() {
         color: AppColors.textPrimary,
         fontSize: 22,
         fontWeight: FontWeight.w700,
+      ),
+    ),
+    iconButtonTheme: IconButtonThemeData(
+      style: IconButton.styleFrom(
+        minimumSize: const Size(44, 44),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.control),
+        ),
       ),
     ),
     cardTheme: CardThemeData(
@@ -235,6 +268,18 @@ ThemeData buildAppTheme() {
       backgroundColor: AppColors.primary,
       foregroundColor: Colors.white,
       elevation: 2,
+    ),
+    chipTheme: base.chipTheme.copyWith(
+      backgroundColor: AppColors.surfaceVariant,
+      selectedColor: AppColors.primaryLight,
+      side: const BorderSide(color: AppColors.divider),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      labelStyle: const TextStyle(
+        color: AppColors.textPrimary,
+        fontWeight: FontWeight.w500,
+      ),
     ),
     dialogTheme: DialogThemeData(
       backgroundColor: AppColors.surface,

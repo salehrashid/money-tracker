@@ -16,6 +16,7 @@ class CategoryFormDialog extends StatefulWidget {
 }
 
 class _CategoryFormDialogState extends State<CategoryFormDialog> {
+  final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late TransactionType _type;
   late String _icon;
@@ -46,103 +47,103 @@ class _CategoryFormDialogState extends State<CategoryFormDialog> {
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: _nameController,
-                autofocus: true,
-                textCapitalization: TextCapitalization.words,
-                maxLength: 48,
-                decoration: const InputDecoration(
-                  labelText: 'Name',
-                  border: OutlineInputBorder(),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.words,
+                  maxLength: 48,
+                  decoration: const InputDecoration(labelText: 'Name'),
+                  validator: (value) => (value ?? '').trim().isEmpty
+                      ? 'Enter a category name'
+                      : null,
                 ),
-              ),
-              const SizedBox(height: 12),
-              SegmentedButton<TransactionType>(
-                segments: const [
-                  ButtonSegment(
-                    value: TransactionType.expense,
-                    icon: Icon(Icons.remove_circle_outline),
-                    label: Text('Expense'),
-                  ),
-                  ButtonSegment(
-                    value: TransactionType.income,
-                    icon: Icon(Icons.add_circle_outline),
-                    label: Text('Income'),
-                  ),
-                ],
-                selected: {_type},
-                onSelectionChanged: (values) {
-                  setState(() => _type = values.first);
-                },
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                initialValue: categoryIconOptions.contains(_icon)
-                    ? _icon
-                    : categoryIconOptions.last,
-                decoration: const InputDecoration(
-                  labelText: 'Icon',
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 12),
+                SegmentedButton<TransactionType>(
+                  segments: const [
+                    ButtonSegment(
+                      value: TransactionType.expense,
+                      icon: Icon(Icons.remove_circle_outline),
+                      label: Text('Expense'),
+                    ),
+                    ButtonSegment(
+                      value: TransactionType.income,
+                      icon: Icon(Icons.add_circle_outline),
+                      label: Text('Income'),
+                    ),
+                  ],
+                  selected: {_type},
+                  onSelectionChanged: (values) {
+                    setState(() => _type = values.first);
+                  },
                 ),
-                items: categoryIconOptions
-                    .map((icon) {
-                      return DropdownMenuItem(
-                        value: icon,
-                        child: Row(
-                          children: [
-                            Icon(categoryIconData(icon)),
-                            const SizedBox(width: 12),
-                            Text(categoryIconLabel(icon)),
-                          ],
-                        ),
-                      );
-                    })
-                    .toList(growable: false),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() => _icon = value);
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: categoryColorOptions
-                    .map((color) {
-                      final isSelected = color == _color;
-                      return Tooltip(
-                        message: color,
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: () => setState(() => _color = color),
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: categoryColor(color),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: isSelected
-                                    ? Theme.of(context).colorScheme.onSurface
-                                    : Colors.transparent,
-                                width: 3,
-                              ),
-                            ),
-                            child: isSelected
-                                ? const Icon(Icons.check, color: Colors.white)
-                                : null,
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  initialValue: categoryIconOptions.contains(_icon)
+                      ? _icon
+                      : categoryIconOptions.last,
+                  decoration: const InputDecoration(labelText: 'Icon'),
+                  items: categoryIconOptions
+                      .map((icon) {
+                        return DropdownMenuItem(
+                          value: icon,
+                          child: Row(
+                            children: [
+                              Icon(categoryIconData(icon)),
+                              const SizedBox(width: 12),
+                              Text(categoryIconLabel(icon)),
+                            ],
                           ),
-                        ),
-                      );
-                    })
-                    .toList(growable: false),
-              ),
-            ],
+                        );
+                      })
+                      .toList(growable: false),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _icon = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: categoryColorOptions
+                      .map((color) {
+                        final isSelected = color == _color;
+                        return Tooltip(
+                          message: color,
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: () => setState(() => _color = color),
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: categoryColor(color),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: isSelected
+                                      ? Theme.of(context).colorScheme.onSurface
+                                      : Colors.transparent,
+                                  width: 3,
+                                ),
+                              ),
+                              child: isSelected
+                                  ? const Icon(Icons.check, color: Colors.white)
+                                  : null,
+                            ),
+                          ),
+                        );
+                      })
+                      .toList(growable: false),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -153,6 +154,9 @@ class _CategoryFormDialogState extends State<CategoryFormDialog> {
         ),
         FilledButton.icon(
           onPressed: () {
+            if (!(_formKey.currentState?.validate() ?? false)) {
+              return;
+            }
             Navigator.of(context).pop(
               SaveCategoryCommand(
                 name: _nameController.text,

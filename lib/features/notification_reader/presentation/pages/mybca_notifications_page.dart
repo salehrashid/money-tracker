@@ -275,6 +275,7 @@ class _NotificationBody extends ConsumerWidget {
                 icon: Icons.notifications_none,
                 title: 'No MyBCA notifications',
                 message: 'New MyBCA notifications will appear here.',
+                contained: false,
               ),
             )
           else if (filtered.isEmpty)
@@ -284,6 +285,7 @@ class _NotificationBody extends ConsumerWidget {
                 icon: Icons.filter_alt_off,
                 title: 'No matching notifications',
                 message: 'Adjust the filter to see more notifications.',
+                contained: false,
               ),
             )
           else

@@ -15,6 +15,7 @@ class DebtFormDialog extends StatefulWidget {
 }
 
 class _DebtFormDialogState extends State<DebtFormDialog> {
+  final _formKey = GlobalKey<FormState>();
   late final TextEditingController _personNameController;
   late final TextEditingController _amountController;
   late final TextEditingController _noteController;
@@ -51,107 +52,113 @@ class _DebtFormDialogState extends State<DebtFormDialog> {
       content: SizedBox(
         width: 480,
         child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SegmentedButton<DebtKind>(
-                segments: const [
-                  ButtonSegment(
-                    value: DebtKind.debt,
-                    icon: Icon(Icons.call_made_outlined),
-                    label: Text('Debt'),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SegmentedButton<DebtKind>(
+                  segments: const [
+                    ButtonSegment(
+                      value: DebtKind.debt,
+                      icon: Icon(Icons.call_made_outlined),
+                      label: Text('Debt'),
+                    ),
+                    ButtonSegment(
+                      value: DebtKind.receivable,
+                      icon: Icon(Icons.call_received_outlined),
+                      label: Text('Receivable'),
+                    ),
+                  ],
+                  selected: {_kind},
+                  onSelectionChanged: (values) {
+                    setState(() => _kind = values.first);
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _personNameController,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.words,
+                  maxLength: 72,
+                  decoration: const InputDecoration(
+                    labelText: 'Person / entity',
                   ),
-                  ButtonSegment(
-                    value: DebtKind.receivable,
-                    icon: Icon(Icons.call_received_outlined),
-                    label: Text('Receivable'),
+                  validator: (value) => (value ?? '').trim().isEmpty
+                      ? 'Enter a person or entity'
+                      : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _amountController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
                   ),
-                ],
-                selected: {_kind},
-                onSelectionChanged: (values) {
-                  setState(() => _kind = values.first);
-                },
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _personNameController,
-                autofocus: true,
-                textCapitalization: TextCapitalization.words,
-                maxLength: 72,
-                decoration: const InputDecoration(
-                  labelText: 'Person name',
-                  border: OutlineInputBorder(),
+                  decoration: const InputDecoration(
+                    labelText: 'Amount',
+                    prefixText: 'Rp ',
+                  ),
+                  validator: (value) {
+                    final amount = _parseAmount(value ?? '');
+                    return amount == null || amount <= 0
+                        ? 'Enter an amount above zero'
+                        : null;
+                  },
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _amountController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
+                const SizedBox(height: 16),
+                DropdownButtonFormField<DebtStatus>(
+                  initialValue: _status,
+                  decoration: const InputDecoration(labelText: 'Status'),
+                  items: DebtStatus.values
+                      .map(
+                        (status) => DropdownMenuItem(
+                          value: status,
+                          child: Text(debtStatusLabel(status)),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _status = value);
+                    }
+                  },
                 ),
-                decoration: const InputDecoration(
-                  labelText: 'Amount',
-                  prefixText: 'Rp ',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<DebtStatus>(
-                initialValue: _status,
-                decoration: const InputDecoration(
-                  labelText: 'Status',
-                  border: OutlineInputBorder(),
-                ),
-                items: DebtStatus.values
-                    .map(
-                      (status) => DropdownMenuItem(
-                        value: status,
-                        child: Text(debtStatusLabel(status)),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _pickDueDate,
+                      icon: const Icon(Icons.event_outlined),
+                      label: Text(
+                        _dueDate == null
+                            ? 'No due date'
+                            : formatDebtDate(_dueDate!),
                       ),
-                    )
-                    .toList(growable: false),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() => _status = value);
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: _pickDueDate,
-                    icon: const Icon(Icons.event_outlined),
-                    label: Text(
-                      _dueDate == null
-                          ? 'No due date'
-                          : formatDebtDate(_dueDate!),
                     ),
-                  ),
-                  if (_dueDate != null)
-                    IconButton.outlined(
-                      tooltip: 'Clear due date',
-                      onPressed: () => setState(() => _dueDate = null),
-                      icon: const Icon(Icons.close),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _noteController,
-                textCapitalization: TextCapitalization.sentences,
-                maxLength: 160,
-                minLines: 2,
-                maxLines: 4,
-                decoration: const InputDecoration(
-                  labelText: 'Note',
-                  border: OutlineInputBorder(),
+                    if (_dueDate != null)
+                      IconButton.outlined(
+                        tooltip: 'Clear due date',
+                        onPressed: () => setState(() => _dueDate = null),
+                        icon: const Icon(Icons.close),
+                      ),
+                  ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _noteController,
+                  textCapitalization: TextCapitalization.sentences,
+                  maxLength: 160,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Notes (optional)',
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -162,14 +169,11 @@ class _DebtFormDialogState extends State<DebtFormDialog> {
         ),
         FilledButton.icon(
           onPressed: () {
+            if (!(_formKey.currentState?.validate() ?? false)) {
+              return;
+            }
             final command = _command();
             if (command == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Enter a name and an amount above zero.'),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
               return;
             }
 

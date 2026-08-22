@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/errors/app_failure.dart';
@@ -10,6 +11,33 @@ import '../../../transactions/domain/entities/transaction.dart';
 import '../../../transactions/presentation/providers/transaction_providers.dart';
 import '../../application/usecases/build_statistics_overview_use_case.dart';
 import '../../domain/entities/statistics_overview.dart';
+
+enum StatisticsPeriod { week, month, year, custom }
+
+class StatisticsPeriodSelection {
+  const StatisticsPeriodSelection({
+    this.period = StatisticsPeriod.month,
+    this.customRange,
+  });
+
+  final StatisticsPeriod period;
+  final DateTimeRange? customRange;
+}
+
+class StatisticsPeriodNotifier extends Notifier<StatisticsPeriodSelection> {
+  @override
+  StatisticsPeriodSelection build() => const StatisticsPeriodSelection();
+
+  void select(StatisticsPeriod period, {DateTimeRange? customRange}) {
+    state = StatisticsPeriodSelection(period: period, customRange: customRange);
+  }
+}
+
+final statisticsPeriodProvider =
+    NotifierProvider.autoDispose<
+      StatisticsPeriodNotifier,
+      StatisticsPeriodSelection
+    >(StatisticsPeriodNotifier.new);
 
 final buildStatisticsOverviewUseCaseProvider =
     Provider<BuildStatisticsOverviewUseCase>((ref) {
@@ -24,6 +52,7 @@ final statisticsOverviewProvider =
       final transactionsState = ref.watch(transactionListProvider(userId));
       final accountsState = ref.watch(accountListProvider(userId));
       final categoriesState = ref.watch(categoryListProvider(userId));
+      final period = ref.watch(statisticsPeriodProvider);
       final states = [transactionsState, accountsState, categoriesState];
 
       if (states.any((state) => state.isLoading)) {
@@ -62,13 +91,46 @@ final statisticsOverviewProvider =
           .execute(
             accounts: (accountsResult as Success<List<Account>>).value,
             categories: (categoriesResult as Success<List<Category>>).value,
-            transactions:
-                (transactionsResult as Success<List<TransactionEntity>>).value,
+            transactions: _filterByPeriod(
+              (transactionsResult as Success<List<TransactionEntity>>).value,
+              period,
+              DateTime.now(),
+            ),
             now: DateTime.now(),
           );
 
       return AsyncData(Success(overview));
     });
+
+List<TransactionEntity> _filterByPeriod(
+  List<TransactionEntity> transactions,
+  StatisticsPeriodSelection selection,
+  DateTime now,
+) {
+  final localNow = now.toLocal();
+  final start = switch (selection.period) {
+    StatisticsPeriod.week => DateTime(
+      localNow.year,
+      localNow.month,
+      localNow.day,
+    ).subtract(const Duration(days: 6)),
+    StatisticsPeriod.month => DateTime(localNow.year, localNow.month),
+    StatisticsPeriod.year => DateTime(localNow.year),
+    StatisticsPeriod.custom => selection.customRange?.start,
+  };
+  final end = selection.period == StatisticsPeriod.custom
+      ? selection.customRange?.end.add(const Duration(days: 1))
+      : null;
+  if (start == null) {
+    return transactions;
+  }
+  return transactions
+      .where((transaction) {
+        final date = transaction.transactionDate.toLocal();
+        return !date.isBefore(start) && (end == null || date.isBefore(end));
+      })
+      .toList(growable: false);
+}
 
 AppFailure? _firstFailure(List<Result<Object>> results) {
   for (final result in results) {

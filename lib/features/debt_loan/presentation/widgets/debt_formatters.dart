@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../shared/theme/app_theme.dart';
+
 import '../../../../shared/models/finance_enums.dart';
 
 String formatDebtIdr(double value) {
@@ -46,7 +48,7 @@ Color debtKindColor(BuildContext context, DebtKind kind) {
   final colorScheme = Theme.of(context).colorScheme;
   return switch (kind) {
     DebtKind.debt => colorScheme.error,
-    DebtKind.receivable => Colors.teal,
+    DebtKind.receivable => AppColors.income,
   };
 }
 
