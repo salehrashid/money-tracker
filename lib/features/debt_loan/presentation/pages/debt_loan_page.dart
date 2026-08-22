@@ -8,7 +8,9 @@ import '../../../../core/utils/result.dart';
 import '../../../../features/auth/presentation/providers/auth_providers.dart';
 import '../../../../shared/models/finance_enums.dart';
 import '../../../../shared/theme/app_theme.dart';
+import '../../../../shared/undo_delete/pending_delete_controller.dart';
 import '../../../../shared/widgets/app_page.dart';
+import '../../../../shared/widgets/undo_delete_snackbar.dart';
 import '../../application/usecases/debt_commands.dart';
 import '../../domain/entities/debt.dart';
 import '../providers/debt_providers.dart';
@@ -96,6 +98,7 @@ class _DebtContent extends ConsumerWidget {
     final operationState = ref.watch(debtOperationStateProvider);
     final selectedKind = ref.watch(_debtKindFilterProvider);
     final selectedStatus = ref.watch(_debtStatusFilterProvider);
+    final pendingDeletions = ref.watch(pendingDeleteControllerProvider);
 
     ref.listen<AsyncValue<void>>(debtOperationStateProvider, (previous, next) {
       if (previous?.isLoading == true && next.hasValue) {
@@ -156,7 +159,16 @@ class _DebtContent extends ConsumerWidget {
               title: 'Unable to load records',
               message: failure.message,
             ),
-            success: (debts) {
+            success: (allDebts) {
+              final debts = allDebts
+                  .where(
+                    (debt) => !pendingDeletions.values.any(
+                      (pending) => pending.itemKeys.contains(
+                        pendingDeleteItemKey('debt', userId, debt.id),
+                      ),
+                    ),
+                  )
+                  .toList(growable: false);
               final filtered = debts
                   .where((debt) {
                     final matchesKind =
@@ -387,9 +399,17 @@ class _DebtContent extends ConsumerWidget {
       return;
     }
 
-    await _runOperation(
-      ref,
-      () => ref.read(deleteDebtUseCaseProvider(userId)).execute(debt.id),
+    final useCase = ref.read(deleteDebtUseCaseProvider(userId));
+    final itemKey = pendingDeleteItemKey('debt', userId, debt.id);
+    scheduleUndoDelete<Debt>(
+      context: context,
+      ref: ref,
+      operationKey: itemKey,
+      itemKeys: {itemKey},
+      items: [debt],
+      message: '${debt.kind == DebtKind.debt ? 'Debt' : 'Receivable'} deleted',
+      failureMessage: 'Could not delete record. Please try again.',
+      commitDelete: () => useCase.execute(debt.id),
     );
   }
 

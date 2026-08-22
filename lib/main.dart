@@ -6,6 +6,9 @@ import 'core/firebase/firebase_app_initializer.dart';
 import 'core/utils/result.dart';
 import 'features/auth/presentation/pages/auth_gate.dart';
 import 'shared/theme/app_theme.dart';
+import 'shared/undo_delete/pending_delete_controller.dart';
+
+final appScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -13,7 +16,7 @@ Future<void> main() async {
 
   final firebaseResult = await const FirebaseAppInitializer().initialize();
 
-  runApp(ProviderScope(child: MyApp(firebaseResult: firebaseResult)));
+  runApp(MyApp(firebaseResult: firebaseResult));
 }
 
 class MyApp extends StatelessWidget {
@@ -23,7 +26,36 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return ProviderScope(child: _App(firebaseResult: firebaseResult));
+  }
+}
+
+class _App extends ConsumerWidget {
+  const _App({required this.firebaseResult});
+
+  final Result<Object> firebaseResult;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen<PendingDeleteFailure?>(pendingDeleteFailureProvider, (
+      previous,
+      next,
+    ) {
+      if (next == null || previous?.serial == next.serial) {
+        return;
+      }
+      final messenger = appScaffoldMessengerKey.currentState;
+      messenger
+        ?..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(next.message),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+    });
     return MaterialApp(
+      scaffoldMessengerKey: appScaffoldMessengerKey,
       debugShowCheckedModeBanner: false,
       title: 'Fleeca',
       theme: buildAppTheme(),

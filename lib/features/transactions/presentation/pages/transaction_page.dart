@@ -12,7 +12,9 @@ import '../../../../features/notification_reader/domain/entities/detected_transa
 import '../../../../features/notification_reader/presentation/providers/notification_listener_providers.dart';
 import '../../../../shared/models/finance_enums.dart';
 import '../../../../shared/theme/app_theme.dart';
+import '../../../../shared/undo_delete/pending_delete_controller.dart';
 import '../../../../shared/widgets/app_page.dart';
+import '../../../../shared/widgets/undo_delete_snackbar.dart';
 import '../../application/usecases/transaction_commands.dart';
 import '../../application/usecases/transaction_filter.dart';
 import '../../domain/entities/transaction.dart';
@@ -88,6 +90,7 @@ class _TransactionContent extends ConsumerWidget {
     final operationState = ref.watch(transactionOperationStateProvider);
     final filterCriteria = ref.watch(transactionFilterProvider);
     final applyFilters = ref.watch(applyTransactionFiltersUseCaseProvider);
+    final pendingDeletions = ref.watch(pendingDeleteControllerProvider);
 
     ref.listen<AsyncValue<void>>(transactionOperationStateProvider, (
       previous,
@@ -115,6 +118,23 @@ class _TransactionContent extends ConsumerWidget {
       categoriesState: categoriesState,
       accountsState: accountsState,
     );
+    final screenData = loaded.data == null
+        ? null
+        : _TransactionScreenData(
+            userId: loaded.data!.userId,
+            transactions: loaded.data!.transactions
+                .where(
+                  (item) => !pendingDeletions.values.any(
+                    (pending) => pending.itemKeys.contains(
+                      pendingDeleteItemKey('transaction', userId, item.id),
+                    ),
+                  ),
+                )
+                .toList(growable: false),
+            drafts: loaded.data!.drafts,
+            categories: loaded.data!.categories,
+            accounts: loaded.data!.accounts,
+          );
     final canCreate =
         loaded.data != null &&
         loaded.data!.categories.isNotEmpty &&
@@ -161,11 +181,11 @@ class _TransactionContent extends ConsumerWidget {
           title: 'Unable to load transactions',
           message: failure.message,
         ),
-        _LoadedData(data: final data?) => _TransactionBody(
-          data: data,
+        _LoadedData(data: _?) when screenData != null => _TransactionBody(
+          data: screenData,
           transactions: applyFilters.execute(
-            transactions: data.transactions,
-            categories: data.categories,
+            transactions: screenData.transactions,
+            categories: screenData.categories,
             // accounts: data.accounts,
             criteria: filterCriteria,
           ),
@@ -177,12 +197,13 @@ class _TransactionContent extends ConsumerWidget {
             ref.invalidate(categoryListProvider(userId));
             // ref.invalidate(accountListProvider(userId));
           },
-          onCreate: () => _showCreateDialog(context, ref, data),
+          onCreate: () => _showCreateDialog(context, ref, screenData),
           onEdit: (transaction) =>
-              _showEditDialog(context, ref, data, transaction),
+              _showEditDialog(context, ref, screenData, transaction),
           onDelete: (transaction) =>
-              _confirmDelete(context, ref, data.userId, transaction),
-          onSaveDraft: (draft) => _showDraftDialog(context, ref, data, draft),
+              _confirmDelete(context, ref, screenData.userId, transaction),
+          onSaveDraft: (draft) =>
+              _showDraftDialog(context, ref, screenData, draft),
           onClearFilters: () =>
               ref.read(transactionFilterProvider.notifier).clear(),
         ),
@@ -290,11 +311,17 @@ class _TransactionContent extends ConsumerWidget {
       return;
     }
 
-    await _runOperation(
-      ref,
-      () => ref
-          .read(deleteTransactionUseCaseProvider(userId))
-          .execute(transaction.id),
+    final useCase = ref.read(deleteTransactionUseCaseProvider(userId));
+    final itemKey = pendingDeleteItemKey('transaction', userId, transaction.id);
+    scheduleUndoDelete<TransactionEntity>(
+      context: context,
+      ref: ref,
+      operationKey: itemKey,
+      itemKeys: {itemKey},
+      items: [transaction],
+      message: '${transactionTypeLabel(transaction.type)} deleted',
+      failureMessage: 'Could not delete transaction. Please try again.',
+      commitDelete: () => useCase.execute(transaction.id),
     );
   }
 

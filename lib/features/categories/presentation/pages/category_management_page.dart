@@ -6,7 +6,9 @@ import '../../../../core/utils/result.dart';
 import '../../../../features/auth/presentation/providers/auth_providers.dart';
 import '../../../../shared/models/finance_enums.dart';
 import '../../../../shared/theme/app_theme.dart';
+import '../../../../shared/undo_delete/pending_delete_controller.dart';
 import '../../../../shared/widgets/app_page.dart';
+import '../../../../shared/widgets/undo_delete_snackbar.dart';
 import '../../application/usecases/category_commands.dart';
 import '../../domain/entities/category.dart';
 import '../providers/category_providers.dart';
@@ -95,6 +97,7 @@ class _CategoryContent extends ConsumerWidget {
     final operationState = ref.watch(categoryOperationStateProvider);
     final selectedType = ref.watch(_categoryTypeFilterProvider);
     final showArchived = ref.watch(_categoryArchiveFilterProvider);
+    final pendingDeletions = ref.watch(pendingDeleteControllerProvider);
 
     ref.listen<AsyncValue<void>>(categoryOperationStateProvider, (
       previous,
@@ -158,7 +161,16 @@ class _CategoryContent extends ConsumerWidget {
               title: 'Unable to load categories',
               message: failure.message,
             ),
-            success: (categories) {
+            success: (allCategories) {
+              final categories = allCategories
+                  .where(
+                    (category) => !pendingDeletions.values.any(
+                      (pending) => pending.itemKeys.contains(
+                        pendingDeleteItemKey('category', userId, category.id),
+                      ),
+                    ),
+                  )
+                  .toList(growable: false);
               final filtered =
                   categories.where((category) {
                     final matchesType =
@@ -392,10 +404,17 @@ class _CategoryContent extends ConsumerWidget {
       return;
     }
 
-    await _runOperation(
-      ref,
-      () =>
-          ref.read(deleteCategoryUseCaseProvider(userId)).execute(category.id),
+    final useCase = ref.read(deleteCategoryUseCaseProvider(userId));
+    final itemKey = pendingDeleteItemKey('category', userId, category.id);
+    scheduleUndoDelete<Category>(
+      context: context,
+      ref: ref,
+      operationKey: itemKey,
+      itemKeys: {itemKey},
+      items: [category],
+      message: 'Category deleted',
+      failureMessage: 'Could not delete category. Please try again.',
+      commitDelete: () => useCase.execute(category.id),
     );
   }
 

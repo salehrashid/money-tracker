@@ -5,7 +5,9 @@ import '../../../../core/errors/app_failure.dart';
 import '../../../../core/utils/result.dart';
 import '../../../../shared/models/finance_enums.dart';
 import '../../../../shared/theme/app_theme.dart';
+import '../../../../shared/undo_delete/pending_delete_controller.dart';
 import '../../../../shared/widgets/app_page.dart';
+import '../../../../shared/widgets/undo_delete_snackbar.dart';
 import '../../../accounts/domain/entities/account.dart';
 import '../../../accounts/presentation/providers/account_providers.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
@@ -89,6 +91,7 @@ class _NotificationContent extends ConsumerWidget {
     final logsState = ref.watch(notificationLogListProvider(userId));
     final selectedIds = ref.watch(_selectedNotificationIdsProvider);
     final operationState = ref.watch(_notificationOperationProvider);
+    final pendingDeletions = ref.watch(pendingDeleteControllerProvider);
 
     ref.listen<AsyncValue<void>>(_notificationOperationProvider, (_, next) {
       if (next case AsyncError(:final error)) {
@@ -164,15 +167,26 @@ class _NotificationContent extends ConsumerWidget {
             title: 'Unable to load notifications',
             message: failure.message,
           ),
-          success: (logs) => _NotificationBody(
-            userId: userId,
-            logs: logs,
-            selectedIds: selectedIds,
-            isBusy: operationState.isLoading,
-            onRefresh: () async {
-              ref.invalidate(notificationLogListProvider(userId));
-            },
-          ),
+          success: (allLogs) {
+            final logs = allLogs
+                .where(
+                  (log) => !pendingDeletions.values.any(
+                    (pending) => pending.itemKeys.contains(
+                      pendingDeleteItemKey('notification', userId, log.id),
+                    ),
+                  ),
+                )
+                .toList(growable: false);
+            return _NotificationBody(
+              userId: userId,
+              logs: logs,
+              selectedIds: selectedIds,
+              isBusy: operationState.isLoading,
+              onRefresh: () async {
+                ref.invalidate(notificationLogListProvider(userId));
+              },
+            );
+          },
         ),
       ),
     );
@@ -193,11 +207,17 @@ class _NotificationContent extends ConsumerWidget {
       return;
     }
 
-    await _runOperation(
-      ref,
-      () => ref
-          .read(deleteNotificationsUseCaseProvider(userId))
-          .execute(selectedIds),
+    final logs = await _currentLogs(ref, userId);
+    if (!context.mounted || logs == null) {
+      return;
+    }
+    final ids = Set<String>.of(selectedIds);
+    final snapshots = logs.where((log) => ids.contains(log.id)).toList();
+    _scheduleNotificationDelete(
+      context: context,
+      ref: ref,
+      userId: userId,
+      logs: snapshots,
     );
     ref.read(_selectedNotificationIdsProvider.notifier).clear();
   }
@@ -216,9 +236,78 @@ class _NotificationContent extends ConsumerWidget {
       return;
     }
 
-    await _runOperation(
-      ref,
-      () => ref.read(deleteReadNotificationsUseCaseProvider(userId)).execute(),
+    final logs = await _currentLogs(ref, userId);
+    if (!context.mounted || logs == null) {
+      return;
+    }
+    _scheduleNotificationDelete(
+      context: context,
+      ref: ref,
+      userId: userId,
+      logs: logs.where((log) => log.isRead).toList(growable: false),
+    );
+  }
+
+  Future<List<NotificationLog>?> _currentLogs(
+    WidgetRef ref,
+    String userId,
+  ) async {
+    try {
+      final result = await ref.read(notificationLogListProvider(userId).future);
+      return result.when(
+        success: (logs) {
+          final pending = ref.read(pendingDeleteControllerProvider);
+          return logs
+              .where(
+                (log) => !pending.values.any(
+                  (deletion) => deletion.itemKeys.contains(
+                    pendingDeleteItemKey('notification', userId, log.id),
+                  ),
+                ),
+              )
+              .toList(growable: false);
+        },
+        failure: (failure) {
+          ref
+              .read(_notificationOperationProvider.notifier)
+              .setFailure(failure, StackTrace.current);
+          return null;
+        },
+      );
+    } catch (error, stackTrace) {
+      ref
+          .read(_notificationOperationProvider.notifier)
+          .setFailure(error, stackTrace);
+      return null;
+    }
+  }
+
+  void _scheduleNotificationDelete({
+    required BuildContext context,
+    required WidgetRef ref,
+    required String userId,
+    required List<NotificationLog> logs,
+  }) {
+    if (logs.isEmpty) {
+      return;
+    }
+    final ids = logs.map((log) => log.id).toSet();
+    final itemKeys = ids
+        .map((id) => pendingDeleteItemKey('notification', userId, id))
+        .toSet();
+    final useCase = ref.read(deleteNotificationsUseCaseProvider(userId));
+    scheduleUndoDelete<NotificationLog>(
+      context: context,
+      ref: ref,
+      operationKey:
+          'notifications:$userId:${DateTime.now().microsecondsSinceEpoch}',
+      itemKeys: itemKeys,
+      items: logs,
+      message: logs.length == 1
+          ? 'Notification deleted'
+          : '${logs.length} notifications deleted',
+      failureMessage: 'Could not delete notifications. Please try again.',
+      commitDelete: () => useCase.execute(ids),
     );
   }
 }
@@ -422,9 +511,17 @@ class _NotificationBody extends ConsumerWidget {
       return;
     }
 
-    await _runOperation(
-      ref,
-      () => ref.read(deleteNotificationUseCaseProvider(userId)).execute(log.id),
+    final itemKey = pendingDeleteItemKey('notification', userId, log.id);
+    final useCase = ref.read(deleteNotificationUseCaseProvider(userId));
+    scheduleUndoDelete<NotificationLog>(
+      context: context,
+      ref: ref,
+      operationKey: itemKey,
+      itemKeys: {itemKey},
+      items: [log],
+      message: 'Notification deleted',
+      failureMessage: 'Could not delete notification. Please try again.',
+      commitDelete: () => useCase.execute(log.id),
     );
   }
 }
