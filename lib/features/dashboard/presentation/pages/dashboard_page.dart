@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../shared/models/finance_enums.dart';
+import '../../../../shared/theme/app_theme.dart';
+import '../../../../shared/widgets/app_page.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../notification_reader/presentation/pages/mybca_notifications_page.dart';
+import '../../../notification_reader/presentation/providers/notification_listener_providers.dart';
 import '../../domain/entities/dashboard_overview.dart';
 import '../providers/dashboard_providers.dart';
 
@@ -18,8 +22,22 @@ class DashboardPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateProvider);
 
+    final unreadCount = authState.maybeWhen(
+      data: (result) => result.when(
+        success: (user) => user == null
+            ? 0
+            : ref.watch(unreadNotificationCountProvider(user.id)),
+        failure: (_) => 0,
+      ),
+      orElse: () => 0,
+    );
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Dashboard')),
+      appBar: AppTopBar(
+        title: 'Dashboard',
+        subtitle: 'Your financial overview',
+        actions: [_NotificationBell(unreadCount: unreadCount)],
+      ),
       body: authState.when(
         loading: () => const _CenteredProgress(),
         error: (_, _) => const _MessageState(
@@ -53,11 +71,38 @@ class DashboardPage extends ConsumerWidget {
   }
 }
 
+class _NotificationBell extends StatelessWidget {
+  const _NotificationBell({required this.unreadCount});
+
+  final int unreadCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = unreadCount > 99 ? '99+' : unreadCount.toString();
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Badge(
+        isLabelVisible: unreadCount > 0,
+        label: Text(label),
+        child: IconButton(
+          tooltip: 'MyBCA notifications',
+          icon: const Icon(Icons.notifications_outlined),
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const MyBcaNotificationsPage(),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
 class _DashboardContent extends ConsumerWidget {
-  const _DashboardContent({
-    required this.userId,
-    this.onAddTransaction,
-  });
+  const _DashboardContent({required this.userId, this.onAddTransaction});
 
   final String userId;
   final VoidCallback? onAddTransaction;
@@ -81,16 +126,17 @@ class _DashboardContent extends ConsumerWidget {
         ),
         success: (overview) {
           if (overview.isEmpty) {
-            return _NoTransactionsState(
-              onAddTransaction: onAddTransaction,
-            );
+            return _NoTransactionsState(onAddTransaction: onAddTransaction);
           }
 
           return RefreshIndicator(
             onRefresh: () async {
               ref.invalidate(dashboardOverviewProvider(userId));
             },
-            child: _DashboardBody(overview: overview),
+            child: _DashboardBody(
+              overview: overview,
+              onViewTransactions: onAddTransaction,
+            ),
           );
         },
       ),
@@ -99,9 +145,13 @@ class _DashboardContent extends ConsumerWidget {
 }
 
 class _DashboardBody extends StatelessWidget {
-  const _DashboardBody({required this.overview});
+  const _DashboardBody({
+    required this.overview,
+    required this.onViewTransactions,
+  });
 
   final DashboardOverview overview;
+  final VoidCallback? onViewTransactions;
 
   @override
   Widget build(BuildContext context) {
@@ -133,6 +183,7 @@ class _DashboardBody extends StatelessWidget {
                           Expanded(
                             child: _RecentTransactionsCard(
                               transactions: overview.recentTransactions,
+                              onViewAll: onViewTransactions,
                             ),
                           ),
                         ],
@@ -142,6 +193,7 @@ class _DashboardBody extends StatelessWidget {
                       const SizedBox(height: 16),
                       _RecentTransactionsCard(
                         transactions: overview.recentTransactions,
+                        onViewAll: onViewTransactions,
                       ),
                     ],
                   ],
@@ -220,14 +272,13 @@ class _SummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final color = switch (tone) {
-      _SummaryTone.positive => Colors.teal,
+      _SummaryTone.positive => AppColors.income,
       _SummaryTone.negative => colorScheme.error,
       _SummaryTone.neutral => colorScheme.primary,
     };
 
     return Card(
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -263,7 +314,6 @@ class _ExpenseBreakdownCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -331,23 +381,33 @@ class _ExpenseBar extends StatelessWidget {
 }
 
 class _RecentTransactionsCard extends StatelessWidget {
-  const _RecentTransactionsCard({required this.transactions});
+  const _RecentTransactionsCard({
+    required this.transactions,
+    required this.onViewAll,
+  });
 
   final List<DashboardRecentTransaction> transactions;
+  final VoidCallback? onViewAll;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Recent transactions',
-              style: Theme.of(context).textTheme.titleMedium,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Recent transactions',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                TextButton(onPressed: onViewAll, child: const Text('View all')),
+              ],
             ),
             const SizedBox(height: 8),
             if (transactions.isEmpty)
@@ -375,7 +435,9 @@ class _RecentTransactionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIncome = transaction.type == TransactionType.income;
-    final color = isIncome ? Colors.teal : Theme.of(context).colorScheme.error;
+    final color = isIncome
+        ? AppColors.income
+        : Theme.of(context).colorScheme.error;
     final amountPrefix = isIncome ? '+' : '-';
 
     return ListTile(
@@ -506,7 +568,7 @@ class _CenteredProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(child: CircularProgressIndicator());
+    return const AppLoadingState();
   }
 }
 

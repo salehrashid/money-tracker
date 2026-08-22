@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../shared/models/finance_enums.dart';
+import '../../../../shared/theme/app_theme.dart';
+import '../../../../shared/widgets/app_page.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../transactions/presentation/widgets/transaction_formatters.dart';
 import '../../domain/entities/statistics_overview.dart';
@@ -15,7 +17,10 @@ class StatisticsPage extends ConsumerWidget {
     final authState = ref.watch(authStateProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Statistics')),
+      appBar: const AppTopBar(
+        title: 'Statistics',
+        subtitle: 'Understand your financial habits.',
+      ),
       body: authState.when(
         loading: () => const _CenteredProgress(),
         error: (_, _) => const _MessageState(
@@ -54,39 +59,114 @@ class _StatisticsContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final statisticsState = ref.watch(statisticsOverviewProvider(userId));
+    final selection = ref.watch(statisticsPeriodProvider);
 
-    return statisticsState.when(
-      loading: () => const _CenteredProgress(),
-      error: (_, _) => const _MessageState(
-        icon: Icons.error_outline,
-        title: 'Unable to load statistics',
-        message: 'Please check your connection and try again.',
-      ),
-      data: (result) => result.when(
-        failure: (failure) => _MessageState(
-          icon: Icons.error_outline,
-          title: 'Unable to load statistics',
-          message: failure.message,
+    return Column(
+      children: [
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1180),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.md,
+                AppSpacing.md,
+                0,
+              ),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SegmentedButton<StatisticsPeriod>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(
+                      value: StatisticsPeriod.week,
+                      label: Text('Week'),
+                    ),
+                    ButtonSegment(
+                      value: StatisticsPeriod.month,
+                      label: Text('Month'),
+                    ),
+                    ButtonSegment(
+                      value: StatisticsPeriod.year,
+                      label: Text('Year'),
+                    ),
+                    ButtonSegment(
+                      value: StatisticsPeriod.custom,
+                      icon: Icon(Icons.date_range_outlined),
+                      label: Text('Custom'),
+                    ),
+                  ],
+                  selected: {selection.period},
+                  onSelectionChanged: (values) =>
+                      _selectPeriod(context, ref, values.first, selection),
+                ),
+              ),
+            ),
+          ),
         ),
-        success: (overview) {
-          if (overview.isEmpty) {
-            return const _MessageState(
-              icon: Icons.bar_chart_outlined,
-              title: 'No statistics yet',
-              message:
-                  'Add income and expense transactions to see your analytics.',
-            );
-          }
+        Expanded(
+          child: statisticsState.when(
+            loading: () => const _CenteredProgress(),
+            error: (_, _) => const _MessageState(
+              icon: Icons.error_outline,
+              title: 'Unable to load statistics',
+              message: 'Please check your connection and try again.',
+            ),
+            data: (result) => result.when(
+              failure: (failure) => _MessageState(
+                icon: Icons.error_outline,
+                title: 'Unable to load statistics',
+                message: failure.message,
+              ),
+              success: (overview) {
+                if (overview.isEmpty) {
+                  return const _MessageState(
+                    icon: Icons.bar_chart_outlined,
+                    title: 'Not enough data yet',
+                    message:
+                        'Add transactions or select another period to see your financial statistics.',
+                  );
+                }
 
-          return RefreshIndicator(
-            onRefresh: () async {
-              ref.invalidate(statisticsOverviewProvider(userId));
-            },
-            child: _StatisticsBody(overview: overview),
-          );
-        },
-      ),
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    ref.invalidate(statisticsOverviewProvider(userId));
+                  },
+                  child: _StatisticsBody(overview: overview),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
     );
+  }
+
+  Future<void> _selectPeriod(
+    BuildContext context,
+    WidgetRef ref,
+    StatisticsPeriod period,
+    StatisticsPeriodSelection current,
+  ) async {
+    if (period != StatisticsPeriod.custom) {
+      ref.read(statisticsPeriodProvider.notifier).select(period);
+      return;
+    }
+    final now = DateTime.now();
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2000),
+      lastDate: now.add(const Duration(days: 365)),
+      initialDateRange:
+          current.customRange ??
+          DateTimeRange(start: DateTime(now.year, now.month, 1), end: now),
+      helpText: 'Select statistics period',
+    );
+    if (range != null) {
+      ref
+          .read(statisticsPeriodProvider.notifier)
+          .select(StatisticsPeriod.custom, customRange: range);
+    }
   }
 }
 
@@ -215,14 +295,13 @@ class _SummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final color = switch (tone) {
-      _SummaryTone.positive => Colors.teal,
+      _SummaryTone.positive => AppColors.income,
       _SummaryTone.negative => colorScheme.error,
       _SummaryTone.neutral => colorScheme.primary,
     };
 
     return Card(
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -308,7 +387,7 @@ class _MonthlyTrendRow extends StatelessWidget {
                 formatIdr(trend.netCashFlow),
                 style: TextStyle(
                   color: trend.netCashFlow >= 0
-                      ? Colors.teal
+                      ? AppColors.income
                       : colorScheme.error,
                   fontWeight: FontWeight.w600,
                 ),
@@ -320,7 +399,7 @@ class _MonthlyTrendRow extends StatelessWidget {
             label: 'Income',
             value: trend.income,
             maxAmount: maxAmount,
-            color: Colors.teal,
+            color: AppColors.income,
           ),
           const SizedBox(height: 6),
           _TrendBar(
@@ -468,7 +547,7 @@ class _ShareBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final color = switch (tone) {
-      _SummaryTone.positive => Colors.teal,
+      _SummaryTone.positive => AppColors.income,
       _SummaryTone.negative => colorScheme.error,
       _SummaryTone.neutral => colorScheme.primary,
     };
@@ -530,7 +609,6 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -616,7 +694,7 @@ class _CenteredProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(child: CircularProgressIndicator());
+    return const AppLoadingState();
   }
 }
 

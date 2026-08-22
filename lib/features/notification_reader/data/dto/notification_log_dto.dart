@@ -17,6 +17,9 @@ class NotificationLogDto {
     required this.receivedAt,
     required this.createdAt,
     this.detectedAmount,
+    this.isRead = false,
+    this.transactionId,
+    this.deletedAt,
   });
 
   final String id;
@@ -30,6 +33,9 @@ class NotificationLogDto {
   final String dedupeHash;
   final DateTime receivedAt;
   final DateTime createdAt;
+  final bool isRead;
+  final String? transactionId;
+  final DateTime? deletedAt;
 
   factory NotificationLogDto.fromDomain(NotificationLog log) {
     return NotificationLogDto(
@@ -44,6 +50,9 @@ class NotificationLogDto {
       dedupeHash: log.dedupeHash,
       receivedAt: log.receivedAt,
       createdAt: log.createdAt,
+      isRead: log.isRead,
+      transactionId: log.transactionId,
+      deletedAt: log.deletedAt,
     );
   }
 
@@ -76,6 +85,9 @@ class NotificationLogDto {
       dedupeHash: requiredString(data, 'dedupeHash'),
       receivedAt: requiredDateTime(data, 'receivedAt'),
       createdAt: requiredDateTime(data, 'createdAt'),
+      isRead: optionalBool(data, 'isRead') ?? false,
+      transactionId: optionalString(data, 'transactionId'),
+      deletedAt: optionalDateTime(data, 'deletedAt'),
     );
   }
 
@@ -92,6 +104,9 @@ class NotificationLogDto {
       dedupeHash: dedupeHash,
       receivedAt: receivedAt,
       createdAt: createdAt,
+      isRead: isRead,
+      transactionId: transactionId,
+      deletedAt: deletedAt,
     );
   }
 
@@ -108,6 +123,9 @@ class NotificationLogDto {
       'dedupeHash': dedupeHash,
       'receivedAt': timestampFromDate(receivedAt),
       'createdAt': timestampFromDate(createdAt),
+      'isRead': isRead,
+      'transactionId': transactionId,
+      'deletedAt': deletedAt == null ? null : timestampFromDate(deletedAt!),
     };
   }
 }

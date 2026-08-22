@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../shared/theme/app_theme.dart';
+
 import '../../../../shared/models/finance_enums.dart';
 
 String formatIdr(double value) {
@@ -46,7 +48,7 @@ IconData transactionTypeIcon(TransactionType type) {
 Color transactionTypeColor(BuildContext context, TransactionType type) {
   final colorScheme = Theme.of(context).colorScheme;
   return switch (type) {
-    TransactionType.income => Colors.teal,
+    TransactionType.income => AppColors.income,
     TransactionType.expense => colorScheme.error,
   };
 }

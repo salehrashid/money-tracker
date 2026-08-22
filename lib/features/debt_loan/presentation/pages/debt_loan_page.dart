@@ -7,6 +7,8 @@ import '../../../../core/errors/app_failure.dart';
 import '../../../../core/utils/result.dart';
 import '../../../../features/auth/presentation/providers/auth_providers.dart';
 import '../../../../shared/models/finance_enums.dart';
+import '../../../../shared/theme/app_theme.dart';
+import '../../../../shared/widgets/app_page.dart';
 import '../../application/usecases/debt_commands.dart';
 import '../../domain/entities/debt.dart';
 import '../providers/debt_providers.dart';
@@ -96,6 +98,11 @@ class _DebtContent extends ConsumerWidget {
     final selectedStatus = ref.watch(_debtStatusFilterProvider);
 
     ref.listen<AsyncValue<void>>(debtOperationStateProvider, (previous, next) {
+      if (previous?.isLoading == true && next.hasValue) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Debt records updated')));
+      }
       if (next case AsyncError(:final error)) {
         final message = error is AppFailure
             ? error.message
@@ -122,8 +129,9 @@ class _DebtContent extends ConsumerWidget {
     });
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Debt & Receivables'),
+      appBar: AppTopBar(
+        title: 'Debt & Receivables',
+        subtitle: 'Track money you owe and money owed to you.',
         actions: [
           IconButton(
             tooltip: 'Add debt record',
@@ -229,7 +237,13 @@ class _DebtContent extends ConsumerWidget {
                                     debt,
                                   ),
                                   onStatusChanged: (status) =>
-                                      _setStatus(ref, userId, debt, status),
+                                      _confirmStatusChange(
+                                        context,
+                                        ref,
+                                        userId,
+                                        debt,
+                                        status,
+                                      ),
                                   onDelete: () => _confirmDelete(
                                     context,
                                     ref,
@@ -249,13 +263,15 @@ class _DebtContent extends ConsumerWidget {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: operationState.isLoading
-            ? null
-            : () => _showCreateDialog(context, ref, userId),
-        icon: const Icon(Icons.add),
-        label: const Text('Record'),
-      ),
+      floatingActionButton: AppBreakpoints.isDesktop(context)
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: operationState.isLoading
+                  ? null
+                  : () => _showCreateDialog(context, ref, userId),
+              icon: const Icon(Icons.add),
+              label: const Text('Record'),
+            ),
     );
   }
 
@@ -314,32 +330,60 @@ class _DebtContent extends ConsumerWidget {
     );
   }
 
+  Future<void> _confirmStatusChange(
+    BuildContext context,
+    WidgetRef ref,
+    String userId,
+    Debt debt,
+    DebtStatus status,
+  ) async {
+    final action = switch (status) {
+      DebtStatus.paid => 'mark this record as paid',
+      DebtStatus.cancelled => 'cancel this record',
+      DebtStatus.open => 'reopen this record',
+    };
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: Icon(
+          status == DebtStatus.cancelled
+              ? Icons.warning_amber_rounded
+              : Icons.check_circle_outline,
+        ),
+        title: const Text('Update record status?'),
+        content: Text(
+          'Are you sure you want to $action for ${debt.personName}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && context.mounted) {
+      await _setStatus(ref, userId, debt, status);
+    }
+  }
+
   Future<void> _confirmDelete(
     BuildContext context,
     WidgetRef ref,
     String userId,
     Debt debt,
   ) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDeleteConfirmation(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete record?'),
-        content: Text('Delete the record for ${debt.personName}?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton.icon(
-            onPressed: () => Navigator.of(context).pop(true),
-            icon: const Icon(Icons.delete_outline),
-            label: const Text('Delete'),
-          ),
-        ],
-      ),
+      title: 'Delete record?',
+      message: 'The record for ${debt.personName} will be permanently deleted.',
     );
 
-    if (confirmed != true || !context.mounted) {
+    if (!confirmed || !context.mounted) {
       return;
     }
 
@@ -397,29 +441,33 @@ class _DebtHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
+        Row(
           children: [
-            _SummaryChip(
-              icon: Icons.call_made_outlined,
-              label: 'Open debt',
-              value: formatDebtIdr(debtTotal),
+            Expanded(
+              child: _SummaryChip(
+                icon: Icons.call_made_outlined,
+                label: 'Open debt',
+                value: formatDebtIdr(debtTotal),
+                color: AppColors.expense,
+              ),
             ),
-            _SummaryChip(
-              icon: Icons.call_received_outlined,
-              label: 'Open receivable',
-              value: formatDebtIdr(receivableTotal),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: _SummaryChip(
+                icon: Icons.call_received_outlined,
+                label: 'Open receivable',
+                value: formatDebtIdr(receivableTotal),
+                color: AppColors.income,
+              ),
             ),
           ],
         ),
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          crossAxisAlignment: WrapCrossAlignment.center,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SegmentedButton<DebtKind?>(
+              expandedInsets: EdgeInsets.zero,
               segments: const [
                 ButtonSegment(value: null, label: Text('All')),
                 ButtonSegment(
@@ -436,22 +484,16 @@ class _DebtHeader extends StatelessWidget {
               selected: {selectedKind},
               onSelectionChanged: (values) => onKindChanged(values.first),
             ),
+            const SizedBox(height: AppSpacing.sm),
             SegmentedButton<DebtStatus?>(
+              expandedInsets: EdgeInsets.zero,
+              showSelectedIcon: false,
               segments: const [
                 ButtonSegment(value: null, label: Text('All')),
-                ButtonSegment(
-                  value: DebtStatus.open,
-                  icon: Icon(Icons.radio_button_checked),
-                  label: Text('Open'),
-                ),
-                ButtonSegment(
-                  value: DebtStatus.paid,
-                  icon: Icon(Icons.check_circle_outline),
-                  label: Text('Paid'),
-                ),
+                ButtonSegment(value: DebtStatus.open, label: Text('Open')),
+                ButtonSegment(value: DebtStatus.paid, label: Text('Paid')),
                 ButtonSegment(
                   value: DebtStatus.cancelled,
-                  icon: Icon(Icons.cancel_outlined),
                   label: Text('Cancelled'),
                 ),
               ],
@@ -470,18 +512,40 @@ class _SummaryChip extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    required this.color,
   });
 
   final IconData icon;
   final String label;
   final String value;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return Chip(
-      avatar: Icon(icon, size: 18),
-      label: Text('$label: $value'),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 22, color: color),
+            const SizedBox(height: AppSpacing.sm),
+            Text(label, style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: AppSpacing.xxs),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                value,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -508,7 +572,6 @@ class _DebtTile extends StatelessWidget {
 
     return Card(
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
@@ -565,55 +628,119 @@ class _DebtTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 168),
-              child: Wrap(
-                alignment: WrapAlignment.end,
-                spacing: 4,
-                runSpacing: 4,
-                children: [
-                  IconButton(
-                    tooltip: 'Edit',
-                    onPressed: isBusy ? null : onEdit,
-                    icon: const Icon(Icons.edit_outlined),
-                  ),
-                  if (debt.status == DebtStatus.open)
-                    IconButton(
-                      tooltip: 'Mark paid',
-                      onPressed: isBusy
-                          ? null
-                          : () => onStatusChanged(DebtStatus.paid),
-                      icon: const Icon(Icons.check_circle_outline),
-                    )
-                  else
-                    IconButton(
-                      tooltip: 'Reopen',
-                      onPressed: isBusy
-                          ? null
-                          : () => onStatusChanged(DebtStatus.open),
-                      icon: const Icon(Icons.refresh),
+            if (AppBreakpoints.isMobile(context))
+              PopupMenuButton<_DebtAction>(
+                tooltip: 'Record actions',
+                onSelected: (action) {
+                  switch (action) {
+                    case _DebtAction.edit:
+                      onEdit();
+                    case _DebtAction.togglePaid:
+                      onStatusChanged(
+                        debt.status == DebtStatus.open
+                            ? DebtStatus.paid
+                            : DebtStatus.open,
+                      );
+                    case _DebtAction.cancel:
+                      onStatusChanged(DebtStatus.cancelled);
+                    case _DebtAction.delete:
+                      onDelete();
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: _DebtAction.edit,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.edit_outlined),
+                      title: Text('Edit'),
                     ),
-                  IconButton(
-                    tooltip: 'Cancel',
-                    onPressed: isBusy || debt.status == DebtStatus.cancelled
-                        ? null
-                        : () => onStatusChanged(DebtStatus.cancelled),
-                    icon: const Icon(Icons.cancel_outlined),
                   ),
-                  IconButton(
-                    tooltip: 'Delete',
-                    onPressed: isBusy ? null : onDelete,
-                    icon: const Icon(Icons.delete_outline),
+                  PopupMenuItem(
+                    value: _DebtAction.togglePaid,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        debt.status == DebtStatus.open
+                            ? Icons.check_circle_outline
+                            : Icons.refresh,
+                      ),
+                      title: Text(
+                        debt.status == DebtStatus.open ? 'Mark paid' : 'Reopen',
+                      ),
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: _DebtAction.cancel,
+                    enabled: debt.status != DebtStatus.cancelled,
+                    child: const ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.cancel_outlined),
+                      title: Text('Cancel record'),
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: _DebtAction.delete,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.delete_outline),
+                      title: Text('Delete'),
+                    ),
                   ),
                 ],
+              )
+            else
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 168),
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: [
+                    IconButton(
+                      tooltip: 'Edit',
+                      onPressed: isBusy ? null : onEdit,
+                      icon: const Icon(Icons.edit_outlined),
+                    ),
+                    if (debt.status == DebtStatus.open)
+                      IconButton(
+                        tooltip: 'Mark paid',
+                        onPressed: isBusy
+                            ? null
+                            : () => onStatusChanged(DebtStatus.paid),
+                        icon: const Icon(Icons.check_circle_outline),
+                      )
+                    else
+                      IconButton(
+                        tooltip: 'Reopen',
+                        onPressed: isBusy
+                            ? null
+                            : () => onStatusChanged(DebtStatus.open),
+                        icon: const Icon(Icons.refresh),
+                      ),
+                    IconButton(
+                      tooltip: 'Cancel',
+                      onPressed: isBusy || debt.status == DebtStatus.cancelled
+                          ? null
+                          : () => onStatusChanged(DebtStatus.cancelled),
+                      icon: const Icon(Icons.cancel_outlined),
+                    ),
+                    IconButton(
+                      tooltip: 'Delete',
+                      onPressed: isBusy ? null : onDelete,
+                      icon: const Icon(Icons.delete_outline),
+                    ),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       ),
     );
   }
 }
+
+enum _DebtAction { edit, togglePaid, cancel, delete }
 
 class _EmptyDebts extends StatelessWidget {
   const _EmptyDebts({required this.onCreate});
@@ -692,7 +819,7 @@ class _CenteredProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(child: CircularProgressIndicator());
+    return const AppLoadingState();
   }
 }
 

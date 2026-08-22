@@ -11,6 +11,8 @@ import '../../../../features/categories/presentation/providers/category_provider
 import '../../../../features/notification_reader/domain/entities/detected_transaction.dart';
 import '../../../../features/notification_reader/presentation/providers/notification_listener_providers.dart';
 import '../../../../shared/models/finance_enums.dart';
+import '../../../../shared/theme/app_theme.dart';
+import '../../../../shared/widgets/app_page.dart';
 import '../../application/usecases/transaction_commands.dart';
 import '../../application/usecases/transaction_filter.dart';
 import '../../domain/entities/transaction.dart';
@@ -91,6 +93,11 @@ class _TransactionContent extends ConsumerWidget {
       previous,
       next,
     ) {
+      if (previous?.isLoading == true && next.hasValue) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Transactions updated')));
+      }
       if (next case AsyncError(:final error)) {
         final message = error is AppFailure
             ? error.message
@@ -272,28 +279,14 @@ class _TransactionContent extends ConsumerWidget {
     String userId,
     TransactionEntity transaction,
   ) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDeleteConfirmation(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete transaction?'),
-        content: Text(
-          'Delete ${formatIdr(transaction.amount)} from ${formatDate(transaction.transactionDate)}?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton.icon(
-            onPressed: () => Navigator.of(context).pop(true),
-            icon: const Icon(Icons.delete_outline),
-            label: const Text('Delete'),
-          ),
-        ],
-      ),
+      title: 'Delete transaction?',
+      message:
+          '${formatIdr(transaction.amount)} on ${formatDate(transaction.transactionDate)} will be permanently deleted.',
     );
 
-    if (confirmed != true || !context.mounted) {
+    if (!confirmed || !context.mounted) {
       return;
     }
 
@@ -549,9 +542,8 @@ class _TransactionFilterPanelState
 
     return Card(
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -559,7 +551,7 @@ class _TransactionFilterPanelState
               controller: _searchController,
               textInputAction: TextInputAction.search,
               decoration: InputDecoration(
-                labelText: 'Search',
+                hintText: 'Search transactions…',
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: criteria.searchQuery.trim().isEmpty
                     ? null
@@ -571,7 +563,6 @@ class _TransactionFilterPanelState
                         },
                         icon: const Icon(Icons.close),
                       ),
-                border: const OutlineInputBorder(),
               ),
               onChanged: notifier.setSearchQuery,
             ),
@@ -582,6 +573,8 @@ class _TransactionFilterPanelState
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 SegmentedButton<TransactionType?>(
+                  expandedInsets: EdgeInsets.zero,
+                  showSelectedIcon: false,
                   segments: const [
                     ButtonSegment(value: null, label: Text('All')),
                     ButtonSegment(
@@ -613,131 +606,322 @@ class _TransactionFilterPanelState
                     }
                   },
                 ),
-                SizedBox(
-                  width: 220,
-                  child: DropdownButtonFormField<String>(
-                    initialValue:
-                        categories.any(
-                          (category) => category.id == criteria.categoryId,
-                        )
-                        ? criteria.categoryId
-                        : null,
-                    decoration: const InputDecoration(
-                      labelText: 'Category',
-                      border: OutlineInputBorder(),
+                if (AppBreakpoints.isMobile(context))
+                  OutlinedButton.icon(
+                    onPressed: _showMobileFilters,
+                    icon: const Icon(Icons.tune),
+                    label: Text(
+                      criteria.hasActiveFilters
+                          ? 'Filters • Active'
+                          : 'Filters',
                     ),
+                  ),
+                if (!AppBreakpoints.isMobile(context)) ...[
+                  SizedBox(
+                    width: 220,
+                    child: DropdownButtonFormField<String>(
+                      initialValue:
+                          categories.any(
+                            (category) => category.id == criteria.categoryId,
+                          )
+                          ? criteria.categoryId
+                          : null,
+                      decoration: const InputDecoration(
+                        labelText: 'Category',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        const DropdownMenuItem<String>(
+                          child: Text('All categories'),
+                        ),
+                        ...categories.map(
+                          (category) => DropdownMenuItem(
+                            value: category.id,
+                            child: Text(category.name),
+                          ),
+                        ),
+                      ],
+                      onChanged: notifier.setCategoryId,
+                    ),
+                  ),
+                  SizedBox(
+                    width: 220,
+                    child: DropdownButtonFormField<String>(
+                      initialValue:
+                          accounts.any(
+                            (account) => account.id == criteria.accountId,
+                          )
+                          ? criteria.accountId
+                          : null,
+                      decoration: const InputDecoration(
+                        labelText: 'Account',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        const DropdownMenuItem<String>(
+                          child: Text('All accounts'),
+                        ),
+                        ...accounts.map(
+                          (account) => DropdownMenuItem(
+                            value: account.id,
+                            child: Text(account.name),
+                          ),
+                        ),
+                      ],
+                      onChanged: notifier.setAccountId,
+                    ),
+                  ),
+                  SizedBox(
+                    width: 150,
+                    child: TextField(
+                      controller: _minAmountController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'Min amount',
+                        prefixText: 'Rp ',
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (value) {
+                        notifier.setMinAmount(_parseAmount(value));
+                      },
+                    ),
+                  ),
+                  SizedBox(
+                    width: 150,
+                    child: TextField(
+                      controller: _maxAmountController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'Max amount',
+                        prefixText: 'Rp ',
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (value) {
+                        notifier.setMaxAmount(_parseAmount(value));
+                      },
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => _pickDate(
+                      initialDate: criteria.startDate ?? DateTime.now(),
+                      onSelected: notifier.setStartDate,
+                    ),
+                    icon: const Icon(Icons.event_outlined),
+                    label: Text(
+                      criteria.startDate == null
+                          ? 'From'
+                          : formatDate(criteria.startDate!),
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => _pickDate(
+                      initialDate:
+                          criteria.endDate ??
+                          criteria.startDate ??
+                          DateTime.now(),
+                      onSelected: notifier.setEndDate,
+                    ),
+                    icon: const Icon(Icons.event_available_outlined),
+                    label: Text(
+                      criteria.endDate == null
+                          ? 'To'
+                          : formatDate(criteria.endDate!),
+                    ),
+                  ),
+                  if (criteria.hasActiveFilters)
+                    TextButton.icon(
+                      onPressed: notifier.clear,
+                      icon: const Icon(Icons.filter_alt_off),
+                      label: const Text('Reset'),
+                    ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showMobileFilters() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheetContext) => Consumer(
+        builder: (context, ref, _) {
+          final current = ref.watch(transactionFilterProvider);
+          final currentNotifier = ref.read(transactionFilterProvider.notifier);
+          final availableCategories = widget.categories
+              .where(
+                (category) =>
+                    current.type == null || category.type == current.type,
+              )
+              .toList(growable: false);
+          final availableAccounts = widget.accounts
+              .where(
+                (account) =>
+                    !account.isArchived || account.id == current.accountId,
+              )
+              .toList(growable: false);
+
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              0,
+              AppSpacing.lg,
+              MediaQuery.viewInsetsOf(context).bottom + AppSpacing.lg,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Transaction filters',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Narrow results by category, account, amount, or date.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  DropdownButtonFormField<String>(
+                    initialValue:
+                        availableCategories.any(
+                          (category) => category.id == current.categoryId,
+                        )
+                        ? current.categoryId
+                        : null,
+                    decoration: const InputDecoration(labelText: 'Category'),
                     items: [
                       const DropdownMenuItem<String>(
                         child: Text('All categories'),
                       ),
-                      ...categories.map(
+                      ...availableCategories.map(
                         (category) => DropdownMenuItem(
                           value: category.id,
                           child: Text(category.name),
                         ),
                       ),
                     ],
-                    onChanged: notifier.setCategoryId,
+                    onChanged: currentNotifier.setCategoryId,
                   ),
-                ),
-                SizedBox(
-                  width: 220,
-                  child: DropdownButtonFormField<String>(
+                  const SizedBox(height: AppSpacing.sm),
+                  DropdownButtonFormField<String>(
                     initialValue:
-                        accounts.any(
-                          (account) => account.id == criteria.accountId,
+                        availableAccounts.any(
+                          (account) => account.id == current.accountId,
                         )
-                        ? criteria.accountId
+                        ? current.accountId
                         : null,
-                    decoration: const InputDecoration(
-                      labelText: 'Account',
-                      border: OutlineInputBorder(),
-                    ),
+                    decoration: const InputDecoration(labelText: 'Account'),
                     items: [
                       const DropdownMenuItem<String>(
                         child: Text('All accounts'),
                       ),
-                      ...accounts.map(
+                      ...availableAccounts.map(
                         (account) => DropdownMenuItem(
                           value: account.id,
                           child: Text(account.name),
                         ),
                       ),
                     ],
-                    onChanged: notifier.setAccountId,
+                    onChanged: currentNotifier.setAccountId,
                   ),
-                ),
-                SizedBox(
-                  width: 150,
-                  child: TextField(
-                    controller: _minAmountController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: const InputDecoration(
-                      labelText: 'Min amount',
-                      prefixText: 'Rp ',
-                      border: OutlineInputBorder(),
-                    ),
-                    onChanged: (value) {
-                      notifier.setMinAmount(_parseAmount(value));
-                    },
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _minAmountController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          decoration: const InputDecoration(
+                            labelText: 'Min amount',
+                            prefixText: 'Rp ',
+                          ),
+                          onChanged: (value) =>
+                              currentNotifier.setMinAmount(_parseAmount(value)),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: TextField(
+                          controller: _maxAmountController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          decoration: const InputDecoration(
+                            labelText: 'Max amount',
+                            prefixText: 'Rp ',
+                          ),
+                          onChanged: (value) =>
+                              currentNotifier.setMaxAmount(_parseAmount(value)),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                SizedBox(
-                  width: 150,
-                  child: TextField(
-                    controller: _maxAmountController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: const InputDecoration(
-                      labelText: 'Max amount',
-                      prefixText: 'Rp ',
-                      border: OutlineInputBorder(),
-                    ),
-                    onChanged: (value) {
-                      notifier.setMaxAmount(_parseAmount(value));
-                    },
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _pickDate(
+                            initialDate: current.startDate ?? DateTime.now(),
+                            onSelected: currentNotifier.setStartDate,
+                          ),
+                          icon: const Icon(Icons.event_outlined),
+                          label: Text(
+                            current.startDate == null
+                                ? 'From date'
+                                : formatDate(current.startDate!),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _pickDate(
+                            initialDate: current.endDate ?? DateTime.now(),
+                            onSelected: currentNotifier.setEndDate,
+                          ),
+                          icon: const Icon(Icons.event_available_outlined),
+                          label: Text(
+                            current.endDate == null
+                                ? 'To date'
+                                : formatDate(current.endDate!),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () => _pickDate(
-                    initialDate: criteria.startDate ?? DateTime.now(),
-                    onSelected: notifier.setStartDate,
+                  const SizedBox(height: AppSpacing.lg),
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: current.hasActiveFilters
+                            ? currentNotifier.clear
+                            : null,
+                        child: const Text('Reset'),
+                      ),
+                      const Spacer(),
+                      FilledButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        child: const Text('Apply filters'),
+                      ),
+                    ],
                   ),
-                  icon: const Icon(Icons.event_outlined),
-                  label: Text(
-                    criteria.startDate == null
-                        ? 'From'
-                        : formatDate(criteria.startDate!),
-                  ),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () => _pickDate(
-                    initialDate:
-                        criteria.endDate ??
-                        criteria.startDate ??
-                        DateTime.now(),
-                    onSelected: notifier.setEndDate,
-                  ),
-                  icon: const Icon(Icons.event_available_outlined),
-                  label: Text(
-                    criteria.endDate == null
-                        ? 'To'
-                        : formatDate(criteria.endDate!),
-                  ),
-                ),
-                if (criteria.hasActiveFilters)
-                  TextButton.icon(
-                    onPressed: notifier.clear,
-                    icon: const Icon(Icons.filter_alt_off),
-                    label: const Text('Clear'),
-                  ),
-              ],
+                ],
+              ),
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -784,7 +968,6 @@ class _TransactionTile extends StatelessWidget {
 
     return Card(
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: color.withValues(alpha: 0.14),
@@ -1017,9 +1200,15 @@ class _PageScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Transactions'), actions: [?action]),
+      appBar: AppTopBar(
+        title: 'Transactions',
+        subtitle: 'Manage your income and expenses.',
+        actions: [?action],
+      ),
       body: body,
-      floatingActionButton: floatingActionButton,
+      floatingActionButton: AppBreakpoints.isDesktop(context)
+          ? null
+          : floatingActionButton,
     );
   }
 }
@@ -1060,7 +1249,7 @@ class _CenteredProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(child: CircularProgressIndicator());
+    return const AppLoadingState();
   }
 }
 
