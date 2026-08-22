@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../shared/models/finance_enums.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../notification_reader/presentation/pages/mybca_notifications_page.dart';
+import '../../../notification_reader/presentation/providers/notification_listener_providers.dart';
 import '../../domain/entities/dashboard_overview.dart';
 import '../providers/dashboard_providers.dart';
 
@@ -18,8 +20,21 @@ class DashboardPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateProvider);
 
+    final unreadCount = authState.maybeWhen(
+      data: (result) => result.when(
+        success: (user) => user == null
+            ? 0
+            : ref.watch(unreadNotificationCountProvider(user.id)),
+        failure: (_) => 0,
+      ),
+      orElse: () => 0,
+    );
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Dashboard')),
+      appBar: AppBar(
+        title: const Text('Dashboard'),
+        actions: [_NotificationBell(unreadCount: unreadCount)],
+      ),
       body: authState.when(
         loading: () => const _CenteredProgress(),
         error: (_, _) => const _MessageState(
@@ -53,11 +68,38 @@ class DashboardPage extends ConsumerWidget {
   }
 }
 
+class _NotificationBell extends StatelessWidget {
+  const _NotificationBell({required this.unreadCount});
+
+  final int unreadCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = unreadCount > 99 ? '99+' : unreadCount.toString();
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Badge(
+        isLabelVisible: unreadCount > 0,
+        label: Text(label),
+        child: IconButton(
+          tooltip: 'MyBCA notifications',
+          icon: const Icon(Icons.notifications_outlined),
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const MyBcaNotificationsPage(),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
 class _DashboardContent extends ConsumerWidget {
-  const _DashboardContent({
-    required this.userId,
-    this.onAddTransaction,
-  });
+  const _DashboardContent({required this.userId, this.onAddTransaction});
 
   final String userId;
   final VoidCallback? onAddTransaction;
@@ -81,9 +123,7 @@ class _DashboardContent extends ConsumerWidget {
         ),
         success: (overview) {
           if (overview.isEmpty) {
-            return _NoTransactionsState(
-              onAddTransaction: onAddTransaction,
-            );
+            return _NoTransactionsState(onAddTransaction: onAddTransaction);
           }
 
           return RefreshIndicator(

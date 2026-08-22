@@ -13,6 +13,9 @@ class NotificationLog {
     required this.receivedAt,
     required this.createdAt,
     this.detectedAmount,
+    this.isRead = false,
+    this.transactionId,
+    this.deletedAt,
   });
 
   final String id;
@@ -26,6 +29,13 @@ class NotificationLog {
   final String dedupeHash;
   final DateTime receivedAt;
   final DateTime createdAt;
+  final bool isRead;
+  final String? transactionId;
+  final DateTime? deletedAt;
+
+  bool get isDeleted => deletedAt != null;
+  bool get isDetected => detectedType != DetectedTransactionType.unknown;
+  bool get isProcessed => status == NotificationLogStatus.saved;
 
   NotificationLog copyWith({
     String? id,
@@ -39,7 +49,12 @@ class NotificationLog {
     String? dedupeHash,
     DateTime? receivedAt,
     DateTime? createdAt,
+    bool? isRead,
+    String? transactionId,
+    DateTime? deletedAt,
     bool clearDetectedAmount = false,
+    bool clearTransactionId = false,
+    bool clearDeletedAt = false,
   }) {
     return NotificationLog(
       id: id ?? this.id,
@@ -55,6 +70,11 @@ class NotificationLog {
       dedupeHash: dedupeHash ?? this.dedupeHash,
       receivedAt: receivedAt ?? this.receivedAt,
       createdAt: createdAt ?? this.createdAt,
+      isRead: isRead ?? this.isRead,
+      transactionId: clearTransactionId
+          ? null
+          : transactionId ?? this.transactionId,
+      deletedAt: clearDeletedAt ? null : deletedAt ?? this.deletedAt,
     );
   }
 }

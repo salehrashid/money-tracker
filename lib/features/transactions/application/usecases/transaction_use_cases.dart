@@ -47,7 +47,7 @@ class CreateTransactionUseCase {
         categoryId: command.categoryId.trim(),
         accountId: command.accountId.trim(),
         note: command.note.trim(),
-        source: TransactionSource.manual,
+        source: command.source,
         transactionDate: command.transactionDate.toUtc(),
         createdAt: now,
         updatedAt: now,

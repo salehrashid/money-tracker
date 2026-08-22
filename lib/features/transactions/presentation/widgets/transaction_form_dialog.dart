@@ -260,6 +260,9 @@ class _TransactionFormDialogState extends State<TransactionFormDialog> {
       accountId: accountId,
       note: _noteController.text,
       transactionDate: _date,
+      source: widget.detectedTransaction == null
+          ? TransactionSource.manual
+          : TransactionSource.mybcaNotification,
     );
   }
 

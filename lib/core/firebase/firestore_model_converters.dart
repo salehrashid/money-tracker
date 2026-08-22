@@ -27,6 +27,17 @@ bool requiredBool(Map<String, dynamic> data, String key) {
   throw FormatException('Missing or invalid bool field: $key');
 }
 
+bool? optionalBool(Map<String, dynamic> data, String key) {
+  final value = data[key];
+  if (value == null) {
+    return null;
+  }
+  if (value is bool) {
+    return value;
+  }
+  throw FormatException('Invalid bool field: $key');
+}
+
 double requiredDouble(Map<String, dynamic> data, String key) {
   final value = data[key];
   if (value is num) {
