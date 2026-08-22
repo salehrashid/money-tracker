@@ -64,7 +64,9 @@ class _TransactionFormDialogState extends State<TransactionFormDialog> {
           '',
     );
     _categoryId = transaction?.categoryId ?? draft?.suggestedCategoryId;
-    _accountId = transaction?.accountId;
+    _accountId =
+        transaction?.accountId ??
+        (detectedTransaction == null ? null : _myBcaAccountId());
     _ensureValidSelections();
   }
 
@@ -277,6 +279,17 @@ class _TransactionFormDialogState extends State<TransactionFormDialog> {
               (!category.isArchived || category.id == _categoryId),
         )
         .toList(growable: false);
+  }
+
+  String? _myBcaAccountId() {
+    for (final account in widget.accounts) {
+      if (!account.isArchived &&
+          account.name.trim().toLowerCase() == 'rekening' &&
+          account.currency.trim().toUpperCase() == 'IDR') {
+        return account.id;
+      }
+    }
+    return null;
   }
 
   void _ensureValidSelections() {
