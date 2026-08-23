@@ -1226,16 +1226,16 @@ class _PageScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = AppBreakpoints.isDesktop(context);
+
     return Scaffold(
       appBar: AppTopBar(
         title: 'Transactions',
         subtitle: 'Manage your income and expenses.',
-        actions: [?action],
+        actions: isDesktop ? const [] : [?action],
       ),
       body: body,
-      floatingActionButton: AppBreakpoints.isDesktop(context)
-          ? null
-          : floatingActionButton,
+      floatingActionButton: floatingActionButton,
     );
   }
 }

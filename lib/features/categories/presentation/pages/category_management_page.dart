@@ -98,6 +98,7 @@ class _CategoryContent extends ConsumerWidget {
     final selectedType = ref.watch(_categoryTypeFilterProvider);
     final showArchived = ref.watch(_categoryArchiveFilterProvider);
     final pendingDeletions = ref.watch(pendingDeleteControllerProvider);
+    final isDesktop = AppBreakpoints.isDesktop(context);
 
     ref.listen<AsyncValue<void>>(categoryOperationStateProvider, (
       previous,
@@ -137,15 +138,17 @@ class _CategoryContent extends ConsumerWidget {
       appBar: AppTopBar(
         title: 'Categories',
         subtitle: 'Organize your income and expenses.',
-        actions: [
-          IconButton(
-            tooltip: 'Add category',
-            onPressed: operationState.isLoading
-                ? null
-                : () => _showCreateDialog(context, ref, userId),
-            icon: const Icon(Icons.add),
-          ),
-        ],
+        actions: isDesktop
+            ? const []
+            : [
+                IconButton(
+                  tooltip: 'Add category',
+                  onPressed: operationState.isLoading
+                      ? null
+                      : () => _showCreateDialog(context, ref, userId),
+                  icon: const Icon(Icons.add),
+                ),
+              ],
       ),
       body: categoriesState.when(
         loading: () => const _CenteredProgress(),
@@ -308,15 +311,13 @@ class _CategoryContent extends ConsumerWidget {
           );
         },
       ),
-      floatingActionButton: AppBreakpoints.isDesktop(context)
-          ? null
-          : FloatingActionButton.extended(
-              onPressed: operationState.isLoading
-                  ? null
-                  : () => _showCreateDialog(context, ref, userId),
-              icon: const Icon(Icons.add),
-              label: const Text('Category'),
-            ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: operationState.isLoading
+            ? null
+            : () => _showCreateDialog(context, ref, userId),
+        icon: const Icon(Icons.add),
+        label: const Text('Category'),
+      ),
     );
   }
 
