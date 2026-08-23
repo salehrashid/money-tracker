@@ -99,6 +99,7 @@ class _DebtContent extends ConsumerWidget {
     final selectedKind = ref.watch(_debtKindFilterProvider);
     final selectedStatus = ref.watch(_debtStatusFilterProvider);
     final pendingDeletions = ref.watch(pendingDeleteControllerProvider);
+    final isDesktop = AppBreakpoints.isDesktop(context);
 
     ref.listen<AsyncValue<void>>(debtOperationStateProvider, (previous, next) {
       if (previous?.isLoading == true && next.hasValue) {
@@ -135,15 +136,17 @@ class _DebtContent extends ConsumerWidget {
       appBar: AppTopBar(
         title: 'Debt & Receivables',
         subtitle: 'Track money you owe and money owed to you.',
-        actions: [
-          IconButton(
-            tooltip: 'Add debt record',
-            onPressed: operationState.isLoading
-                ? null
-                : () => _showCreateDialog(context, ref, userId),
-            icon: const Icon(Icons.add),
-          ),
-        ],
+        actions: isDesktop
+            ? const []
+            : [
+                IconButton(
+                  tooltip: 'Add debt record',
+                  onPressed: operationState.isLoading
+                      ? null
+                      : () => _showCreateDialog(context, ref, userId),
+                  icon: const Icon(Icons.add),
+                ),
+              ],
       ),
       body: debtState.when(
         loading: () => const _CenteredProgress(),
@@ -275,15 +278,13 @@ class _DebtContent extends ConsumerWidget {
           );
         },
       ),
-      floatingActionButton: AppBreakpoints.isDesktop(context)
-          ? null
-          : FloatingActionButton.extended(
-              onPressed: operationState.isLoading
-                  ? null
-                  : () => _showCreateDialog(context, ref, userId),
-              icon: const Icon(Icons.add),
-              label: const Text('Record'),
-            ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: operationState.isLoading
+            ? null
+            : () => _showCreateDialog(context, ref, userId),
+        icon: const Icon(Icons.add),
+        label: const Text('Record'),
+      ),
     );
   }
 
