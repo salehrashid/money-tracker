@@ -1,4 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firedart/firedart.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/firebase/firestore_user_collections.dart';
 import '../../../../shared/models/finance_enums.dart';
@@ -10,56 +11,56 @@ class FirebaseTransactionDataSource {
 
   final FirestoreUserCollections _collections;
 
-  Stream<List<TransactionDto>> watchTransactions() {
-    return _collections.transactions
-        .where('deletedAt', isNull: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map(TransactionDto.fromFirestore)
-              .toList(growable: false),
-        );
+  Stream<List<TransactionDto>> watchTransactions() async* {
+    yield const [];
+
+    final initialDocuments = await _collections.transactions.get();
+    yield _activeTransactions(initialDocuments);
+
+    yield* _collections.transactions.stream.map(_activeTransactions);
   }
 
-  Stream<List<TransactionDraftDto>> watchPendingDrafts() {
-    return _collections.transactionDrafts
-        .where(
-          'status',
-          isEqualTo: TransactionDraftStatus.pendingReview.firestoreValue,
-        )
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map(TransactionDraftDto.fromFirestore)
-              .toList(growable: false),
-        );
+  List<TransactionDto> _activeTransactions(Iterable<Document> documents) {
+    return documents
+        .map(TransactionDto.fromFirestore)
+        .where((transaction) => transaction.deletedAt == null)
+        .toList(growable: false);
+  }
+
+  Stream<List<TransactionDraftDto>> watchPendingDrafts() async* {
+    yield const [];
+
+    final initialDocuments = await _collections.transactionDrafts.get();
+    yield _pendingDrafts(initialDocuments);
+
+    yield* _collections.transactionDrafts.stream.map(_pendingDrafts);
+  }
+
+  List<TransactionDraftDto> _pendingDrafts(Iterable<Document> documents) {
+    return documents
+        .map(TransactionDraftDto.fromFirestore)
+        .where((draft) => draft.status == TransactionDraftStatus.pendingReview)
+        .toList(growable: false);
   }
 
   Future<TransactionDto?> fetchTransaction(String transactionId) async {
-    final snapshot = await _collections.transactions.doc(transactionId).get();
-    if (!snapshot.exists) {
-      return null;
-    }
-
-    return TransactionDto.fromFirestore(snapshot);
+    final document = _collections.transactions.document(transactionId);
+    if (!await document.exists) return null;
+    return TransactionDto.fromFirestore(await document.get());
   }
 
   Future<TransactionDraftDto?> fetchDraft(String draftId) async {
-    final snapshot = await _collections.transactionDrafts.doc(draftId).get();
-    if (!snapshot.exists) {
-      return null;
-    }
-
-    return TransactionDraftDto.fromFirestore(snapshot);
+    final document = _collections.transactionDrafts.document(draftId);
+    if (!await document.exists) return null;
+    return TransactionDraftDto.fromFirestore(await document.get());
   }
 
   Future<TransactionDto> saveTransaction(TransactionDto transaction) async {
-    final document = transaction.id.isEmpty
-        ? _collections.transactions.doc()
-        : _collections.transactions.doc(transaction.id);
+    final id = transaction.id.isEmpty ? const Uuid().v4() : transaction.id;
+    final document = _collections.transactions.document(id);
     final savedTransaction = transaction.id.isEmpty
         ? TransactionDto(
-            id: document.id,
+            id: id,
             type: transaction.type,
             amount: transaction.amount,
             currency: transaction.currency,
@@ -74,12 +75,18 @@ class FirebaseTransactionDataSource {
           )
         : transaction;
 
-    await document.set({
+    final exists = await document.exists;
+    final now = DateTime.now().toUtc();
+    final data = {
       ...savedTransaction.toFirestore(),
-      if (transaction.id.isEmpty)
-        'serverCreatedAt': FieldValue.serverTimestamp(),
-      'serverUpdatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+      'serverUpdatedAt': now,
+      if (!exists) 'serverCreatedAt': now,
+    };
+    if (exists) {
+      await document.update(data);
+    } else {
+      await document.set(data);
+    }
     return savedTransaction;
   }
 
@@ -87,10 +94,13 @@ class FirebaseTransactionDataSource {
     required TransactionDto transaction,
     required TransactionDraftDto draft,
   }) async {
-    final transactionDocument = _collections.transactions.doc();
-    final draftDocument = _collections.transactionDrafts.doc(draft.id);
+    final transactionId = const Uuid().v4();
+    final transactionDocument = _collections.transactions.document(
+      transactionId,
+    );
+    final draftDocument = _collections.transactionDrafts.document(draft.id);
     final savedTransaction = TransactionDto(
-      id: transactionDocument.id,
+      id: transactionId,
       type: transaction.type,
       amount: transaction.amount,
       currency: transaction.currency,
@@ -108,17 +118,21 @@ class FirebaseTransactionDataSource {
       updatedAt: transaction.updatedAt,
     );
 
-    await _collections.userDocument.firestore.runTransaction((db) async {
-      db.set(transactionDocument, {
-        ...savedTransaction.toFirestore(),
-        'serverCreatedAt': FieldValue.serverTimestamp(),
-        'serverUpdatedAt': FieldValue.serverTimestamp(),
-      });
-      db.set(draftDocument, {
-        ...TransactionDraftDto.fromDomain(savedDraft).toFirestore(),
-        'serverUpdatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+    final now = DateTime.now().toUtc();
+    await transactionDocument.set({
+      ...savedTransaction.toFirestore(),
+      'serverCreatedAt': now,
+      'serverUpdatedAt': now,
     });
+    try {
+      await draftDocument.update({
+        ...TransactionDraftDto.fromDomain(savedDraft).toFirestore(),
+        'serverUpdatedAt': now,
+      });
+    } catch (_) {
+      await transactionDocument.delete();
+      rethrow;
+    }
 
     return savedTransaction;
   }

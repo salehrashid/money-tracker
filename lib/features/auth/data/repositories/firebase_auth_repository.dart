@@ -1,4 +1,4 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firedart/auth/user_gateway.dart';
 
 import '../../../../core/errors/app_failure.dart';
 import '../../../../core/errors/firebase_error_mapper.dart';
@@ -21,7 +21,7 @@ class FirebaseAuthRepository implements AuthRepository {
   Stream<Result<AuthUser?>> authStateChanges() async* {
     try {
       await for (final user in _dataSource.authStateChanges()) {
-        yield Success(_mapUser(user));
+        yield Success(user == null ? null : _mapUser(user));
       }
     } catch (error) {
       yield Failure(_errorMapper.map(error));
@@ -44,23 +44,11 @@ class FirebaseAuthRepository implements AuthRepository {
     }
 
     try {
-      final credential = await _dataSource.signInWithEmailAndPassword(
+      final user = await _dataSource.signInWithEmailAndPassword(
         email: normalizedEmail,
         password: password,
       );
-      final user = credential.user;
-
-      if (user == null) {
-        return const Failure(
-          AppFailure(
-            type: AppFailureType.authentication,
-            code: 'missing-auth-user',
-            message: 'Sign in failed. Please try again.',
-          ),
-        );
-      }
-
-      return Success(_mapUser(user)!);
+      return Success(_mapUser(user));
     } catch (error) {
       return Failure(_errorMapper.map(error));
     }
@@ -82,23 +70,11 @@ class FirebaseAuthRepository implements AuthRepository {
     }
 
     try {
-      final credential = await _dataSource.createUserWithEmailAndPassword(
+      final user = await _dataSource.createUserWithEmailAndPassword(
         email: normalizedEmail,
         password: password,
       );
-      final user = credential.user;
-
-      if (user == null) {
-        return const Failure(
-          AppFailure(
-            type: AppFailureType.authentication,
-            code: 'missing-auth-user',
-            message: 'Registration failed. Please try again.',
-          ),
-        );
-      }
-
-      return Success(_mapUser(user)!);
+      return Success(_mapUser(user));
     } catch (error) {
       return Failure(_errorMapper.map(error));
     }
@@ -114,15 +90,11 @@ class FirebaseAuthRepository implements AuthRepository {
     }
   }
 
-  AuthUser? _mapUser(User? user) {
-    if (user == null) {
-      return null;
-    }
-
+  AuthUser _mapUser(User user) {
     return AuthUser(
-      id: user.uid,
+      id: user.id,
       email: user.email,
-      isEmailVerified: user.emailVerified,
+      isEmailVerified: user.emailVerified ?? false,
     );
   }
 

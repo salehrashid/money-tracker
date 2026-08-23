@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firedart/firedart.dart';
 
 import '../../../../core/firebase/firestore_model_converters.dart';
 import '../../../../shared/models/finance_enums.dart';
@@ -53,13 +53,8 @@ class ReceiptOcrResultDto {
     );
   }
 
-  factory ReceiptOcrResultDto.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> snapshot,
-  ) {
-    return ReceiptOcrResultDto.fromMap(
-      snapshot.data() ?? const {},
-      documentId: snapshot.id,
-    );
+  factory ReceiptOcrResultDto.fromFirestore(Document snapshot) {
+    return ReceiptOcrResultDto.fromMap(snapshot.map, documentId: snapshot.id);
   }
 
   factory ReceiptOcrResultDto.fromMap(

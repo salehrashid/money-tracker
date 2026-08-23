@@ -1,8 +1,9 @@
-import 'package:firebase_core/firebase_core.dart';
+import 'package:firedart/firedart.dart';
 
 import '../errors/firebase_error_mapper.dart';
 import '../utils/result.dart';
 import 'firebase_environment.dart';
+import '../../features/auth/data/datasources/secure_auth_token_store.dart';
 
 class FirebaseAppInitializer {
   const FirebaseAppInitializer({
@@ -11,25 +12,27 @@ class FirebaseAppInitializer {
 
   final FirebaseErrorMapper _errorMapper;
 
-  Future<Result<FirebaseApp>> initialize() async {
+  Future<Result<Object>> initialize() async {
     final optionsResult = FirebaseEnvironment.optionsForCurrentPlatform();
 
     return switch (optionsResult) {
-      Failure<FirebaseOptions>(:final failure) => Failure(failure),
-      Success<FirebaseOptions>(:final value) => _initializeWithOptions(value),
+      Failure<FirebaseConfiguration>(:final failure) => Failure(failure),
+      Success<FirebaseConfiguration>(:final value) => _initialize(value),
     };
   }
 
-  Future<Result<FirebaseApp>> _initializeWithOptions(
-    FirebaseOptions options,
+  Future<Result<Object>> _initialize(
+    FirebaseConfiguration configuration,
   ) async {
     try {
-      if (Firebase.apps.isNotEmpty) {
-        return Success(Firebase.app());
+      if (!FirebaseAuth.initialized) {
+        final tokenStore = await SecureAuthTokenStore.create();
+        FirebaseAuth.initialize(configuration.webApiKey, tokenStore);
       }
-
-      final app = await Firebase.initializeApp(options: options);
-      return Success(app);
+      if (!Firestore.initialized) {
+        Firestore.initialize(configuration.projectId);
+      }
+      return Success(Firestore.instance);
     } catch (error) {
       return Failure(_errorMapper.map(error));
     }

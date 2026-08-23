@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firedart/firedart.dart';
 
 import '../../../../core/firebase/firestore_user_collections.dart';
 import '../dto/notification_log_dto.dart';
@@ -8,21 +8,26 @@ class FirebaseNotificationLogDataSource {
 
   final FirestoreUserCollections _collections;
 
-  Stream<List<NotificationLogDto>> watchLogs() {
-    return _collections.notificationLogs
-        .where('deletedAt', isNull: true)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map(NotificationLogDto.fromFirestore)
-              .toList(growable: false),
-        );
+  Stream<List<NotificationLogDto>> watchLogs() async* {
+    yield const [];
+
+    final initialDocuments = await _collections.notificationLogs.get();
+    yield _activeLogs(initialDocuments);
+
+    yield* _collections.notificationLogs.stream.map(_activeLogs);
+  }
+
+  List<NotificationLogDto> _activeLogs(Iterable<Document> documents) {
+    return documents
+        .map(NotificationLogDto.fromFirestore)
+        .where((log) => log.deletedAt == null)
+        .toList(growable: false);
   }
 
   Future<NotificationLogDto> saveLog(NotificationLogDto log) async {
     final document = log.id.isEmpty
-        ? _collections.notificationLogs.doc(log.dedupeHash)
-        : _collections.notificationLogs.doc(log.id);
+        ? _collections.notificationLogs.document(log.dedupeHash)
+        : _collections.notificationLogs.document(log.id);
     final saved = log.id.isEmpty
         ? NotificationLogDto(
             id: document.id,
@@ -42,28 +47,35 @@ class FirebaseNotificationLogDataSource {
           )
         : log;
 
-    await document.set({
+    final exists = await document.exists;
+    final now = DateTime.now().toUtc();
+    final data = {
       ...saved.toFirestore(),
-      if (log.id.isEmpty) 'serverCreatedAt': FieldValue.serverTimestamp(),
-      'serverUpdatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+      'serverUpdatedAt': now,
+      if (!exists) 'serverCreatedAt': now,
+    };
+    if (exists) {
+      await document.update(data);
+    } else {
+      await document.set(data);
+    }
     return saved;
   }
 
   Future<void> updateLog(String logId, Map<String, dynamic> values) async {
-    await _collections.notificationLogs.doc(logId).set({
+    await _collections.notificationLogs.document(logId).update({
       ...values,
-      'serverUpdatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+      'serverUpdatedAt': DateTime.now().toUtc(),
+    });
   }
 
   Future<void> updateAllMatching({
-    required Query<Map<String, dynamic>> query,
+    required QueryReference query,
     required Map<String, dynamic> values,
   }) async {
-    final snapshot = await query.get();
+    final documents = await query.get();
     await _commitBatches(
-      snapshot.docs.map((doc) => _BatchUpdate(doc.reference, values)),
+      documents.map((doc) => _BatchUpdate(doc.reference, values)),
     );
   }
 
@@ -75,8 +87,10 @@ class FirebaseNotificationLogDataSource {
       logIds
           .where((logId) => logId.trim().isNotEmpty)
           .map(
-            (logId) =>
-                _BatchUpdate(_collections.notificationLogs.doc(logId), values),
+            (logId) => _BatchUpdate(
+              _collections.notificationLogs.document(logId),
+              values,
+            ),
           ),
     );
   }
@@ -95,50 +109,29 @@ class FirebaseNotificationLogDataSource {
       query: _collections.notificationLogs
           .where('deletedAt', isNull: true)
           .where('isRead', isEqualTo: true),
-      values: {'deletedAt': Timestamp.fromDate(deletedAt)},
+      values: {'deletedAt': deletedAt.toUtc()},
     );
   }
 
   Future<void> deleteOlderThan(DateTime cutoff) async {
-    final snapshot = await _collections.notificationLogs
-        .where('receivedAt', isLessThan: Timestamp.fromDate(cutoff))
+    final documents = await _collections.notificationLogs
+        .where('receivedAt', isLessThan: cutoff.toUtc())
         .get();
-    await _commitDeletes(snapshot.docs.map((doc) => doc.reference));
+    await _commitDeletes(documents.map((doc) => doc.reference));
   }
 
   Future<void> _commitBatches(Iterable<_BatchUpdate> updates) async {
-    var batch = _collections.userDocument.firestore.batch();
-    var count = 0;
     for (final update in updates) {
-      batch.set(update.reference, update.values, SetOptions(merge: true));
-      count += 1;
-      if (count == 450) {
-        await batch.commit();
-        batch = _collections.userDocument.firestore.batch();
-        count = 0;
-      }
-    }
-    if (count > 0) {
-      await batch.commit();
+      await update.reference.update({
+        ...update.values,
+        'serverUpdatedAt': DateTime.now().toUtc(),
+      });
     }
   }
 
-  Future<void> _commitDeletes(
-    Iterable<DocumentReference<Map<String, dynamic>>> references,
-  ) async {
-    var batch = _collections.userDocument.firestore.batch();
-    var count = 0;
+  Future<void> _commitDeletes(Iterable<DocumentReference> references) async {
     for (final reference in references) {
-      batch.delete(reference);
-      count += 1;
-      if (count == 450) {
-        await batch.commit();
-        batch = _collections.userDocument.firestore.batch();
-        count = 0;
-      }
-    }
-    if (count > 0) {
-      await batch.commit();
+      await reference.delete();
     }
   }
 }
@@ -146,6 +139,6 @@ class FirebaseNotificationLogDataSource {
 class _BatchUpdate {
   const _BatchUpdate(this.reference, this.values);
 
-  final DocumentReference<Map<String, dynamic>> reference;
+  final DocumentReference reference;
   final Map<String, dynamic> values;
 }

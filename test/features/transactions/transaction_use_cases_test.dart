@@ -291,4 +291,3 @@ Category _category({
     updatedAt: now,
   );
 }
-

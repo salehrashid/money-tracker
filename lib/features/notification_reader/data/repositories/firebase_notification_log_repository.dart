@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../../../../core/errors/app_failure.dart';
 import '../../../../core/errors/firebase_error_mapper.dart';
 import '../../../../core/utils/result.dart';
@@ -88,7 +86,7 @@ class FirebaseNotificationLogRepository implements NotificationLogRepository {
   Future<Result<void>> deleteLogs(Set<String> logIds) async {
     try {
       await _dataSource.updateMany(logIds, {
-        'deletedAt': Timestamp.fromDate(DateTime.now().toUtc()),
+        'deletedAt': DateTime.now().toUtc(),
       });
       return const Success(null);
     } catch (error) {

@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../../../../core/firebase/firestore_user_collections.dart';
 import '../dto/account_dto.dart';
 
@@ -8,25 +6,37 @@ class FirebaseAccountDataSource {
 
   final FirestoreUserCollections _collections;
 
-  Stream<List<AccountDto>> watchAccounts() {
-    return _collections.accounts.snapshots().map(
-      (snapshot) =>
-          snapshot.docs.map(AccountDto.fromFirestore).toList(growable: false),
+  Stream<List<AccountDto>> watchAccounts() async* {
+    yield const [];
+
+    final initialDocuments = await _collections.accounts.get();
+    yield initialDocuments
+        .map(AccountDto.fromFirestore)
+        .toList(growable: false);
+
+    yield* _collections.accounts.stream.map(
+      (documents) =>
+          documents.map(AccountDto.fromFirestore).toList(growable: false),
     );
   }
 
   /// Returns true if the user has at least one account in Firestore.
   Future<bool> hasAnyAccount() async {
-    final snapshot = await _collections.accounts.limit(1).get();
-    return snapshot.docs.isNotEmpty;
+    final documents = await _collections.accounts.limit(1).get();
+    return documents.isNotEmpty;
   }
 
   /// Writes [dto] as a new account document. Uses [dto.id] as the document ID.
   Future<void> createAccount(AccountDto dto) async {
-    await _collections.accounts.doc(dto.id).set({
+    final document = _collections.accounts.document(dto.id);
+    final data = {
       ...dto.toFirestore(),
-      'serverCreatedAt': FieldValue.serverTimestamp(),
-      'serverUpdatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+      'serverUpdatedAt': DateTime.now().toUtc(),
+    };
+    if (await document.exists) {
+      await document.update(data);
+    } else {
+      await document.set({...data, 'serverCreatedAt': DateTime.now().toUtc()});
+    }
   }
 }

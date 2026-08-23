@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firedart/firedart.dart';
 
 import '../../../../core/firebase/firestore_model_converters.dart';
 import '../../../../shared/models/finance_enums.dart';
@@ -50,13 +50,8 @@ class TransactionDto {
     );
   }
 
-  factory TransactionDto.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> snapshot,
-  ) {
-    return TransactionDto.fromMap(
-      snapshot.data() ?? const {},
-      documentId: snapshot.id,
-    );
+  factory TransactionDto.fromFirestore(Document snapshot) {
+    return TransactionDto.fromMap(snapshot.map, documentId: snapshot.id);
   }
 
   factory TransactionDto.fromMap(

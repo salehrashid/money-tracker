@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:money_tracker/features/accounts/data/dto/account_dto.dart';
 import 'package:money_tracker/features/categories/data/dto/category_dto.dart';
@@ -35,7 +34,7 @@ void main() {
 
       expect(map['type'], 'expense');
       expect(map['source'], 'manual');
-      expect(map['transactionDate'], isA<Timestamp>());
+      expect(map['transactionDate'], isA<DateTime>());
       expect(parsed.toDomain().amount, 50000);
       expect(parsed.deletedAt, isNull);
     });
@@ -71,8 +70,8 @@ void main() {
         'color': '#4CAF50',
         'isDefault': true,
         'isArchived': false,
-        'createdAt': Timestamp.fromDate(createdAt),
-        'updatedAt': Timestamp.fromDate(updatedAt),
+        'createdAt': createdAt,
+        'updatedAt': updatedAt,
       });
       final account = AccountDto.fromMap({
         'id': 'cash',
@@ -81,8 +80,8 @@ void main() {
         'currency': 'IDR',
         'openingBalance': 100000,
         'isArchived': false,
-        'createdAt': Timestamp.fromDate(createdAt),
-        'updatedAt': Timestamp.fromDate(updatedAt),
+        'createdAt': createdAt,
+        'updatedAt': updatedAt,
       });
       final debt = DebtDto.fromMap({
         'id': 'debt-1',
@@ -93,8 +92,8 @@ void main() {
         'status': 'open',
         'dueDate': null,
         'note': 'Dinner split',
-        'createdAt': Timestamp.fromDate(createdAt),
-        'updatedAt': Timestamp.fromDate(updatedAt),
+        'createdAt': createdAt,
+        'updatedAt': updatedAt,
       });
 
       expect(category.toFirestore()['type'], 'expense');
@@ -114,8 +113,8 @@ void main() {
         'detectedAmount': 50000,
         'status': 'pending_review',
         'dedupeHash': 'abc123',
-        'receivedAt': Timestamp.fromDate(createdAt),
-        'createdAt': Timestamp.fromDate(createdAt),
+        'receivedAt': createdAt,
+        'createdAt': createdAt,
       });
       final receipt = ReceiptOcrResultDto.fromMap({
         'id': 'receipt-1',
@@ -125,11 +124,11 @@ void main() {
         'merchantName': 'Warung',
         'detectedAmount': 50000,
         'detectedCurrency': 'IDR',
-        'receiptDate': Timestamp.fromDate(createdAt),
+        'receiptDate': createdAt,
         'transactionDraftId': 'draft-1',
         'confidence': 0.87,
-        'createdAt': Timestamp.fromDate(createdAt),
-        'updatedAt': Timestamp.fromDate(updatedAt),
+        'createdAt': createdAt,
+        'updatedAt': updatedAt,
       });
 
       expect(notification.toFirestore()['detectedType'], 'income');
@@ -161,8 +160,8 @@ void main() {
             'errorMessage': 'Missing amount',
           },
         ],
-        'createdAt': Timestamp.fromDate(createdAt),
-        'updatedAt': Timestamp.fromDate(updatedAt),
+        'createdAt': createdAt,
+        'updatedAt': updatedAt,
       });
 
       final map = dto.toFirestore();
