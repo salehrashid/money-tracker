@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firedart/firedart.dart';
 
 import '../../../../core/firebase/firestore_model_converters.dart';
 import '../../../../shared/models/finance_enums.dart';
@@ -56,13 +56,8 @@ class NotificationLogDto {
     );
   }
 
-  factory NotificationLogDto.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> snapshot,
-  ) {
-    return NotificationLogDto.fromMap(
-      snapshot.data() ?? const {},
-      documentId: snapshot.id,
-    );
+  factory NotificationLogDto.fromFirestore(Document snapshot) {
+    return NotificationLogDto.fromMap(snapshot.map, documentId: snapshot.id);
   }
 
   factory NotificationLogDto.fromMap(

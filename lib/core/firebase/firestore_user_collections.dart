@@ -1,13 +1,13 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firedart/firedart.dart';
 
 class FirestoreUserCollections {
   const FirestoreUserCollections({
-    required FirebaseFirestore firestore,
+    required Firestore firestore,
     required String userId,
   }) : _firestore = firestore,
        _userId = userId;
 
-  final FirebaseFirestore _firestore;
+  final Firestore _firestore;
   final String _userId;
 
   String get _validUserId {
@@ -18,47 +18,47 @@ class FirestoreUserCollections {
     return userId;
   }
 
-  DocumentReference<Map<String, dynamic>> get userDocument {
-    return _firestore.collection('users').doc(_validUserId);
+  DocumentReference get userDocument {
+    return _firestore.collection('users').document(_validUserId);
   }
 
-  CollectionReference<Map<String, dynamic>> collection(String collectionId) {
+  CollectionReference collection(String collectionId) {
     return userDocument.collection(collectionId);
   }
 
-  CollectionReference<Map<String, dynamic>> get accounts {
+  CollectionReference get accounts {
     return collection('accounts');
   }
 
-  CollectionReference<Map<String, dynamic>> get categories {
+  CollectionReference get categories {
     return collection('categories');
   }
 
-  CollectionReference<Map<String, dynamic>> get transactions {
+  CollectionReference get transactions {
     return collection('transactions');
   }
 
-  CollectionReference<Map<String, dynamic>> get transactionDrafts {
+  CollectionReference get transactionDrafts {
     return collection('transaction_drafts');
   }
 
-  CollectionReference<Map<String, dynamic>> get debts {
+  CollectionReference get debts {
     return collection('debts');
   }
 
-  CollectionReference<Map<String, dynamic>> get receiptOcrResults {
+  CollectionReference get receiptOcrResults {
     return collection('receipt_ocr_results');
   }
 
-  CollectionReference<Map<String, dynamic>> get notificationLogs {
+  CollectionReference get notificationLogs {
     return collection('notification_logs');
   }
 
-  CollectionReference<Map<String, dynamic>> get csvImportBatches {
+  CollectionReference get csvImportBatches {
     return collection('csv_import_batches');
   }
 
-  DocumentReference<Map<String, dynamic>> get appSettings {
-    return userDocument.collection('settings').doc('app');
+  DocumentReference get appSettings {
+    return userDocument.collection('settings').document('app');
   }
 }

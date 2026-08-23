@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 String requiredString(Map<String, dynamic> data, String key) {
   final value = data[key];
   if (value is String && value.trim().isNotEmpty) {
@@ -70,9 +68,6 @@ int requiredInt(Map<String, dynamic> data, String key) {
 
 DateTime requiredDateTime(Map<String, dynamic> data, String key) {
   final value = data[key];
-  if (value is Timestamp) {
-    return value.toDate();
-  }
   if (value is DateTime) {
     return value;
   }
@@ -83,9 +78,6 @@ DateTime? optionalDateTime(Map<String, dynamic> data, String key) {
   final value = data[key];
   if (value == null) {
     return null;
-  }
-  if (value is Timestamp) {
-    return value.toDate();
   }
   if (value is DateTime) {
     return value;
@@ -117,6 +109,6 @@ List<Map<String, dynamic>> optionalMapList(
   throw FormatException('Invalid map list field: $key');
 }
 
-Timestamp timestampFromDate(DateTime value) {
-  return Timestamp.fromDate(value);
+DateTime timestampFromDate(DateTime value) {
+  return value.toUtc();
 }

@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firedart/firedart.dart';
 
 import '../../../../core/firebase/firestore_model_converters.dart';
 import '../../../../shared/models/finance_enums.dart';
@@ -107,13 +107,8 @@ class CsvImportBatchDto {
     );
   }
 
-  factory CsvImportBatchDto.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> snapshot,
-  ) {
-    return CsvImportBatchDto.fromMap(
-      snapshot.data() ?? const {},
-      documentId: snapshot.id,
-    );
+  factory CsvImportBatchDto.fromFirestore(Document snapshot) {
+    return CsvImportBatchDto.fromMap(snapshot.map, documentId: snapshot.id);
   }
 
   factory CsvImportBatchDto.fromMap(

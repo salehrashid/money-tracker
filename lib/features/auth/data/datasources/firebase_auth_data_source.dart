@@ -1,32 +1,36 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firedart/firedart.dart';
+import 'package:firedart/auth/user_gateway.dart';
+
+import 'secure_auth_token_store.dart';
 
 class FirebaseAuthDataSource {
   const FirebaseAuthDataSource(this._auth);
 
   final FirebaseAuth _auth;
 
-  Stream<User?> authStateChanges() {
-    return _auth.authStateChanges();
+  Stream<User?> authStateChanges() async* {
+    yield _auth.isSignedIn ? await _auth.getUser() : null;
+    await for (final signedIn in _auth.signInState) {
+      yield signedIn ? await _auth.getUser() : null;
+    }
   }
 
-  Future<UserCredential> signInWithEmailAndPassword({
+  Future<User> signInWithEmailAndPassword({
     required String email,
     required String password,
   }) {
-    return _auth.signInWithEmailAndPassword(email: email, password: password);
+    return _auth.signIn(email, password);
   }
 
-  Future<UserCredential> createUserWithEmailAndPassword({
+  Future<User> createUserWithEmailAndPassword({
     required String email,
     required String password,
   }) {
-    return _auth.createUserWithEmailAndPassword(
-      email: email,
-      password: password,
-    );
+    return _auth.signUp(email, password);
   }
 
-  Future<void> signOut() {
-    return _auth.signOut();
+  Future<void> signOut() async {
+    _auth.signOut();
+    await SecureAuthTokenStore.clearPersistedSession();
   }
 }

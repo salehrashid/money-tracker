@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/firebase/firestore_user_collections.dart';
 import '../dto/category_dto.dart';
@@ -8,34 +8,37 @@ class FirebaseCategoryDataSource {
 
   final FirestoreUserCollections _collections;
 
-  Stream<List<CategoryDto>> watchCategories() {
-    return _collections.categories.snapshots().map(
-      (snapshot) =>
-          snapshot.docs.map(CategoryDto.fromFirestore).toList(growable: false),
+  Stream<List<CategoryDto>> watchCategories() async* {
+    yield const [];
+
+    final initialDocuments = await _collections.categories.get();
+    yield initialDocuments
+        .map(CategoryDto.fromFirestore)
+        .toList(growable: false);
+
+    yield* _collections.categories.stream.map(
+      (documents) =>
+          documents.map(CategoryDto.fromFirestore).toList(growable: false),
     );
   }
 
   Future<List<CategoryDto>> fetchCategories() async {
-    final snapshot = await _collections.categories.get();
-    return snapshot.docs.map(CategoryDto.fromFirestore).toList(growable: false);
+    final documents = await _collections.categories.get();
+    return documents.map(CategoryDto.fromFirestore).toList(growable: false);
   }
 
   Future<CategoryDto?> fetchCategory(String categoryId) async {
-    final snapshot = await _collections.categories.doc(categoryId).get();
-    if (!snapshot.exists) {
-      return null;
-    }
-
-    return CategoryDto.fromFirestore(snapshot);
+    final document = _collections.categories.document(categoryId);
+    if (!await document.exists) return null;
+    return CategoryDto.fromFirestore(await document.get());
   }
 
   Future<CategoryDto> saveCategory(CategoryDto category) async {
-    final document = category.id.isEmpty
-        ? _collections.categories.doc()
-        : _collections.categories.doc(category.id);
+    final id = category.id.isEmpty ? const Uuid().v4() : category.id;
+    final document = _collections.categories.document(id);
     final savedCategory = category.id.isEmpty
         ? CategoryDto(
-            id: document.id,
+            id: id,
             name: category.name,
             type: category.type,
             icon: category.icon,
@@ -47,24 +50,30 @@ class FirebaseCategoryDataSource {
           )
         : category;
 
-    await document.set({
+    final exists = await document.exists;
+    final now = DateTime.now().toUtc();
+    final data = {
       ...savedCategory.toFirestore(),
-      if (category.id.isEmpty) 'serverCreatedAt': FieldValue.serverTimestamp(),
-      'serverUpdatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+      'serverUpdatedAt': now,
+      if (!exists) 'serverCreatedAt': now,
+    };
+    if (exists) {
+      await document.update(data);
+    } else {
+      await document.set(data);
+    }
     return savedCategory;
   }
 
   Future<void> deleteCategory(String categoryId) {
-    return _collections.categories.doc(categoryId).delete();
+    return _collections.categories.document(categoryId).delete();
   }
 
   Future<bool> hasTransactions(String categoryId) async {
-    final snapshot = await _collections.transactions
+    final documents = await _collections.transactions
         .where('categoryId', isEqualTo: categoryId)
         .limit(1)
         .get();
-
-    return snapshot.docs.isNotEmpty;
+    return documents.isNotEmpty;
   }
 }
