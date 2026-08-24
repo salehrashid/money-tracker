@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/offline/offline_providers.dart';
+import '../../core/offline/sync_status.dart';
+import '../../features/auth/domain/entities/auth_user.dart';
+import '../../features/auth/presentation/providers/auth_providers.dart';
+import '../../core/utils/result.dart';
 
 import '../theme/app_theme.dart';
 
-class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
+class AppTopBar extends ConsumerWidget implements PreferredSizeWidget {
   const AppTopBar({
     required this.title,
     required this.subtitle,
@@ -18,7 +25,16 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
   Size get preferredSize => const Size.fromHeight(88);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authStateProvider).value;
+    final user = switch (auth) {
+      Success<AuthUser?>(:final value) => value,
+      _ => null,
+    };
+    final syncState = user == null
+        ? RemoteSyncState.online
+        : ref.watch(remoteSyncStateProvider(user.id)).value ??
+              RemoteSyncState.online;
     return AppBar(
       toolbarHeight: preferredSize.height,
       titleSpacing: AppBreakpoints.isMobile(context)
@@ -38,7 +54,56 @@ class AppTopBar extends StatelessWidget implements PreferredSizeWidget {
           ),
         ],
       ),
-      actions: actions,
+      actions: [
+        OfflineSyncStatusAction(state: syncState),
+        ...actions,
+      ],
+    );
+  }
+}
+
+class OfflineSyncStatusAction extends StatelessWidget {
+  const OfflineSyncStatusAction({required this.state, super.key});
+
+  static const _offlineMessage = 'Offline — changes will sync when connected';
+  final RemoteSyncState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final visible =
+        state == RemoteSyncState.offline || state == RemoteSyncState.syncing;
+    final syncing = state == RemoteSyncState.syncing;
+    return SizedBox(
+      width: 40,
+      child: visible
+          ? Semantics(
+              label: syncing ? 'Synchronizing changes' : _offlineMessage,
+              button: true,
+              child: Tooltip(
+                message: syncing ? 'Synchronizing changes' : _offlineMessage,
+                child: IconButton(
+                  iconSize: 21,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: syncing
+                      ? null
+                      : () => ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                          const SnackBar(
+                            content: Text(_offlineMessage),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        ),
+                  icon: Icon(
+                    syncing
+                        ? Icons.cloud_sync_outlined
+                        : Icons.cloud_off_outlined,
+                    color: syncing
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.error,
+                  ),
+                ),
+              ),
+            )
+          : const SizedBox.shrink(),
     );
   }
 }

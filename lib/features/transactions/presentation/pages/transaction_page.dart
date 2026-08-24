@@ -647,6 +647,7 @@ class _TransactionFilterPanelState
                   SizedBox(
                     width: 220,
                     child: DropdownButtonFormField<String>(
+                      isExpanded: true,
                       initialValue:
                           categories.any(
                             (category) => category.id == criteria.categoryId,
@@ -674,6 +675,7 @@ class _TransactionFilterPanelState
                   SizedBox(
                     width: 220,
                     child: DropdownButtonFormField<String>(
+                      isExpanded: true,
                       initialValue:
                           accounts.any(
                             (account) => account.id == criteria.accountId,
@@ -1132,12 +1134,9 @@ class _LoadedData {
     required AsyncValue<Result<List<Category>>> categoriesState,
     required AsyncValue<Result<List<Account>>> accountsState,
   }) {
-    final states = [
-      transactionsState,
-      draftsState,
-      categoriesState,
-      accountsState,
-    ];
+    // Drafts are an optional review aid. They must never prevent users from
+    // viewing or manually changing locally cached transaction records.
+    final states = [transactionsState, categoriesState, accountsState];
     if (states.any((state) => state.isLoading)) {
       return const _LoadedData._(isLoading: true);
     }
@@ -1158,7 +1157,6 @@ class _LoadedData {
     final categoriesResult = categoriesState.value;
     final accountsResult = accountsState.value;
     if (transactionsResult == null ||
-        draftsResult == null ||
         categoriesResult == null ||
         accountsResult == null) {
       return const _LoadedData._(isLoading: true);
@@ -1167,9 +1165,6 @@ class _LoadedData {
     if (transactionsResult case Failure<List<TransactionEntity>>(
       :final failure,
     )) {
-      return _LoadedData._(failure: failure);
-    }
-    if (draftsResult case Failure<List<TransactionDraft>>(:final failure)) {
       return _LoadedData._(failure: failure);
     }
     if (categoriesResult case Failure<List<Category>>(:final failure)) {
@@ -1184,7 +1179,10 @@ class _LoadedData {
         userId: userId,
         transactions:
             (transactionsResult as Success<List<TransactionEntity>>).value,
-        drafts: (draftsResult as Success<List<TransactionDraft>>).value,
+        drafts: switch (draftsResult) {
+          Success<List<TransactionDraft>>(:final value) => value,
+          _ => const [],
+        },
         categories: (categoriesResult as Success<List<Category>>).value,
         accounts: (accountsResult as Success<List<Account>>).value,
       ),

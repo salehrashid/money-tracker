@@ -12,6 +12,7 @@ class NotificationLog {
     required this.dedupeHash,
     required this.receivedAt,
     required this.createdAt,
+    this.updatedAt,
     this.detectedAmount,
     this.isRead = false,
     this.transactionId,
@@ -29,6 +30,7 @@ class NotificationLog {
   final String dedupeHash;
   final DateTime receivedAt;
   final DateTime createdAt;
+  final DateTime? updatedAt;
   final bool isRead;
   final String? transactionId;
   final DateTime? deletedAt;
@@ -49,6 +51,7 @@ class NotificationLog {
     String? dedupeHash,
     DateTime? receivedAt,
     DateTime? createdAt,
+    DateTime? updatedAt,
     bool? isRead,
     String? transactionId,
     DateTime? deletedAt,
@@ -70,6 +73,7 @@ class NotificationLog {
       dedupeHash: dedupeHash ?? this.dedupeHash,
       receivedAt: receivedAt ?? this.receivedAt,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
       isRead: isRead ?? this.isRead,
       transactionId: clearTransactionId
           ? null

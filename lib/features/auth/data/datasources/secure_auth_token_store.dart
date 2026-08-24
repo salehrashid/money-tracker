@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:firedart/firedart.dart' as fd;
+import 'package:firedart/auth/user_gateway.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SecureAuthTokenStore extends fd.TokenStore {
@@ -9,6 +10,7 @@ class SecureAuthTokenStore extends fd.TokenStore {
 
   static const _storage = FlutterSecureStorage();
   static const _storageKey = 'fleeca_firebase_auth_token';
+  static const _userStorageKey = 'fleeca_firebase_auth_user';
 
   final fd.Token? _initialToken;
 
@@ -21,8 +23,26 @@ class SecureAuthTokenStore extends fd.TokenStore {
     }
   }
 
-  static Future<void> clearPersistedSession() {
-    return _storage.delete(key: _storageKey);
+  static Future<void> persistUser(User user) async {
+    await _storage.write(key: _userStorageKey, value: jsonEncode(user.toMap()));
+  }
+
+  static Future<User?> readPersistedUser() async {
+    try {
+      final encoded = await _storage.read(key: _userStorageKey);
+      if (encoded == null || encoded.isEmpty) return null;
+      final decoded = jsonDecode(encoded);
+      return decoded is Map<String, dynamic> ? User.fromMap(decoded) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> clearPersistedSession() async {
+    await Future.wait([
+      _storage.delete(key: _storageKey),
+      _storage.delete(key: _userStorageKey),
+    ]);
   }
 
   @override

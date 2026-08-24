@@ -64,10 +64,12 @@ class AndroidNotificationPayload {
       displayBody.trim(),
       receivedAt.millisecondsSinceEpoch.toString(),
     ].join('|');
-    var hash = 0xcbf29ce484222325;
+    var hash = BigInt.parse('cbf29ce484222325', radix: 16);
+    final prime = BigInt.parse('100000001b3', radix: 16);
+    final mask = BigInt.parse('7fffffffffffffff', radix: 16);
     for (final codeUnit in input.codeUnits) {
-      hash ^= codeUnit;
-      hash = (hash * 0x100000001b3) & 0x7fffffffffffffff;
+      hash ^= BigInt.from(codeUnit);
+      hash = (hash * prime) & mask;
     }
     return hash.toRadixString(16).padLeft(16, '0');
   }

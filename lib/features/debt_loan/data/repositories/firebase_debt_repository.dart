@@ -1,40 +1,38 @@
 import '../../../../core/errors/app_failure.dart';
 import '../../../../core/errors/firebase_error_mapper.dart';
 import '../../../../core/utils/result.dart';
+import '../../../../core/offline/sync_coordinator.dart';
 import '../../../../shared/models/finance_enums.dart';
 import '../../domain/entities/debt.dart';
 import '../../domain/repositories/debt_repository.dart';
 import '../datasources/firebase_debt_data_source.dart';
-import '../dto/debt_dto.dart';
+import 'package:uuid/uuid.dart';
 
 class FirebaseDebtRepository implements DebtRepository {
-  const FirebaseDebtRepository({
+  FirebaseDebtRepository({
     required FirebaseDebtDataSource dataSource,
+    required LocalFirstCollection<Debt> local,
     FirebaseErrorMapper errorMapper = const FirebaseErrorMapper(),
-  }) : _dataSource = dataSource,
-       _errorMapper = errorMapper;
+  }) : _errorMapper = errorMapper,
+       _local = local;
 
-  final FirebaseDebtDataSource _dataSource;
   final FirebaseErrorMapper _errorMapper;
+  final LocalFirstCollection<Debt> _local;
 
   @override
   Stream<Result<List<Debt>>> watchDebts() async* {
-    try {
-      await for (final dtos in _dataSource.watchDebts()) {
-        final debts = dtos.map((dto) => dto.toDomain()).toList()
-          ..sort(_sortDebts);
-        yield Success(debts);
-      }
-    } catch (error) {
-      yield Failure(_mapError(error));
+    await for (final debts in _local.watch()) {
+      debts.sort(_sortDebts);
+      yield Success(debts);
     }
   }
 
   @override
   Future<Result<Debt>> createDebt(Debt debt) async {
     try {
-      final saved = await _dataSource.saveDebt(DebtDto.fromDomain(debt));
-      return Success(saved.toDomain());
+      final saved = debt.copyWith(id: const Uuid().v4());
+      await _local.save(saved, isCreate: true);
+      return Success(saved);
     } catch (error) {
       return Failure(_mapError(error));
     }
@@ -43,7 +41,9 @@ class FirebaseDebtRepository implements DebtRepository {
   @override
   Future<Result<Debt>> updateDebt(Debt debt) async {
     try {
-      final current = await _dataSource.fetchDebt(debt.id);
+      final current = _local.current
+          .where((item) => item.id == debt.id)
+          .firstOrNull;
       if (current == null) {
         return const Failure(
           AppFailure(
@@ -54,8 +54,8 @@ class FirebaseDebtRepository implements DebtRepository {
         );
       }
 
-      final saved = await _dataSource.saveDebt(DebtDto.fromDomain(debt));
-      return Success(saved.toDomain());
+      await _local.save(debt, isCreate: false);
+      return Success(debt);
     } catch (error) {
       return Failure(_mapError(error));
     }
@@ -64,7 +64,9 @@ class FirebaseDebtRepository implements DebtRepository {
   @override
   Future<Result<void>> deleteDebt(String debtId) async {
     try {
-      final current = await _dataSource.fetchDebt(debtId);
+      final current = _local.current
+          .where((item) => item.id == debtId)
+          .firstOrNull;
       if (current == null) {
         return const Failure(
           AppFailure(
@@ -75,7 +77,7 @@ class FirebaseDebtRepository implements DebtRepository {
         );
       }
 
-      await _dataSource.deleteDebt(debtId);
+      await _local.delete(current);
       return const Success(null);
     } catch (error) {
       return Failure(_mapError(error));

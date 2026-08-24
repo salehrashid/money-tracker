@@ -1,41 +1,35 @@
 import '../../../../core/errors/app_failure.dart';
 import '../../../../core/errors/firebase_error_mapper.dart';
 import '../../../../core/utils/result.dart';
+import '../../../../core/offline/sync_coordinator.dart';
 import '../../domain/entities/category.dart';
 import '../../domain/repositories/category_repository.dart';
 import '../datasources/firebase_category_data_source.dart';
-import '../dto/category_dto.dart';
+import 'package:uuid/uuid.dart';
 
 class FirebaseCategoryRepository implements CategoryRepository {
-  const FirebaseCategoryRepository({
+  FirebaseCategoryRepository({
     required FirebaseCategoryDataSource dataSource,
+    required LocalFirstCollection<Category> local,
     FirebaseErrorMapper errorMapper = const FirebaseErrorMapper(),
-  }) : _dataSource = dataSource,
-       _errorMapper = errorMapper;
+  }) : _errorMapper = errorMapper,
+       _local = local;
 
-  final FirebaseCategoryDataSource _dataSource;
   final FirebaseErrorMapper _errorMapper;
+  final LocalFirstCollection<Category> _local;
 
   @override
   Stream<Result<List<Category>>> watchCategories() async* {
-    try {
-      await for (final dtos in _dataSource.watchCategories()) {
-        final categories =
-            dtos.map((dto) => dto.toDomain()).toList(growable: false)
-              ..sort(_sortCategories);
-        yield Success(categories);
-      }
-    } catch (error) {
-      yield Failure(_mapError(error));
+    await for (final categories in _local.watch()) {
+      categories.sort(_sortCategories);
+      yield Success(categories);
     }
   }
 
   @override
   Future<Result<List<Category>>> fetchCategories() async {
     try {
-      final dtos = await _dataSource.fetchCategories();
-      final categories = dtos.map((dto) => dto.toDomain()).toList()
-        ..sort(_sortCategories);
+      final categories = _local.current..sort(_sortCategories);
       return Success(categories);
     } catch (error) {
       return Failure(_mapError(error));
@@ -50,10 +44,11 @@ class FirebaseCategoryRepository implements CategoryRepository {
         return Failure(duplicateFailure);
       }
 
-      final saved = await _dataSource.saveCategory(
-        CategoryDto.fromDomain(category),
-      );
-      return Success(saved.toDomain());
+      final saved = category.id.isEmpty
+          ? category.copyWith(id: const Uuid().v4())
+          : category;
+      await _local.save(saved, isCreate: true);
+      return Success(saved);
     } catch (error) {
       return Failure(_mapError(error));
     }
@@ -62,7 +57,9 @@ class FirebaseCategoryRepository implements CategoryRepository {
   @override
   Future<Result<Category>> updateCategory(Category category) async {
     try {
-      final current = await _dataSource.fetchCategory(category.id);
+      final current = _local.current
+          .where((item) => item.id == category.id)
+          .firstOrNull;
       if (current == null) {
         return const Failure(
           AppFailure(
@@ -87,10 +84,8 @@ class FirebaseCategoryRepository implements CategoryRepository {
         return Failure(duplicateFailure);
       }
 
-      final saved = await _dataSource.saveCategory(
-        CategoryDto.fromDomain(category),
-      );
-      return Success(saved.toDomain());
+      await _local.save(category, isCreate: false);
+      return Success(category);
     } catch (error) {
       return Failure(_mapError(error));
     }
@@ -102,7 +97,9 @@ class FirebaseCategoryRepository implements CategoryRepository {
     required bool isArchived,
   }) async {
     try {
-      final current = await _dataSource.fetchCategory(categoryId);
+      final current = _local.current
+          .where((item) => item.id == categoryId)
+          .firstOrNull;
       if (current == null) {
         return const Failure(
           AppFailure(
@@ -113,15 +110,12 @@ class FirebaseCategoryRepository implements CategoryRepository {
         );
       }
 
-      final saved = await _dataSource.saveCategory(
-        CategoryDto.fromDomain(
-          current.toDomain().copyWith(
-            isArchived: isArchived,
-            updatedAt: DateTime.now().toUtc(),
-          ),
-        ),
+      final saved = current.copyWith(
+        isArchived: isArchived,
+        updatedAt: DateTime.now().toUtc(),
       );
-      return Success(saved.toDomain());
+      await _local.save(saved, isCreate: false);
+      return Success(saved);
     } catch (error) {
       return Failure(_mapError(error));
     }
@@ -130,7 +124,9 @@ class FirebaseCategoryRepository implements CategoryRepository {
   @override
   Future<Result<void>> deleteCategory(String categoryId) async {
     try {
-      final current = await _dataSource.fetchCategory(categoryId);
+      final current = _local.current
+          .where((item) => item.id == categoryId)
+          .firstOrNull;
       if (current == null) {
         return const Failure(
           AppFailure(
@@ -150,19 +146,7 @@ class FirebaseCategoryRepository implements CategoryRepository {
         );
       }
 
-      final isUsed = await _dataSource.hasTransactions(categoryId);
-      if (isUsed) {
-        return const Failure(
-          AppFailure(
-            type: AppFailureType.validation,
-            code: 'category-in-use',
-            message:
-                'This category is used by transactions. Archive it instead.',
-          ),
-        );
-      }
-
-      await _dataSource.deleteCategory(categoryId);
+      await _local.delete(current);
       return const Success(null);
     } catch (error) {
       return Failure(_mapError(error));
@@ -170,7 +154,7 @@ class FirebaseCategoryRepository implements CategoryRepository {
   }
 
   Future<AppFailure?> _findDuplicateFailure(Category category) async {
-    final categories = await _dataSource.fetchCategories();
+    final categories = _local.current;
     final normalizedName = category.name.trim().toLowerCase();
     final hasDuplicate = categories.any((existing) {
       return existing.id != category.id &&

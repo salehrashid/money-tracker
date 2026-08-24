@@ -1,46 +1,47 @@
 import '../../../../core/errors/app_failure.dart';
 import '../../../../core/errors/firebase_error_mapper.dart';
 import '../../../../core/utils/result.dart';
+import '../../../../core/offline/sync_coordinator.dart';
 import '../../../../shared/models/finance_enums.dart';
 import '../../domain/entities/transaction.dart';
 import '../../domain/entities/transaction_draft.dart';
 import '../../domain/repositories/transaction_repository.dart';
 import '../datasources/firebase_transaction_data_source.dart';
-import '../dto/transaction_dto.dart';
+import 'package:uuid/uuid.dart';
 
 class FirebaseTransactionRepository implements TransactionRepository {
-  const FirebaseTransactionRepository({
+  FirebaseTransactionRepository({
     required FirebaseTransactionDataSource dataSource,
+    required LocalFirstCollection<TransactionEntity> local,
+    required LocalFirstCollection<TransactionDraft> localDrafts,
     FirebaseErrorMapper errorMapper = const FirebaseErrorMapper(),
-  }) : _dataSource = dataSource,
+  }) : _local = local,
+       _localDrafts = localDrafts,
        _errorMapper = errorMapper;
 
-  final FirebaseTransactionDataSource _dataSource;
+  final LocalFirstCollection<TransactionEntity> _local;
+  final LocalFirstCollection<TransactionDraft> _localDrafts;
   final FirebaseErrorMapper _errorMapper;
 
   @override
   Stream<Result<List<TransactionEntity>>> watchTransactions() async* {
-    try {
-      await for (final dtos in _dataSource.watchTransactions()) {
-        final transactions = dtos.map((dto) => dto.toDomain()).toList()
-          ..sort(_sortTransactions);
-        yield Success(transactions);
-      }
-    } catch (error) {
-      yield Failure(_mapError(error, 'transaction'));
+    await for (final values in _local.watch()) {
+      values.sort(_sortTransactions);
+      yield Success(values);
     }
   }
 
   @override
   Stream<Result<List<TransactionDraft>>> watchPendingDrafts() async* {
-    try {
-      await for (final dtos in _dataSource.watchPendingDrafts()) {
-        final drafts = dtos.map((dto) => dto.toDomain()).toList()
-          ..sort(_sortDrafts);
-        yield Success(drafts);
-      }
-    } catch (error) {
-      yield Failure(_mapError(error, 'transaction draft'));
+    await for (final drafts in _localDrafts.watch()) {
+      final pending =
+          drafts
+              .where(
+                (draft) => draft.status == TransactionDraftStatus.pendingReview,
+              )
+              .toList()
+            ..sort(_sortDrafts);
+      yield Success(pending);
     }
   }
 
@@ -49,10 +50,9 @@ class FirebaseTransactionRepository implements TransactionRepository {
     TransactionEntity transaction,
   ) async {
     try {
-      final saved = await _dataSource.saveTransaction(
-        TransactionDto.fromDomain(transaction),
-      );
-      return Success(saved.toDomain());
+      final saved = transaction.copyWith(id: const Uuid().v4());
+      await _local.save(saved, isCreate: true);
+      return Success(saved);
     } catch (error) {
       return Failure(_mapError(error, 'transaction'));
     }
@@ -63,7 +63,9 @@ class FirebaseTransactionRepository implements TransactionRepository {
     TransactionEntity transaction,
   ) async {
     try {
-      final current = await _dataSource.fetchTransaction(transaction.id);
+      final current = _local.current
+          .where((item) => item.id == transaction.id)
+          .firstOrNull;
       if (current == null || current.deletedAt != null) {
         return const Failure(
           AppFailure(
@@ -74,10 +76,8 @@ class FirebaseTransactionRepository implements TransactionRepository {
         );
       }
 
-      final saved = await _dataSource.saveTransaction(
-        TransactionDto.fromDomain(transaction),
-      );
-      return Success(saved.toDomain());
+      await _local.save(transaction, isCreate: false);
+      return Success(transaction);
     } catch (error) {
       return Failure(_mapError(error, 'transaction'));
     }
@@ -86,7 +86,9 @@ class FirebaseTransactionRepository implements TransactionRepository {
   @override
   Future<Result<void>> deleteTransaction(String transactionId) async {
     try {
-      final current = await _dataSource.fetchTransaction(transactionId);
+      final current = _local.current
+          .where((item) => item.id == transactionId)
+          .firstOrNull;
       if (current == null || current.deletedAt != null) {
         return const Failure(
           AppFailure(
@@ -98,11 +100,7 @@ class FirebaseTransactionRepository implements TransactionRepository {
       }
 
       final now = DateTime.now().toUtc();
-      await _dataSource.saveTransaction(
-        TransactionDto.fromDomain(
-          current.toDomain().copyWith(deletedAt: now, updatedAt: now),
-        ),
-      );
+      await _local.delete(current.copyWith(deletedAt: now, updatedAt: now));
       return const Success(null);
     } catch (error) {
       return Failure(_mapError(error, 'transaction'));
@@ -115,7 +113,9 @@ class FirebaseTransactionRepository implements TransactionRepository {
     required String draftId,
   }) async {
     try {
-      final draft = await _dataSource.fetchDraft(draftId);
+      final draft = _localDrafts.current
+          .where((item) => item.id == draftId)
+          .firstOrNull;
       if (draft == null) {
         return const Failure(
           AppFailure(
@@ -135,11 +135,16 @@ class FirebaseTransactionRepository implements TransactionRepository {
         );
       }
 
-      final saved = await _dataSource.saveTransactionFromDraft(
-        transaction: TransactionDto.fromDomain(transaction),
-        draft: draft,
+      final saved = transaction.copyWith(id: const Uuid().v4());
+      await _local.save(saved, isCreate: true);
+      await _localDrafts.save(
+        draft.copyWith(
+          status: TransactionDraftStatus.saved,
+          updatedAt: DateTime.now().toUtc(),
+        ),
+        isCreate: false,
       );
-      return Success(saved.toDomain());
+      return Success(saved);
     } catch (error) {
       return Failure(_mapError(error, 'transaction draft'));
     }

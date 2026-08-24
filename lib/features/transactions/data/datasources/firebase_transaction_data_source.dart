@@ -94,7 +94,9 @@ class FirebaseTransactionDataSource {
     required TransactionDto transaction,
     required TransactionDraftDto draft,
   }) async {
-    final transactionId = const Uuid().v4();
+    final transactionId = transaction.id.isEmpty
+        ? const Uuid().v4()
+        : transaction.id;
     final transactionDocument = _collections.transactions.document(
       transactionId,
     );

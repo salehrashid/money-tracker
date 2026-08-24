@@ -84,9 +84,9 @@ class FirebaseErrorMapper {
         message: 'You do not have permission to do that.',
         details: error,
       ),
-      14 => AppFailure(
+      4 || 14 => AppFailure(
         type: AppFailureType.network,
-        code: 'unavailable',
+        code: error.code == 4 ? 'deadline-exceeded' : 'unavailable',
         message:
             'Network connection failed. Check your connection and try again.',
         details: error,

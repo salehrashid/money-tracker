@@ -2,9 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/firebase/firebase_providers.dart';
 import '../../../../core/utils/result.dart';
+import '../../../../core/offline/offline_providers.dart';
+import '../../../../core/offline/sync_coordinator.dart';
 import '../../application/usecases/debt_use_cases.dart';
 import '../../data/datasources/firebase_debt_data_source.dart';
 import '../../data/repositories/firebase_debt_repository.dart';
+import '../../data/dto/debt_dto.dart';
 import '../../domain/entities/debt.dart';
 import '../../domain/repositories/debt_repository.dart';
 
@@ -23,6 +26,16 @@ final debtRepositoryProvider = Provider.family<DebtRepository, String>((
 ) {
   return FirebaseDebtRepository(
     dataSource: ref.watch(debtDataSourceProvider(userId)),
+    local: LocalFirstCollection<Debt>(
+      userId: userId,
+      collection: 'debts',
+      database: ref.watch(offlineDatabaseProvider),
+      coordinator: ref.watch(syncCoordinatorProvider(userId)),
+      fromMap: (map) => DebtDto.fromMap(map).toDomain(),
+      toMap: (value) => DebtDto.fromDomain(value).toFirestore(),
+      idOf: (value) => value.id,
+      isDeleted: (_) => false,
+    ),
   );
 });
 

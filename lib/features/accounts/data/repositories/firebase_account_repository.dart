@@ -1,39 +1,34 @@
 import '../../../../core/errors/app_failure.dart';
 import '../../../../core/errors/firebase_error_mapper.dart';
 import '../../../../core/utils/result.dart';
+import '../../../../core/offline/sync_coordinator.dart';
 import '../../domain/entities/account.dart';
 import '../../domain/repositories/account_repository.dart';
 import '../datasources/firebase_account_data_source.dart';
-import '../dto/account_dto.dart';
 
 class FirebaseAccountRepository implements AccountRepository {
-  const FirebaseAccountRepository({
+  FirebaseAccountRepository({
     required FirebaseAccountDataSource dataSource,
+    required LocalFirstCollection<Account> local,
     FirebaseErrorMapper errorMapper = const FirebaseErrorMapper(),
-  }) : _dataSource = dataSource,
-       _errorMapper = errorMapper;
+  }) : _errorMapper = errorMapper,
+       _local = local;
 
-  final FirebaseAccountDataSource _dataSource;
   final FirebaseErrorMapper _errorMapper;
+  final LocalFirstCollection<Account> _local;
 
   @override
   Stream<Result<List<Account>>> watchAccounts() async* {
-    try {
-      await for (final dtos in _dataSource.watchAccounts()) {
-        final accounts = dtos.map((dto) => dto.toDomain()).toList()
-          ..sort(_sortAccounts);
-        yield Success(accounts);
-      }
-    } catch (error) {
-      yield Failure(_mapError(error));
+    await for (final accounts in _local.watch()) {
+      accounts.sort(_sortAccounts);
+      yield Success(accounts);
     }
   }
 
   @override
   Future<Result<bool>> hasAnyAccount() async {
     try {
-      final exists = await _dataSource.hasAnyAccount();
-      return Success(exists);
+      return Success(_local.current.isNotEmpty);
     } catch (error) {
       return Failure(_mapError(error));
     }
@@ -42,8 +37,7 @@ class FirebaseAccountRepository implements AccountRepository {
   @override
   Future<Result<void>> createAccount(Account account) async {
     try {
-      final dto = AccountDto.fromDomain(account);
-      await _dataSource.createAccount(dto);
+      await _local.save(account, isCreate: true);
       return const Success(null);
     } catch (error) {
       return Failure(_mapError(error));

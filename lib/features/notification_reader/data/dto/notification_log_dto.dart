@@ -16,6 +16,7 @@ class NotificationLogDto {
     required this.dedupeHash,
     required this.receivedAt,
     required this.createdAt,
+    required this.updatedAt,
     this.detectedAmount,
     this.isRead = false,
     this.transactionId,
@@ -33,6 +34,7 @@ class NotificationLogDto {
   final String dedupeHash;
   final DateTime receivedAt;
   final DateTime createdAt;
+  final DateTime updatedAt;
   final bool isRead;
   final String? transactionId;
   final DateTime? deletedAt;
@@ -50,6 +52,7 @@ class NotificationLogDto {
       dedupeHash: log.dedupeHash,
       receivedAt: log.receivedAt,
       createdAt: log.createdAt,
+      updatedAt: log.updatedAt ?? log.createdAt,
       isRead: log.isRead,
       transactionId: log.transactionId,
       deletedAt: log.deletedAt,
@@ -80,6 +83,9 @@ class NotificationLogDto {
       dedupeHash: requiredString(data, 'dedupeHash'),
       receivedAt: requiredDateTime(data, 'receivedAt'),
       createdAt: requiredDateTime(data, 'createdAt'),
+      updatedAt:
+          optionalDateTime(data, 'updatedAt') ??
+          requiredDateTime(data, 'createdAt'),
       isRead: optionalBool(data, 'isRead') ?? false,
       transactionId: optionalString(data, 'transactionId'),
       deletedAt: optionalDateTime(data, 'deletedAt'),
@@ -99,6 +105,7 @@ class NotificationLogDto {
       dedupeHash: dedupeHash,
       receivedAt: receivedAt,
       createdAt: createdAt,
+      updatedAt: updatedAt,
       isRead: isRead,
       transactionId: transactionId,
       deletedAt: deletedAt,
@@ -118,6 +125,7 @@ class NotificationLogDto {
       'dedupeHash': dedupeHash,
       'receivedAt': timestampFromDate(receivedAt),
       'createdAt': timestampFromDate(createdAt),
+      'updatedAt': timestampFromDate(updatedAt),
       'isRead': isRead,
       'transactionId': transactionId,
       'deletedAt': deletedAt == null ? null : timestampFromDate(deletedAt!),

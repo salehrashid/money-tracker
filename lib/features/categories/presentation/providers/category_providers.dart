@@ -2,9 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/firebase/firebase_providers.dart';
 import '../../../../core/utils/result.dart';
+import '../../../../core/offline/offline_providers.dart';
+import '../../../../core/offline/sync_coordinator.dart';
 import '../../application/usecases/category_use_cases.dart';
 import '../../data/datasources/firebase_category_data_source.dart';
 import '../../data/repositories/firebase_category_repository.dart';
+import '../../data/dto/category_dto.dart';
 import '../../domain/entities/category.dart';
 import '../../domain/repositories/category_repository.dart';
 
@@ -21,6 +24,16 @@ final categoryRepositoryProvider = Provider.family<CategoryRepository, String>((
 ) {
   return FirebaseCategoryRepository(
     dataSource: ref.watch(categoryDataSourceProvider(userId)),
+    local: LocalFirstCollection<Category>(
+      userId: userId,
+      collection: 'categories',
+      database: ref.watch(offlineDatabaseProvider),
+      coordinator: ref.watch(syncCoordinatorProvider(userId)),
+      fromMap: (map) => CategoryDto.fromMap(map).toDomain(),
+      toMap: (value) => CategoryDto.fromDomain(value).toFirestore(),
+      idOf: (value) => value.id,
+      isDeleted: (_) => false,
+    ),
   );
 });
 

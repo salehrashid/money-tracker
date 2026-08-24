@@ -41,6 +41,7 @@ class FirebaseNotificationLogDataSource {
             dedupeHash: log.dedupeHash,
             receivedAt: log.receivedAt,
             createdAt: log.createdAt,
+            updatedAt: log.updatedAt,
             isRead: log.isRead,
             transactionId: log.transactionId,
             deletedAt: log.deletedAt,

@@ -2,11 +2,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/firebase/firebase_providers.dart';
 import '../../../../core/utils/result.dart';
+import '../../../../core/offline/offline_providers.dart';
+import '../../../../core/offline/sync_coordinator.dart';
 import '../../../../shared/models/finance_enums.dart';
 import '../../application/usecases/transaction_filter.dart';
 import '../../application/usecases/transaction_use_cases.dart';
 import '../../data/datasources/firebase_transaction_data_source.dart';
 import '../../data/repositories/firebase_transaction_repository.dart';
+import '../../data/dto/transaction_draft_dto.dart';
+import '../../data/dto/transaction_dto.dart';
 import '../../domain/entities/transaction.dart';
 import '../../domain/entities/transaction_draft.dart';
 import '../../domain/repositories/transaction_repository.dart';
@@ -22,6 +26,26 @@ final transactionRepositoryProvider =
     Provider.family<TransactionRepository, String>((ref, userId) {
       return FirebaseTransactionRepository(
         dataSource: ref.watch(transactionDataSourceProvider(userId)),
+        local: LocalFirstCollection<TransactionEntity>(
+          userId: userId,
+          collection: 'transactions',
+          database: ref.watch(offlineDatabaseProvider),
+          coordinator: ref.watch(syncCoordinatorProvider(userId)),
+          fromMap: (map) => TransactionDto.fromMap(map).toDomain(),
+          toMap: (value) => TransactionDto.fromDomain(value).toFirestore(),
+          idOf: (value) => value.id,
+          isDeleted: (value) => value.deletedAt != null,
+        ),
+        localDrafts: LocalFirstCollection<TransactionDraft>(
+          userId: userId,
+          collection: 'transaction_drafts',
+          database: ref.watch(offlineDatabaseProvider),
+          coordinator: ref.watch(syncCoordinatorProvider(userId)),
+          fromMap: (map) => TransactionDraftDto.fromMap(map).toDomain(),
+          toMap: (value) => TransactionDraftDto.fromDomain(value).toFirestore(),
+          idOf: (value) => value.id,
+          isDeleted: (_) => false,
+        ),
       );
     });
 

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/utils/result.dart';
 import '../../../../features/accounts/presentation/providers/account_providers.dart';
 import '../../../../core/firebase/firebase_providers.dart';
+import '../../../../core/offline/offline_providers.dart';
 import '../../../../shared/widgets/app_shell.dart';
 import '../../domain/entities/auth_user.dart';
 import '../providers/auth_providers.dart';
@@ -47,9 +48,33 @@ class AuthGate extends ConsumerWidget {
       ),
       data: (result) => result.when(
         failure: (failure) => AuthPage(initialMessage: failure.message),
-        success: (user) => user == null ? const AuthPage() : const AppShell(),
+        success: (user) => user == null
+            ? const AuthPage()
+            : _AuthenticatedApp(userId: user.id),
       ),
     );
+  }
+}
+
+class _AuthenticatedApp extends ConsumerWidget {
+  const _AuthenticatedApp({required this.userId});
+
+  final String userId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final coordinator = ref.watch(syncCoordinatorProvider(userId));
+    for (final collection in const [
+      'accounts',
+      'categories',
+      'transactions',
+      'transaction_drafts',
+      'debts',
+      'notification_logs',
+    ]) {
+      coordinator.register(collection);
+    }
+    return const AppShell();
   }
 }
 

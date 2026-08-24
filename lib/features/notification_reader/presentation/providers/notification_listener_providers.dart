@@ -2,11 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/result.dart';
 import '../../../../core/firebase/firebase_providers.dart';
+import '../../../../core/offline/offline_providers.dart';
+import '../../../../core/offline/sync_coordinator.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../application/usecases/notification_log_use_cases.dart';
 import '../../application/usecases/notification_listener_use_cases.dart';
 import '../../data/datasources/firebase_notification_log_data_source.dart';
 import '../../data/datasources/notification_listener_method_channel_data_source.dart';
+import '../../data/dto/notification_log_dto.dart';
 import '../../data/repositories/firebase_notification_log_repository.dart';
 import '../../data/repositories/platform_notification_listener_repository.dart';
 import '../../domain/entities/android_notification_payload.dart';
@@ -43,6 +46,16 @@ final notificationLogRepositoryProvider =
     Provider.family<NotificationLogRepository, String>((ref, userId) {
       return FirebaseNotificationLogRepository(
         dataSource: ref.watch(notificationLogDataSourceProvider(userId)),
+        local: LocalFirstCollection<NotificationLog>(
+          userId: userId,
+          collection: 'notification_logs',
+          database: ref.watch(offlineDatabaseProvider),
+          coordinator: ref.watch(syncCoordinatorProvider(userId)),
+          fromMap: (map) => NotificationLogDto.fromMap(map).toDomain(),
+          toMap: (value) => NotificationLogDto.fromDomain(value).toFirestore(),
+          idOf: (value) => value.id,
+          isDeleted: (value) => value.deletedAt != null,
+        ),
       );
     });
 

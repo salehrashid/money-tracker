@@ -3,6 +3,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/firebase/firebase_app_initializer.dart';
+import 'core/offline/offline_database.dart';
 import 'core/utils/result.dart';
 import 'features/auth/presentation/pages/auth_gate.dart';
 import 'shared/theme/app_theme.dart';
@@ -13,6 +14,7 @@ final appScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: '.env', isOptional: true);
+  await OfflineDatabase.initialize();
 
   final firebaseResult = await const FirebaseAppInitializer().initialize();
 
