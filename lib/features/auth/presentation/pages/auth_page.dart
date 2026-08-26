@@ -57,10 +57,11 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.account_balance_wallet_outlined,
-                      color: colorScheme.primary,
-                      size: 48,
+                    Image.asset(
+                      'app-icon.png',
+                      width: 72,
+                      height: 72,
+                      fit: BoxFit.contain,
                     ),
                     const SizedBox(height: 16),
                     Text(

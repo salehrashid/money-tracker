@@ -171,12 +171,11 @@ class _Brand extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: AppColors.primary,
               borderRadius: BorderRadius.circular(AppRadius.control),
             ),
-            child: const Icon(
-              Icons.account_balance_wallet_rounded,
-              color: Colors.white,
+            child: Image.asset(
+              'app-icon.png',
+              fit: BoxFit.contain,
             ),
           ),
           if (extended) ...[
