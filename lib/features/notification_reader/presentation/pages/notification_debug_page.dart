@@ -98,13 +98,12 @@ class _PermissionPanel extends StatelessWidget {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
               SizedBox(width: 12),
-              Text('Checking notification access...'),
+              Expanded(child: Text('Checking notification access...')),
             ],
           ),
           error: (_, _) => _PermissionContent(
             title: 'Unable to check notification access',
-            message:
-                'Open Android Notification Access and enable Fleeca.',
+            message: 'Open Android Notification Access and enable Fleeca.',
             color: colorScheme.error,
             onOpenSettings: onOpenSettings,
             onRequestPostPermission: onRequestPostPermission,

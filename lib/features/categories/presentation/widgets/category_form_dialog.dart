@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../shared/models/finance_enums.dart';
+import '../../../../shared/widgets/responsive_controls.dart';
 import '../../application/usecases/category_commands.dart';
 import '../../domain/entities/category.dart';
 import 'category_color.dart';
@@ -45,104 +46,112 @@ class _CategoryFormDialogState extends State<CategoryFormDialog> {
     return AlertDialog(
       title: Text(category == null ? 'Add category' : 'Edit category'),
       content: SizedBox(
-        width: 420,
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextFormField(
-                  controller: _nameController,
-                  autofocus: true,
-                  textCapitalization: TextCapitalization.words,
-                  maxLength: 48,
-                  decoration: const InputDecoration(labelText: 'Name'),
-                  validator: (value) => (value ?? '').trim().isEmpty
-                      ? 'Enter a category name'
-                      : null,
-                ),
-                const SizedBox(height: 12),
-                SegmentedButton<TransactionType>(
-                  segments: const [
-                    ButtonSegment(
-                      value: TransactionType.expense,
-                      icon: Icon(Icons.remove_circle_outline),
-                      label: Text('Expense'),
-                    ),
-                    ButtonSegment(
-                      value: TransactionType.income,
-                      icon: Icon(Icons.add_circle_outline),
-                      label: Text('Income'),
-                    ),
-                  ],
-                  selected: {_type},
-                  onSelectionChanged: (values) {
-                    setState(() => _type = values.first);
-                  },
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  initialValue: categoryIconOptions.contains(_icon)
-                      ? _icon
-                      : categoryIconOptions.last,
-                  decoration: const InputDecoration(labelText: 'Icon'),
-                  items: categoryIconOptions
-                      .map((icon) {
-                        return DropdownMenuItem(
-                          value: icon,
-                          child: Row(
-                            children: [
-                              Icon(categoryIconData(icon)),
-                              const SizedBox(width: 12),
-                              Text(categoryIconLabel(icon)),
-                            ],
-                          ),
-                        );
-                      })
-                      .toList(growable: false),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _icon = value);
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: categoryColorOptions
-                      .map((color) {
-                        final isSelected = color == _color;
-                        return Tooltip(
-                          message: color,
-                          child: InkWell(
-                            customBorder: const CircleBorder(),
-                            onTap: () => setState(() => _color = color),
-                            child: Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: categoryColor(color),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: isSelected
-                                      ? Theme.of(context).colorScheme.onSurface
-                                      : Colors.transparent,
-                                  width: 3,
-                                ),
-                              ),
-                              child: isSelected
-                                  ? const Icon(Icons.check, color: Colors.white)
-                                  : null,
+        width: double.infinity,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    controller: _nameController,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.words,
+                    maxLength: 48,
+                    decoration: const InputDecoration(labelText: 'Name'),
+                    validator: (value) => (value ?? '').trim().isEmpty
+                        ? 'Enter a category name'
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  ResponsiveSegmentedButton<TransactionType>(
+                    segments: const [
+                      ResponsiveSegment(
+                        value: TransactionType.expense,
+                        icon: Icons.remove_circle_outline,
+                        label: 'Expense',
+                      ),
+                      ResponsiveSegment(
+                        value: TransactionType.income,
+                        icon: Icons.add_circle_outline,
+                        label: 'Income',
+                      ),
+                    ],
+                    selected: {_type},
+                    onSelectionChanged: (values) {
+                      setState(() => _type = values.first);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    initialValue: categoryIconOptions.contains(_icon)
+                        ? _icon
+                        : categoryIconOptions.last,
+                    decoration: const InputDecoration(labelText: 'Icon'),
+                    items: categoryIconOptions
+                        .map((icon) {
+                          return DropdownMenuItem(
+                            value: icon,
+                            child: Row(
+                              children: [
+                                Icon(categoryIconData(icon)),
+                                const SizedBox(width: 12),
+                                Text(categoryIconLabel(icon)),
+                              ],
                             ),
-                          ),
-                        );
-                      })
-                      .toList(growable: false),
-                ),
-              ],
+                          );
+                        })
+                        .toList(growable: false),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _icon = value);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: categoryColorOptions
+                        .map((color) {
+                          final isSelected = color == _color;
+                          return Tooltip(
+                            message: color,
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: () => setState(() => _color = color),
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: categoryColor(color),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? Theme.of(
+                                            context,
+                                          ).colorScheme.onSurface
+                                        : Colors.transparent,
+                                    width: 3,
+                                  ),
+                                ),
+                                child: isSelected
+                                    ? const Icon(
+                                        Icons.check,
+                                        color: Colors.white,
+                                      )
+                                    : null,
+                              ),
+                            ),
+                          );
+                        })
+                        .toList(growable: false),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../shared/models/finance_enums.dart';
 import '../../../../shared/theme/app_theme.dart';
 import '../../../../shared/widgets/app_page.dart';
+import '../../../../shared/widgets/responsive_controls.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../transactions/presentation/widgets/transaction_formatters.dart';
 import '../../domain/entities/statistics_overview.dart';
@@ -60,6 +61,10 @@ class _StatisticsContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final statisticsState = ref.watch(statisticsOverviewProvider(userId));
     final selection = ref.watch(statisticsPeriodProvider);
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    final periodFilterWidth = (viewportWidth - AppSpacing.xl * 2)
+        .clamp(280.0, 1080.0)
+        .toDouble();
 
     return Column(
       children: [
@@ -75,30 +80,33 @@ class _StatisticsContent extends ConsumerWidget {
               ),
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                child: SegmentedButton<StatisticsPeriod>(
-                  showSelectedIcon: false,
-                  segments: const [
-                    ButtonSegment(
-                      value: StatisticsPeriod.week,
-                      label: Text('Week'),
-                    ),
-                    ButtonSegment(
-                      value: StatisticsPeriod.month,
-                      label: Text('Month'),
-                    ),
-                    ButtonSegment(
-                      value: StatisticsPeriod.year,
-                      label: Text('Year'),
-                    ),
-                    ButtonSegment(
-                      value: StatisticsPeriod.custom,
-                      icon: Icon(Icons.date_range_outlined),
-                      label: Text('Custom'),
-                    ),
-                  ],
-                  selected: {selection.period},
-                  onSelectionChanged: (values) =>
-                      _selectPeriod(context, ref, values.first, selection),
+                child: SizedBox(
+                  width: periodFilterWidth,
+                  child: ResponsiveSegmentedButton<StatisticsPeriod>(
+                    showSelectedIcon: false,
+                    segments: const [
+                      ResponsiveSegment(
+                        value: StatisticsPeriod.week,
+                        label: 'Week',
+                      ),
+                      ResponsiveSegment(
+                        value: StatisticsPeriod.month,
+                        label: 'Month',
+                      ),
+                      ResponsiveSegment(
+                        value: StatisticsPeriod.year,
+                        label: 'Year',
+                      ),
+                      ResponsiveSegment(
+                        value: StatisticsPeriod.custom,
+                        icon: Icons.date_range_outlined,
+                        label: 'Custom',
+                      ),
+                    ],
+                    selected: {selection.period},
+                    onSelectionChanged: (values) =>
+                        _selectPeriod(context, ref, values.first, selection),
+                  ),
                 ),
               ),
             ),
@@ -450,12 +458,18 @@ class _TrendBar extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 10),
-        SizedBox(
-          width: 92,
-          child: Text(
-            formatIdr(value),
-            textAlign: TextAlign.end,
-            style: Theme.of(context).textTheme.bodySmall,
+        Expanded(
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                formatIdr(value),
+                textAlign: TextAlign.end,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
           ),
         ),
       ],
@@ -580,7 +594,16 @@ class _ShareBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              Text(formatIdr(amount)),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text(formatIdr(amount)),
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 8),

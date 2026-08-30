@@ -70,6 +70,10 @@ class _AppShellState extends ConsumerState<AppShell> {
         top: false,
         child: NavigationBar(
           height: 72,
+          labelBehavior:
+              width < 380 || MediaQuery.textScalerOf(context).scale(14) > 16
+              ? NavigationDestinationLabelBehavior.onlyShowSelected
+              : NavigationDestinationLabelBehavior.alwaysShow,
           selectedIndex: _selectedIndex < 5 ? _selectedIndex : 0,
           onDestinationSelected: _select,
           destinations: _destinations
@@ -173,10 +177,7 @@ class _Brand extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(AppRadius.control),
             ),
-            child: Image.asset(
-              'app-icon.png',
-              fit: BoxFit.contain,
-            ),
+            child: Image.asset('app-icon.png', fit: BoxFit.contain),
           ),
           if (extended) ...[
             const SizedBox(width: AppSpacing.sm),

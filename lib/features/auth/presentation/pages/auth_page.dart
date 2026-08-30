@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/result.dart';
+import '../../../../shared/widgets/responsive_controls.dart';
 import '../providers/auth_providers.dart';
 
 class AuthPage extends ConsumerStatefulWidget {
@@ -80,17 +81,17 @@ class _AuthPageState extends ConsumerState<AuthPage> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    SegmentedButton<_AuthMode>(
+                    ResponsiveSegmentedButton<_AuthMode>(
                       segments: const [
-                        ButtonSegment(
+                        ResponsiveSegment(
                           value: _AuthMode.signIn,
-                          icon: Icon(Icons.login),
-                          label: Text('Sign in'),
+                          icon: Icons.login,
+                          label: 'Sign in',
                         ),
-                        ButtonSegment(
+                        ResponsiveSegment(
                           value: _AuthMode.register,
-                          icon: Icon(Icons.person_add_alt_1),
-                          label: Text('Register'),
+                          icon: Icons.person_add_alt_1,
+                          label: 'Register',
                         ),
                       ],
                       selected: {_mode},

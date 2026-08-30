@@ -362,7 +362,16 @@ class _ExpenseBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              Text(_formatIdr(item.amount)),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text(_formatIdr(item.amount)),
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 6),

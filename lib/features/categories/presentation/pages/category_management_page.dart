@@ -8,6 +8,7 @@ import '../../../../shared/models/finance_enums.dart';
 import '../../../../shared/theme/app_theme.dart';
 import '../../../../shared/undo_delete/pending_delete_controller.dart';
 import '../../../../shared/widgets/app_page.dart';
+import '../../../../shared/widgets/responsive_controls.dart';
 import '../../../../shared/widgets/undo_delete_snackbar.dart';
 import '../../application/usecases/category_commands.dart';
 import '../../domain/entities/category.dart';
@@ -455,19 +456,18 @@ class _CategoryToolbar extends StatelessWidget {
       runSpacing: 12,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        SegmentedButton<TransactionType?>(
-          expandedInsets: EdgeInsets.zero,
+        ResponsiveSegmentedButton<TransactionType?>(
           segments: const [
-            ButtonSegment(value: null, label: Text('All')),
-            ButtonSegment(
+            ResponsiveSegment(value: null, label: 'All'),
+            ResponsiveSegment(
               value: TransactionType.expense,
-              icon: Icon(Icons.remove_circle_outline),
-              label: Text('Expense'),
+              icon: Icons.remove_circle_outline,
+              label: 'Expense',
             ),
-            ButtonSegment(
+            ResponsiveSegment(
               value: TransactionType.income,
-              icon: Icon(Icons.add_circle_outline),
-              label: Text('Income'),
+              icon: Icons.add_circle_outline,
+              label: 'Income',
             ),
           ],
           selected: {selectedType},

@@ -10,6 +10,7 @@ import '../../../../shared/models/finance_enums.dart';
 import '../../../../shared/theme/app_theme.dart';
 import '../../../../shared/undo_delete/pending_delete_controller.dart';
 import '../../../../shared/widgets/app_page.dart';
+import '../../../../shared/widgets/responsive_controls.dart';
 import '../../../../shared/widgets/undo_delete_snackbar.dart';
 import '../../application/usecases/debt_commands.dart';
 import '../../domain/entities/debt.dart';
@@ -487,35 +488,33 @@ class _DebtHeader extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SegmentedButton<DebtKind?>(
-              expandedInsets: EdgeInsets.zero,
+            ResponsiveSegmentedButton<DebtKind?>(
               segments: const [
-                ButtonSegment(value: null, label: Text('All')),
-                ButtonSegment(
+                ResponsiveSegment(value: null, label: 'All'),
+                ResponsiveSegment(
                   value: DebtKind.debt,
-                  icon: Icon(Icons.call_made_outlined),
-                  label: Text('Debt'),
+                  icon: Icons.call_made_outlined,
+                  label: 'Debt',
                 ),
-                ButtonSegment(
+                ResponsiveSegment(
                   value: DebtKind.receivable,
-                  icon: Icon(Icons.call_received_outlined),
-                  label: Text('Receivable'),
+                  icon: Icons.call_received_outlined,
+                  label: 'Receivable',
                 ),
               ],
               selected: {selectedKind},
               onSelectionChanged: (values) => onKindChanged(values.first),
             ),
             const SizedBox(height: AppSpacing.sm),
-            SegmentedButton<DebtStatus?>(
-              expandedInsets: EdgeInsets.zero,
+            ResponsiveSegmentedButton<DebtStatus?>(
               showSelectedIcon: false,
               segments: const [
-                ButtonSegment(value: null, label: Text('All')),
-                ButtonSegment(value: DebtStatus.open, label: Text('Open')),
-                ButtonSegment(value: DebtStatus.paid, label: Text('Paid')),
-                ButtonSegment(
+                ResponsiveSegment(value: null, label: 'All'),
+                ResponsiveSegment(value: DebtStatus.open, label: 'Open'),
+                ResponsiveSegment(value: DebtStatus.paid, label: 'Paid'),
+                ResponsiveSegment(
                   value: DebtStatus.cancelled,
-                  label: Text('Cancelled'),
+                  label: 'Cancelled',
                 ),
               ],
               selected: {selectedStatus},
