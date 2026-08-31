@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+double responsiveDialogWidth(BuildContext context, {double maxWidth = 420}) {
+  final availableWidth = MediaQuery.sizeOf(context).width - 80;
+  return availableWidth.clamp(0.0, maxWidth).toDouble();
+}
+
 /// A single-select control that keeps its labels readable on small screens.
 ///
 /// SegmentedButton is ideal when there is enough horizontal space, but its

@@ -86,8 +86,10 @@ class _TransactionFormDialogState extends State<TransactionFormDialog> {
     final activeAccounts = widget.accounts
         .where((account) => !account.isArchived || account.id == _accountId)
         .toList(growable: false);
+    final dialogWidth = responsiveDialogWidth(context);
 
     return AlertDialog(
+      constraints: BoxConstraints(minWidth: dialogWidth, maxWidth: dialogWidth),
       title: Text(
         transaction == null
             ? draft == null
@@ -97,112 +99,107 @@ class _TransactionFormDialogState extends State<TransactionFormDialog> {
       ),
       content: SizedBox(
         width: double.infinity,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
-          child: SingleChildScrollView(
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ResponsiveSegmentedButton<TransactionType>(
-                    segments: const [
-                      ResponsiveSegment(
-                        value: TransactionType.expense,
-                        icon: Icons.remove_circle_outline,
-                        label: 'Expense',
-                      ),
-                      ResponsiveSegment(
-                        value: TransactionType.income,
-                        icon: Icons.add_circle_outline,
-                        label: 'Income',
-                      ),
-                    ],
-                    selected: {_type},
-                    onSelectionChanged: (values) {
-                      setState(() {
-                        _type = values.first;
-                        _categoryId = null;
-                        _ensureValidSelections();
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _amountController,
-                    autofocus: true,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ResponsiveSegmentedButton<TransactionType>(
+                  segments: const [
+                    ResponsiveSegment(
+                      value: TransactionType.expense,
+                      icon: Icons.remove_circle_outline,
+                      label: 'Expense',
                     ),
-                    decoration: const InputDecoration(
-                      labelText: 'Amount',
-                      prefixText: 'Rp ',
+                    ResponsiveSegment(
+                      value: TransactionType.income,
+                      icon: Icons.add_circle_outline,
+                      label: 'Income',
                     ),
-                    validator: (value) {
-                      final amount = _parseAmount(value ?? '');
-                      return amount == null || amount <= 0
-                          ? 'Enter an amount above zero'
-                          : null;
-                    },
+                  ],
+                  selected: {_type},
+                  onSelectionChanged: (values) {
+                    setState(() {
+                      _type = values.first;
+                      _categoryId = null;
+                      _ensureValidSelections();
+                    });
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _amountController,
+                  autofocus: true,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
                   ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    initialValue: _categoryId,
-                    decoration: const InputDecoration(labelText: 'Category'),
-                    items: availableCategories
-                        .map(
-                          (category) => DropdownMenuItem(
-                            value: category.id,
-                            child: Text(category.name),
-                          ),
-                        )
-                        .toList(growable: false),
-                    onChanged: availableCategories.isEmpty
-                        ? null
-                        : (value) => setState(() => _categoryId = value),
-                    validator: (value) =>
-                        value == null ? 'Select a category' : null,
+                  decoration: const InputDecoration(
+                    labelText: 'Amount',
+                    prefixText: 'Rp ',
                   ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    initialValue: _accountId,
-                    decoration: const InputDecoration(labelText: 'Account'),
-                    items: activeAccounts
-                        .map(
-                          (account) => DropdownMenuItem(
-                            value: account.id,
-                            child: Text(
-                              '${account.name} (${account.currency})',
-                            ),
-                          ),
-                        )
-                        .toList(growable: false),
-                    onChanged: activeAccounts.isEmpty
-                        ? null
-                        : (value) => setState(() => _accountId = value),
-                    validator: (value) =>
-                        value == null ? 'Select a financial account' : null,
+                  validator: (value) {
+                    final amount = _parseAmount(value ?? '');
+                    return amount == null || amount <= 0
+                        ? 'Enter an amount above zero'
+                        : null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  initialValue: _categoryId,
+                  decoration: const InputDecoration(labelText: 'Category'),
+                  items: availableCategories
+                      .map(
+                        (category) => DropdownMenuItem(
+                          value: category.id,
+                          child: Text(category.name),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: availableCategories.isEmpty
+                      ? null
+                      : (value) => setState(() => _categoryId = value),
+                  validator: (value) =>
+                      value == null ? 'Select a category' : null,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  initialValue: _accountId,
+                  decoration: const InputDecoration(labelText: 'Account'),
+                  items: activeAccounts
+                      .map(
+                        (account) => DropdownMenuItem(
+                          value: account.id,
+                          child: Text('${account.name} (${account.currency})'),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: activeAccounts.isEmpty
+                      ? null
+                      : (value) => setState(() => _accountId = value),
+                  validator: (value) =>
+                      value == null ? 'Select a financial account' : null,
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: _pickDate,
+                  icon: const Icon(Icons.calendar_today_outlined),
+                  label: Text(formatDate(_date)),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _noteController,
+                  textCapitalization: TextCapitalization.sentences,
+                  maxLength: 120,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                    labelText: 'Notes (optional)',
                   ),
-                  const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    onPressed: _pickDate,
-                    icon: const Icon(Icons.calendar_today_outlined),
-                    label: Text(formatDate(_date)),
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _noteController,
-                    textCapitalization: TextCapitalization.sentences,
-                    maxLength: 120,
-                    minLines: 2,
-                    maxLines: 4,
-                    decoration: const InputDecoration(
-                      labelText: 'Notes (optional)',
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),

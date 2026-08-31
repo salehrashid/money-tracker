@@ -62,16 +62,6 @@ class _AccountPageState extends ConsumerState<AccountPage> {
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        user.isEmailVerified
-                            ? 'Email verified'
-                            : 'Email verification pending',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
                       const SizedBox(height: 24),
                       FilledButton.icon(
                         onPressed: _isSigningOut ? null : _signOut,

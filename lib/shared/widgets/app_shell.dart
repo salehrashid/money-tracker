@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:curved_labeled_navigation_bar/curved_navigation_bar.dart';
+import 'package:curved_labeled_navigation_bar/curved_navigation_bar_item.dart';
 
 import '../../features/auth/presentation/pages/account_page.dart';
 import '../../features/categories/presentation/pages/category_management_page.dart';
@@ -19,7 +21,20 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell> {
   static const _accountIndex = 5;
+  late final PageController _pageController;
   var _selectedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: _selectedIndex);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +45,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     ref.listen(pendingDetectedTransactionProvider, (previous, next) {
       if (next != null && _selectedIndex != 1) {
-        setState(() => _selectedIndex = 1);
+        _select(1);
       }
     });
 
@@ -65,33 +80,106 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
 
     return Scaffold(
-      body: page,
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: _onPageChanged,
+        children: [
+          _KeepAlivePage(
+            child: DashboardPage(onAddTransaction: () => _select(1)),
+          ),
+          _KeepAlivePage(
+            child: TransactionPage(
+              initialDetectedTransaction: pendingDetectedTransaction,
+            ),
+          ),
+          const _KeepAlivePage(child: StatisticsPage()),
+          const _KeepAlivePage(child: DebtLoanPage()),
+          const _KeepAlivePage(child: CategoryManagementPage()),
+        ],
+      ),
       bottomNavigationBar: SafeArea(
         top: false,
-        child: NavigationBar(
-          height: 72,
-          labelBehavior:
-              width < 380 || MediaQuery.textScalerOf(context).scale(14) > 16
-              ? NavigationDestinationLabelBehavior.onlyShowSelected
-              : NavigationDestinationLabelBehavior.alwaysShow,
-          selectedIndex: _selectedIndex < 5 ? _selectedIndex : 0,
-          onDestinationSelected: _select,
-          destinations: _destinations
-              .map(
-                (item) => NavigationDestination(
-                  icon: Icon(item.icon),
-                  selectedIcon: Icon(item.selectedIcon),
-                  label: item.label,
-                  tooltip: item.tooltip,
+        child: CurvedNavigationBar(
+          index: _selectedIndex < _destinations.length ? _selectedIndex : 0,
+          height: 70,
+          color: AppColors.primaryDark,
+          buttonBackgroundColor: AppColors.primary,
+          backgroundColor: AppColors.background,
+          animationCurve: Curves.easeOutCubic,
+          animationDuration: Duration(milliseconds: 500),
+          onTap: _select,
+          items: [
+            for (var index = 0; index < _destinations.length; index++)
+              CurvedNavigationBarItem(
+                child: Tooltip(
+                  message: _destinations[index].tooltip,
+                  child: Icon(
+                    _selectedIndex == index
+                        ? _destinations[index].selectedIcon
+                        : _destinations[index].icon,
+                    size: 25,
+                    color: Colors.white,
+                  ),
                 ),
-              )
-              .toList(growable: false),
+                label: _destinations[index].label,
+                labelStyle: TextStyle(
+                  color: _selectedIndex == index
+                      ? Colors.white
+                      : Colors.white70,
+                  fontSize: 12,
+                  fontWeight: _selectedIndex == index
+                      ? FontWeight.w700
+                      : FontWeight.w500,
+                ),
+              ),
+          ],
         ),
       ),
     );
   }
 
-  void _select(int index) => setState(() => _selectedIndex = index);
+  void _select(int index) {
+    if (_selectedIndex == index) {
+      return;
+    }
+
+    setState(() => _selectedIndex = index);
+
+    if (index < _destinations.length && _pageController.hasClients) {
+      _pageController.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
+  void _onPageChanged(int index) {
+    if (_selectedIndex != index) {
+      setState(() => _selectedIndex = index);
+    }
+  }
+}
+
+class _KeepAlivePage extends StatefulWidget {
+  const _KeepAlivePage({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage>
+    with AutomaticKeepAliveClientMixin<_KeepAlivePage> {
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
+  }
+
+  @override
+  bool get wantKeepAlive => true;
 }
 
 class _DesktopSidebar extends StatelessWidget {

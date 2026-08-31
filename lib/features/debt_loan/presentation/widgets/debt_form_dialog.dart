@@ -47,13 +47,14 @@ class _DebtFormDialogState extends State<DebtFormDialog> {
   @override
   Widget build(BuildContext context) {
     final debt = widget.debt;
+    final dialogWidth = responsiveDialogWidth(context);
 
     return AlertDialog(
       title: Text(debt == null ? 'Add debt record' : 'Edit debt record'),
       content: SizedBox(
         width: double.infinity,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
+          constraints: BoxConstraints(minWidth: dialogWidth, maxWidth: dialogWidth),
           child: SingleChildScrollView(
             child: Form(
               key: _formKey,
