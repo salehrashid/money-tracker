@@ -33,6 +33,13 @@ class NotificationListenerMethodChannelDataSource {
         false;
   }
 
+  Future<bool> isNotificationPermissionGranted() async {
+    return await _channel.invokeMethod<bool>(
+          'isNotificationPermissionGranted',
+        ) ??
+        false;
+  }
+
   Future<void> openNotificationListenerSettings() {
     return _channel.invokeMethod<void>('openNotificationListenerSettings');
   }

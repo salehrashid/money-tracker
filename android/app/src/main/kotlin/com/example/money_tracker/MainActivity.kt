@@ -11,6 +11,8 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    private var pendingNotificationPermissionResult: MethodChannel.Result? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         MoneyNotificationBridge.handleLaunchIntent(intent)
@@ -20,6 +22,23 @@ class MainActivity : FlutterActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         MoneyNotificationBridge.handleLaunchIntent(intent)
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != notificationPermissionRequestCode) {
+            return
+        }
+
+        val result = pendingNotificationPermissionResult ?: return
+        pendingNotificationPermissionResult = null
+        // A denial is a valid user choice, so complete the method call without
+        // treating it as an application error.
+        result.success(null)
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -50,9 +69,11 @@ class MainActivity : FlutterActivity() {
             "areConfirmationNotificationsAllowed" -> {
                 result.success(MoneyNotificationBridge.areConfirmationNotificationsAllowed(this))
             }
+            "isNotificationPermissionGranted" -> {
+                result.success(MoneyNotificationBridge.isNotificationPermissionGranted(this))
+            }
             "requestConfirmationNotificationPermission" -> {
-                requestConfirmationNotificationPermission()
-                result.success(null)
+                requestConfirmationNotificationPermission(result)
             }
             "getMonitoredPackages" -> {
                 result.success(MoneyNotificationBridge.getMonitoredPackages(this).toList())
@@ -86,13 +107,28 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun requestConfirmationNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            requestPermissions(
-                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
-                notificationPermissionRequestCode,
-            )
+    private fun requestConfirmationNotificationPermission(result: MethodChannel.Result) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            MoneyNotificationBridge.isNotificationPermissionGranted(this)
+        ) {
+            result.success(null)
+            return
         }
+
+        if (pendingNotificationPermissionResult != null) {
+            result.error(
+                "request_in_progress",
+                "Notification permission request is already in progress.",
+                null,
+            )
+            return
+        }
+
+        pendingNotificationPermissionResult = result
+        requestPermissions(
+            arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+            notificationPermissionRequestCode,
+        )
     }
 
     private companion object {

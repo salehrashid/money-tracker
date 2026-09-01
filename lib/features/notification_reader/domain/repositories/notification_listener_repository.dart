@@ -10,6 +10,8 @@ abstract interface class NotificationListenerRepository {
 
   Future<Result<NotificationListenerStatus>> getStatus();
 
+  Future<Result<bool>> isNotificationPermissionGranted();
+
   Future<Result<void>> openNotificationListenerSettings();
 
   Future<Result<void>> requestConfirmationNotificationPermission();

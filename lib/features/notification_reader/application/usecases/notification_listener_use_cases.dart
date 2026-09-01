@@ -24,6 +24,16 @@ class GetNotificationListenerStatusUseCase {
   }
 }
 
+class GetNotificationPermissionStatusUseCase {
+  const GetNotificationPermissionStatusUseCase(this._repository);
+
+  final NotificationListenerRepository _repository;
+
+  Future<Result<bool>> execute() {
+    return _repository.isNotificationPermissionGranted();
+  }
+}
+
 class GetRecentAndroidNotificationsUseCase {
   const GetRecentAndroidNotificationsUseCase(this._repository);
 

@@ -78,6 +78,21 @@ class PlatformNotificationListenerRepository
   }
 
   @override
+  Future<Result<bool>> isNotificationPermissionGranted() async {
+    if (!_isSupported) {
+      // POST_NOTIFICATIONS is not required on non-Android platforms or on
+      // Android versions before 13.
+      return const Success(true);
+    }
+
+    try {
+      return Success(await _dataSource.isNotificationPermissionGranted());
+    } on Object catch (error) {
+      return Failure(_mapPlatformFailure(error));
+    }
+  }
+
+  @override
   Future<Result<void>> openNotificationListenerSettings() async {
     if (!_isSupported) {
       return const Failure(_unsupportedFailure);

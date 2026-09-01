@@ -21,23 +21,126 @@ class AppShell extends ConsumerStatefulWidget {
   ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends ConsumerState<AppShell> {
+class _AppShellState extends ConsumerState<AppShell>
+    with WidgetsBindingObserver {
   static const _accountIndex = 5;
   static const _financialCycleIndex = 6;
   late final PageController _pageController;
   final _mobileScaffoldKey = GlobalKey<ScaffoldState>();
   var _selectedIndex = 0;
+  var _notificationPermissionFlowInProgress = false;
+  var _notificationAccessDialogVisible = false;
+  var _notificationPermissionRequestAttempted = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _pageController = PageController(initialPage: _selectedIndex);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _runNotificationPermissionFlow();
+    });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _runNotificationPermissionFlow();
+    }
+  }
+
+  Future<void> _runNotificationPermissionFlow() async {
+    if (!mounted || _notificationPermissionFlowInProgress) {
+      return;
+    }
+
+    _notificationPermissionFlowInProgress = true;
+    try {
+      final permissionResult = await ref
+          .read(getNotificationPermissionStatusUseCaseProvider)
+          .execute();
+
+      await permissionResult.when(
+        success: (isGranted) async {
+          if (!isGranted && !_notificationPermissionRequestAttempted) {
+            _notificationPermissionRequestAttempted = true;
+            await ref
+                .read(requestConfirmationNotificationPermissionUseCaseProvider)
+                .execute();
+          }
+        },
+        failure: (_) async {},
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      final accessResult = await ref
+          .read(getNotificationListenerStatusUseCaseProvider)
+          .execute();
+      await accessResult.when(
+        success: (status) async {
+          if (!status.isSupported || status.isListenerEnabled) {
+            return;
+          }
+          await _showNotificationAccessDialog();
+        },
+        failure: (_) async {},
+      );
+    } on Object catch (_) {
+      // Permission checks must not prevent the rest of the app from opening.
+    } finally {
+      _notificationPermissionFlowInProgress = false;
+    }
+  }
+
+  Future<void> _showNotificationAccessDialog() async {
+    if (!mounted || _notificationAccessDialogVisible) {
+      return;
+    }
+
+    _notificationAccessDialogVisible = true;
+    try {
+      final shouldOpenSettings = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('Notification Access Required'),
+            content: const Text(
+              'Fleeca needs Notification Access to detect supported bank '
+              'notifications. Enable Fleeca on the Android settings page.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Not now'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Allow Notification Access'),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (shouldOpenSettings == true && mounted) {
+        await ref
+            .read(openNotificationListenerSettingsUseCaseProvider)
+            .execute();
+      }
+    } finally {
+      _notificationAccessDialogVisible = false;
+    }
   }
 
   @override

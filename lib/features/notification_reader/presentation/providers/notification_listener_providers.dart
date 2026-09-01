@@ -73,6 +73,13 @@ final getNotificationListenerStatusUseCaseProvider =
       );
     });
 
+final getNotificationPermissionStatusUseCaseProvider =
+    Provider<GetNotificationPermissionStatusUseCase>((ref) {
+      return GetNotificationPermissionStatusUseCase(
+        ref.watch(notificationListenerRepositoryProvider),
+      );
+    });
+
 final getRecentAndroidNotificationsUseCaseProvider =
     Provider<GetRecentAndroidNotificationsUseCase>((ref) {
       return GetRecentAndroidNotificationsUseCase(

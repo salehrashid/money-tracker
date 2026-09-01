@@ -77,11 +77,18 @@ object MoneyNotificationBridge {
         }
     }
 
+    fun isNotificationPermissionGranted(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return true
+        }
+
+        return context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+    }
+
     fun areConfirmationNotificationsAllowed(context: Context): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            val granted = context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
-                PackageManager.PERMISSION_GRANTED
-            if (!granted) {
+            if (!isNotificationPermissionGranted(context)) {
                 return false
             }
         }
