@@ -1,4 +1,5 @@
 import '../../../../shared/models/finance_enums.dart';
+import '../../../../core/financial_cycle/financial_cycle_service.dart';
 import '../../../accounts/domain/entities/account.dart';
 import '../../../categories/domain/entities/category.dart';
 import '../../../transactions/domain/entities/transaction.dart';
@@ -12,6 +13,7 @@ class BuildDashboardOverviewUseCase {
     required List<Category> categories,
     required List<TransactionEntity> transactions,
     required DateTime now,
+    int financialCycleDay = FinancialCycleService.defaultCycleDay,
   }) {
     final activeAccounts = accounts.where((account) => !account.isArchived);
     final categoryById = {
@@ -26,6 +28,10 @@ class BuildDashboardOverviewUseCase {
     var monthlyIncome = 0.0;
     var monthlyExpense = 0.0;
     final expenseByCategory = <String, double>{};
+    final period = const FinancialCycleService().currentPeriod(
+      cycleDay: financialCycleDay,
+      now: now,
+    );
 
     for (final transaction in transactions.where((item) => !item.isDeleted)) {
       if (transaction.type == TransactionType.income) {
@@ -34,7 +40,7 @@ class BuildDashboardOverviewUseCase {
         totalBalance -= transaction.amount;
       }
 
-      if (_isSameLocalMonth(transaction.transactionDate, now)) {
+      if (period.contains(transaction.transactionDate)) {
         if (transaction.type == TransactionType.income) {
           monthlyIncome += transaction.amount;
         } else {
@@ -93,13 +99,7 @@ class BuildDashboardOverviewUseCase {
           )
           .toList(),
       expenseBreakdown: expenseBreakdown.take(5).toList(),
+      period: period,
     );
-  }
-
-  bool _isSameLocalMonth(DateTime value, DateTime now) {
-    final localValue = value.toLocal();
-    final localNow = now.toLocal();
-    return localValue.year == localNow.year &&
-        localValue.month == localNow.month;
   }
 }

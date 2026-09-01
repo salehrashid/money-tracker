@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../shared/models/finance_enums.dart';
+import '../../../../core/financial_cycle/financial_period.dart';
 import '../../../../shared/theme/app_theme.dart';
 import '../../../../shared/widgets/app_page.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
@@ -169,6 +170,10 @@ class _DashboardBody extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _SummaryGrid(overview: overview, isWide: isWide),
+                    if (overview.period != null) ...[
+                      const SizedBox(height: 12),
+                      _CurrentPeriodBanner(period: overview.period!),
+                    ],
                     const SizedBox(height: 16),
                     if (isWide)
                       Row(
@@ -251,6 +256,24 @@ class _SummaryGrid extends StatelessWidget {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       children: cards,
+    );
+  }
+}
+
+class _CurrentPeriodBanner extends StatelessWidget {
+  const _CurrentPeriodBanner({required this.period});
+
+  final FinancialPeriod period;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ListTile(
+        dense: true,
+        leading: const Icon(Icons.calendar_month_outlined),
+        title: const Text('Current financial period'),
+        subtitle: Text(_formatPeriod(period)),
+      ),
     );
   }
 }
@@ -600,6 +623,28 @@ String _formatIdr(double value) {
 String _formatDate(DateTime value) {
   final local = value.toLocal();
   return '${_twoDigits(local.day)}/${_twoDigits(local.month)}/${local.year}';
+}
+
+String _formatPeriod(FinancialPeriod period) {
+  return '${_shortDate(period.start)} - ${_shortDate(period.end)}';
+}
+
+String _shortDate(DateTime value) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  return '${value.day} ${months[value.month - 1]} ${value.year}';
 }
 
 String _twoDigits(int value) {

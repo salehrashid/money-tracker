@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/financial_cycle/financial_cycle_service.dart';
+import '../../../../core/financial_cycle/financial_period.dart';
 import '../../../../shared/models/finance_enums.dart';
 import '../../../../shared/theme/app_theme.dart';
 import '../../../../shared/widgets/app_page.dart';
 import '../../../../shared/widgets/responsive_controls.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../settings/presentation/providers/financial_settings_providers.dart';
 import '../../../transactions/presentation/widgets/transaction_formatters.dart';
 import '../../domain/entities/statistics_overview.dart';
 import '../providers/statistics_providers.dart';
@@ -61,10 +64,8 @@ class _StatisticsContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final statisticsState = ref.watch(statisticsOverviewProvider(userId));
     final selection = ref.watch(statisticsPeriodProvider);
-    final viewportWidth = MediaQuery.sizeOf(context).width;
-    final periodFilterWidth = (viewportWidth - AppSpacing.xl * 2)
-        .clamp(280.0, 1080.0)
-        .toDouble();
+    final cycleDay = ref.watch(financialCycleDayProvider(userId)).value ?? 1;
+    final history = ref.watch(financialHistoryProvider(userId));
 
     return Column(
       children: [
@@ -78,36 +79,36 @@ class _StatisticsContent extends ConsumerWidget {
                 AppSpacing.md,
                 0,
               ),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SizedBox(
-                  width: periodFilterWidth,
-                  child: ResponsiveSegmentedButton<StatisticsPeriod>(
-                    showSelectedIcon: false,
-                    segments: const [
-                      ResponsiveSegment(
-                        value: StatisticsPeriod.week,
-                        label: 'Week',
-                      ),
-                      ResponsiveSegment(
-                        value: StatisticsPeriod.month,
-                        label: 'Month',
-                      ),
-                      ResponsiveSegment(
-                        value: StatisticsPeriod.year,
-                        label: 'Year',
-                      ),
-                      ResponsiveSegment(
-                        value: StatisticsPeriod.custom,
-                        icon: Icons.date_range_outlined,
-                        label: 'Custom',
-                      ),
-                    ],
-                    selected: {selection.period},
-                    onSelectionChanged: (values) =>
-                        _selectPeriod(context, ref, values.first, selection),
+              child: ResponsiveSegmentedButton<StatisticsPeriod>(
+                horizontalScroll: true,
+                showSelectedIcon: false,
+                segments: const [
+                  ResponsiveSegment(
+                    value: StatisticsPeriod.financialCycle,
+                    icon: Icons.payments_outlined,
+                    label: 'Cycle',
                   ),
-                ),
+                  ResponsiveSegment(
+                    value: StatisticsPeriod.week,
+                    label: 'Week',
+                  ),
+                  ResponsiveSegment(
+                    value: StatisticsPeriod.month,
+                    label: 'Month',
+                  ),
+                  ResponsiveSegment(
+                    value: StatisticsPeriod.year,
+                    label: 'Year',
+                  ),
+                  ResponsiveSegment(
+                    value: StatisticsPeriod.custom,
+                    icon: Icons.date_range_outlined,
+                    label: 'Custom',
+                  ),
+                ],
+                selected: {selection.period},
+                onSelectionChanged: (values) =>
+                    _selectPeriod(context, ref, values.first, selection),
               ),
             ),
           ),
@@ -140,7 +141,15 @@ class _StatisticsContent extends ConsumerWidget {
                   onRefresh: () async {
                     ref.invalidate(statisticsOverviewProvider(userId));
                   },
-                  child: _StatisticsBody(overview: overview),
+                  child: _StatisticsBody(
+                    overview: overview,
+                    history: history,
+                    cycleDay: cycleDay,
+                    selection: selection,
+                    onCycleNavigate: (delta) => ref
+                        .read(statisticsPeriodProvider.notifier)
+                        .navigateFinancialCycle(delta),
+                  ),
                 );
               },
             ),
@@ -179,9 +188,19 @@ class _StatisticsContent extends ConsumerWidget {
 }
 
 class _StatisticsBody extends StatelessWidget {
-  const _StatisticsBody({required this.overview});
+  const _StatisticsBody({
+    required this.overview,
+    required this.history,
+    required this.cycleDay,
+    required this.selection,
+    required this.onCycleNavigate,
+  });
 
   final StatisticsOverview overview;
+  final List<FinancialHistoryEntry> history;
+  final int cycleDay;
+  final StatisticsPeriodSelection selection;
+  final ValueChanged<int> onCycleNavigate;
 
   @override
   Widget build(BuildContext context) {
@@ -198,6 +217,18 @@ class _StatisticsBody extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    if (selection.period == StatisticsPeriod.financialCycle)
+                      _FinancialCycleNavigator(
+                        period: const FinancialCycleService().periodByOffset(
+                          date: DateTime.now(),
+                          cycleDay: cycleDay,
+                          offset: selection.financialCycleOffset,
+                        ),
+                        offset: selection.financialCycleOffset,
+                        onNavigate: onCycleNavigate,
+                      ),
+                    if (selection.period == StatisticsPeriod.financialCycle)
+                      const SizedBox(height: 12),
                     _SummaryGrid(overview: overview, isWide: isWide),
                     const SizedBox(height: 16),
                     if (isWide)
@@ -226,6 +257,11 @@ class _StatisticsBody extends StatelessWidget {
                     ],
                     const SizedBox(height: 16),
                     _CategoryBreakdownCard(items: overview.categoryBreakdown),
+                    if (selection.period ==
+                        StatisticsPeriod.financialCycle) ...[
+                      const SizedBox(height: 16),
+                      _FinancialHistoryCard(history: history),
+                    ],
                   ],
                 ),
               ),
@@ -235,6 +271,107 @@ class _StatisticsBody extends StatelessWidget {
       ],
     );
   }
+}
+
+class _FinancialCycleNavigator extends StatelessWidget {
+  const _FinancialCycleNavigator({
+    required this.period,
+    required this.offset,
+    required this.onNavigate,
+  });
+
+  final FinancialPeriod period;
+  final int offset;
+  final ValueChanged<int> onNavigate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: 'Previous financial period',
+            onPressed: () => onNavigate(-1),
+            icon: const Icon(Icons.chevron_left),
+          ),
+          Expanded(
+            child: Column(
+              children: [
+                Text(
+                  offset == 0 ? 'Current financial period' : 'Financial period',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+                Text(_formatPeriod(period)),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Next financial period',
+            onPressed: offset < 0 ? () => onNavigate(1) : null,
+            icon: const Icon(Icons.chevron_right),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FinancialHistoryCard extends StatelessWidget {
+  const _FinancialHistoryCard({required this.history});
+
+  final List<FinancialHistoryEntry> history;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SectionCard(
+      title: 'Financial history',
+      child: Column(
+        children: history
+            .map(
+              (entry) => ListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: Text(_formatPeriod(entry.period)),
+                subtitle: Text(
+                  'Income ${formatIdr(entry.income)}  •  Expense ${formatIdr(entry.expense)}',
+                ),
+                trailing: Text(
+                  formatIdr(entry.net),
+                  style: TextStyle(
+                    color: entry.net >= 0
+                        ? AppColors.income
+                        : Theme.of(context).colorScheme.error,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+}
+
+String _formatPeriod(FinancialPeriod period) {
+  return '${_shortDate(period.start)} - ${_shortDate(period.end)}';
+}
+
+String _shortDate(DateTime value) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  return '${value.day} ${months[value.month - 1]} ${value.year}';
 }
 
 class _SummaryGrid extends StatelessWidget {

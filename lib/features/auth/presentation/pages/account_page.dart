@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../shared/widgets/app_page.dart';
 import '../../../../core/utils/result.dart';
 import '../providers/auth_providers.dart';
 
 class AccountPage extends ConsumerStatefulWidget {
-  const AccountPage({super.key});
+  const AccountPage({this.onBackToDashboard, super.key});
+
+  final VoidCallback? onBackToDashboard;
 
   @override
   ConsumerState<AccountPage> createState() => _AccountPageState();
@@ -18,69 +21,80 @@ class _AccountPageState extends ConsumerState<AccountPage> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Account')),
-      body: authState.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, _) => const _MessageState(
-          icon: Icons.error_outline,
-          title: 'Unable to load account',
-          message: 'Please restart the app and try again.',
+    return PopScope(
+      canPop: widget.onBackToDashboard == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) widget.onBackToDashboard?.call();
+      },
+      child: Scaffold(
+        appBar: AppTopBar(
+          title: 'Account',
+          subtitle: 'Profile and preferences',
+          showBackButton: widget.onBackToDashboard != null,
+          onBackPressed: widget.onBackToDashboard,
         ),
-        data: (result) => result.when(
-          failure: (failure) => _MessageState(
+        body: authState.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (_, _) => const _MessageState(
             icon: Icons.error_outline,
             title: 'Unable to load account',
-            message: failure.message,
+            message: 'Please restart the app and try again.',
           ),
-          success: (user) {
-            if (user == null) {
-              return const _MessageState(
-                icon: Icons.lock_outline,
-                title: 'Signed out',
-                message: 'Sign in to access your Fleeca data.',
-              );
-            }
+          data: (result) => result.when(
+            failure: (failure) => _MessageState(
+              icon: Icons.error_outline,
+              title: 'Unable to load account',
+              message: failure.message,
+            ),
+            success: (user) {
+              if (user == null) {
+                return const _MessageState(
+                  icon: Icons.lock_outline,
+                  title: 'Signed out',
+                  message: 'Sign in to access your Fleeca data.',
+                );
+              }
 
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Icon(
-                        Icons.account_circle_outlined,
-                        size: 56,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        user.email ?? 'Signed in',
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 24),
-                      FilledButton.icon(
-                        onPressed: _isSigningOut ? null : _signOut,
-                        icon: _isSigningOut
-                            ? const SizedBox.square(
-                                dimension: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.logout),
-                        label: const Text('Sign out'),
-                      ),
-                    ],
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Icon(
+                          Icons.account_circle_outlined,
+                          size: 56,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          user.email ?? 'Signed in',
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 24),
+                        FilledButton.icon(
+                          onPressed: _isSigningOut ? null : _signOut,
+                          icon: _isSigningOut
+                              ? const SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.logout),
+                          label: const Text('Sign out'),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            );
-          },
+              );
+            },
+          ),
         ),
       ),
     );

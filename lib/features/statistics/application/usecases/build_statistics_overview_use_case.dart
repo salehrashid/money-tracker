@@ -1,4 +1,5 @@
 import '../../../../shared/models/finance_enums.dart';
+import '../../../../core/financial_cycle/financial_cycle_service.dart';
 import '../../../accounts/domain/entities/account.dart';
 import '../../../categories/domain/entities/category.dart';
 import '../../../transactions/domain/entities/transaction.dart';
@@ -12,6 +13,8 @@ class BuildStatisticsOverviewUseCase {
     required List<Category> categories,
     required List<TransactionEntity> transactions,
     required DateTime now,
+    int financialCycleDay = FinancialCycleService.defaultCycleDay,
+    bool useFinancialCycles = false,
   }) {
     final categoryById = {
       for (final category in categories) category.id: category,
@@ -31,9 +34,15 @@ class BuildStatisticsOverviewUseCase {
     final amountBySource = <TransactionSource, double>{};
     final countBySource = <TransactionSource, int>{};
     final monthlyBuckets = <_MonthKey, _MonthlyTotals>{};
+    final service = const FinancialCycleService();
+    final trendBase = useFinancialCycles
+        ? service
+              .periodByOffset(date: now, cycleDay: financialCycleDay, offset: 0)
+              .start
+        : now.toLocal();
     final startMonth = _MonthKey(
-      now.toLocal().year,
-      now.toLocal().month,
+      trendBase.year,
+      trendBase.month,
     ).minusMonths(5);
 
     for (var offset = 0; offset < 6; offset++) {
@@ -69,7 +78,12 @@ class BuildStatisticsOverviewUseCase {
       );
 
       final localDate = transaction.transactionDate.toLocal();
-      final monthKey = _MonthKey(localDate.year, localDate.month);
+      final financialPeriod = useFinancialCycles
+          ? service.getFinancialPeriod(localDate, financialCycleDay)
+          : null;
+      final monthKey = financialPeriod == null
+          ? _MonthKey(localDate.year, localDate.month)
+          : _MonthKey(financialPeriod.start.year, financialPeriod.start.month);
       final monthlyTotals = monthlyBuckets[monthKey];
       if (monthlyTotals != null) {
         if (transaction.type == TransactionType.income) {

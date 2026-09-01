@@ -18,6 +18,7 @@ class ResponsiveSegmentedButton<T> extends StatelessWidget {
     required this.onSelectionChanged,
     this.showSelectedIcon = true,
     this.spacing = 8,
+    this.horizontalScroll = false,
     super.key,
   });
 
@@ -26,6 +27,7 @@ class ResponsiveSegmentedButton<T> extends StatelessWidget {
   final ValueChanged<Set<T>>? onSelectionChanged;
   final bool showSelectedIcon;
   final double spacing;
+  final bool horizontalScroll;
 
   @override
   Widget build(BuildContext context) {
@@ -33,29 +35,26 @@ class ResponsiveSegmentedButton<T> extends StatelessWidget {
     final textScale = MediaQuery.textScalerOf(context).scale(14);
     final useWrappingLayout = width < 380 || textScale > 16;
 
+    if (horizontalScroll) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final filterWidth =
+              constraints.hasBoundedWidth && constraints.maxWidth > 480
+              ? constraints.maxWidth
+              : 480.0;
+
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(width: filterWidth, child: _buildSegmentedButton()),
+          );
+        },
+      );
+    }
+
     if (!useWrappingLayout) {
       return ConstrainedBox(
         constraints: BoxConstraints(maxWidth: width),
-        child: SegmentedButton<T>(
-          expandedInsets: EdgeInsets.zero,
-          showSelectedIcon: showSelectedIcon,
-          segments: segments
-              .map(
-                (segment) => ButtonSegment<T>(
-                  value: segment.value,
-                  icon: segment.icon == null ? null : Icon(segment.icon),
-                  label: Text(
-                    segment.label,
-                    maxLines: 1,
-                    softWrap: false,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              )
-              .toList(growable: false),
-          selected: selected,
-          onSelectionChanged: onSelectionChanged,
-        ),
+        child: _buildSegmentedButton(),
       );
     }
 
@@ -83,6 +82,29 @@ class ResponsiveSegmentedButton<T> extends StatelessWidget {
             )
             .toList(growable: false),
       ),
+    );
+  }
+
+  Widget _buildSegmentedButton() {
+    return SegmentedButton<T>(
+      expandedInsets: EdgeInsets.zero,
+      showSelectedIcon: showSelectedIcon,
+      segments: segments
+          .map(
+            (segment) => ButtonSegment<T>(
+              value: segment.value,
+              icon: segment.icon == null ? null : Icon(segment.icon),
+              label: Text(
+                segment.label,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          )
+          .toList(growable: false),
+      selected: selected,
+      onSelectionChanged: onSelectionChanged,
     );
   }
 }

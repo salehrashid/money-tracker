@@ -14,18 +14,23 @@ class AppTopBar extends ConsumerWidget implements PreferredSizeWidget {
     required this.title,
     required this.subtitle,
     this.actions = const [],
+    this.showBackButton = false,
+    this.onBackPressed,
     super.key,
   });
 
   final String title;
   final String subtitle;
   final List<Widget> actions;
+  final bool showBackButton;
+  final VoidCallback? onBackPressed;
 
   @override
   Size get preferredSize => const Size.fromHeight(88);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final drawerScope = AppDrawerScope.maybeOf(context);
     final auth = ref.watch(authStateProvider).value;
     final user = switch (auth) {
       Success<AuthUser?>(:final value) => value,
@@ -37,6 +42,19 @@ class AppTopBar extends ConsumerWidget implements PreferredSizeWidget {
               RemoteSyncState.online;
     return AppBar(
       toolbarHeight: preferredSize.height,
+      leading: showBackButton && (onBackPressed != null || drawerScope != null)
+          ? IconButton(
+              tooltip: 'Back to dashboard',
+              icon: const Icon(Icons.arrow_back),
+              onPressed: onBackPressed ?? drawerScope!.goToDashboard,
+            )
+          : drawerScope == null
+          ? null
+          : IconButton(
+              tooltip: 'Open navigation menu',
+              icon: const Icon(Icons.menu),
+              onPressed: drawerScope.openDrawer,
+            ),
       titleSpacing: AppBreakpoints.isMobile(context)
           ? AppSpacing.md
           : AppSpacing.xxl,
@@ -60,6 +78,27 @@ class AppTopBar extends ConsumerWidget implements PreferredSizeWidget {
       ],
     );
   }
+}
+
+class AppDrawerScope extends InheritedWidget {
+  const AppDrawerScope({
+    required this.openDrawer,
+    required this.goToDashboard,
+    required super.child,
+    super.key,
+  });
+
+  final VoidCallback openDrawer;
+  final VoidCallback goToDashboard;
+
+  static AppDrawerScope? maybeOf(BuildContext context) {
+    return context.dependOnInheritedWidgetOfExactType<AppDrawerScope>();
+  }
+
+  @override
+  bool updateShouldNotify(AppDrawerScope oldWidget) =>
+      openDrawer != oldWidget.openDrawer ||
+      goToDashboard != oldWidget.goToDashboard;
 }
 
 class OfflineSyncStatusAction extends StatelessWidget {

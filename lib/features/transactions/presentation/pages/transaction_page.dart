@@ -10,7 +10,9 @@ import '../../../../features/categories/domain/entities/category.dart';
 import '../../../../features/categories/presentation/providers/category_providers.dart';
 import '../../../../features/notification_reader/domain/entities/detected_transaction.dart';
 import '../../../../features/notification_reader/presentation/providers/notification_listener_providers.dart';
+import '../../../../features/settings/presentation/providers/financial_settings_providers.dart';
 import '../../../../shared/models/finance_enums.dart';
+import '../../../../core/financial_cycle/financial_cycle_service.dart';
 import '../../../../shared/theme/app_theme.dart';
 import '../../../../shared/undo_delete/pending_delete_controller.dart';
 import '../../../../shared/widgets/app_page.dart';
@@ -90,6 +92,7 @@ class _TransactionContent extends ConsumerWidget {
     final accountsState = ref.watch(accountListProvider(userId));
     final operationState = ref.watch(transactionOperationStateProvider);
     final filterCriteria = ref.watch(transactionFilterProvider);
+    final cycleDay = ref.watch(financialCycleDayProvider(userId)).value ?? 1;
     final applyFilters = ref.watch(applyTransactionFiltersUseCaseProvider);
     final pendingDeletions = ref.watch(pendingDeleteControllerProvider);
 
@@ -169,6 +172,7 @@ class _TransactionContent extends ConsumerWidget {
       floatingActionButton: loaded.data == null
           ? null
           : FloatingActionButton.extended(
+              heroTag: 'transactions-fab',
               onPressed: operationState.isLoading || !canCreate
                   ? null
                   : () => _showCreateDialog(context, ref, loaded.data!),
@@ -191,6 +195,7 @@ class _TransactionContent extends ConsumerWidget {
             criteria: filterCriteria,
           ),
           filterCriteria: filterCriteria,
+          financialCycleDay: cycleDay,
           isBusy: operationState.isLoading,
           onRefresh: () async {
             ref.invalidate(transactionListProvider(userId));
@@ -352,6 +357,7 @@ class _TransactionBody extends StatelessWidget {
     required this.onDelete,
     required this.onSaveDraft,
     required this.onClearFilters,
+    required this.financialCycleDay,
   });
 
   final _TransactionScreenData data;
@@ -364,6 +370,7 @@ class _TransactionBody extends StatelessWidget {
   final ValueChanged<TransactionEntity> onDelete;
   final ValueChanged<TransactionDraft> onSaveDraft;
   final VoidCallback onClearFilters;
+  final int financialCycleDay;
 
   @override
   Widget build(BuildContext context) {
@@ -402,6 +409,7 @@ class _TransactionBody extends StatelessWidget {
                       criteria: filterCriteria,
                       categories: data.categories,
                       accounts: data.accounts,
+                      financialCycleDay: financialCycleDay,
                     ),
                   ),
                 ),
@@ -500,11 +508,13 @@ class _TransactionFilterPanel extends ConsumerStatefulWidget {
     required this.criteria,
     required this.categories,
     required this.accounts,
+    required this.financialCycleDay,
   });
 
   final TransactionFilterCriteria criteria;
   final List<Category> categories;
   final List<Account> accounts;
+  final int financialCycleDay;
 
   @override
   ConsumerState<_TransactionFilterPanel> createState() =>
@@ -632,6 +642,17 @@ class _TransactionFilterPanelState
                       notifier.setCategoryId(null);
                     }
                   },
+                ),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    final period = const FinancialCycleService().currentPeriod(
+                      cycleDay: widget.financialCycleDay,
+                    );
+                    notifier.setStartDate(period.start);
+                    notifier.setEndDate(period.end);
+                  },
+                  icon: const Icon(Icons.payments_outlined),
+                  label: const Text('Current cycle'),
                 ),
                 if (AppBreakpoints.isMobile(context))
                   OutlinedButton.icon(

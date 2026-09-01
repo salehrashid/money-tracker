@@ -313,6 +313,7 @@ class _CategoryContent extends ConsumerWidget {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'categories-fab',
         onPressed: operationState.isLoading
             ? null
             : () => _showCreateDialog(context, ref, userId),

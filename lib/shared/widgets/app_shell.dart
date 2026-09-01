@@ -8,8 +8,10 @@ import '../../features/categories/presentation/pages/category_management_page.da
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../../features/debt_loan/presentation/pages/debt_loan_page.dart';
 import '../../features/notification_reader/presentation/providers/notification_listener_providers.dart';
+import '../../features/settings/presentation/pages/financial_cycle_page.dart';
 import '../../features/statistics/presentation/pages/statistics_page.dart';
 import '../../features/transactions/presentation/pages/transaction_page.dart';
+import 'app_page.dart';
 import '../theme/app_theme.dart';
 
 class AppShell extends ConsumerStatefulWidget {
@@ -21,7 +23,9 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell> {
   static const _accountIndex = 5;
+  static const _financialCycleIndex = 6;
   late final PageController _pageController;
+  final _mobileScaffoldKey = GlobalKey<ScaffoldState>();
   var _selectedIndex = 0;
 
   @override
@@ -58,6 +62,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       3 => const DebtLoanPage(),
       4 => const CategoryManagementPage(),
       _accountIndex => const AccountPage(),
+      _financialCycleIndex => const FinancialCyclePage(),
       _ => DashboardPage(onAddTransaction: () => _select(1)),
     };
 
@@ -71,6 +76,7 @@ class _AppShellState extends ConsumerState<AppShell> {
               extended: width >= 1240,
               onSelected: _select,
               onAccountSelected: () => _select(_accountIndex),
+              onFinancialCycleSelected: () => _select(_financialCycleIndex),
             ),
             const VerticalDivider(width: 1),
             Expanded(child: page),
@@ -79,60 +85,128 @@ class _AppShellState extends ConsumerState<AppShell> {
       );
     }
 
-    return Scaffold(
-      body: PageView(
-        controller: _pageController,
-        onPageChanged: _onPageChanged,
-        children: [
-          _KeepAlivePage(
-            child: DashboardPage(onAddTransaction: () => _select(1)),
-          ),
-          _KeepAlivePage(
-            child: TransactionPage(
-              initialDetectedTransaction: pendingDetectedTransaction,
-            ),
-          ),
-          const _KeepAlivePage(child: StatisticsPage()),
-          const _KeepAlivePage(child: DebtLoanPage()),
-          const _KeepAlivePage(child: CategoryManagementPage()),
-        ],
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: CurvedNavigationBar(
-          index: _selectedIndex < _destinations.length ? _selectedIndex : 0,
-          height: 70,
-          color: AppColors.primaryDark,
-          buttonBackgroundColor: AppColors.primary,
-          backgroundColor: AppColors.background,
-          animationCurve: Curves.easeOutCubic,
-          animationDuration: Duration(milliseconds: 500),
-          onTap: _select,
-          items: [
-            for (var index = 0; index < _destinations.length; index++)
-              CurvedNavigationBarItem(
-                child: Tooltip(
-                  message: _destinations[index].tooltip,
-                  child: Icon(
-                    _selectedIndex == index
-                        ? _destinations[index].selectedIcon
-                        : _destinations[index].icon,
-                    size: 25,
-                    color: Colors.white,
+    return PopScope(
+      canPop: _selectedIndex == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _selectedIndex != 0) {
+          _select(0);
+        }
+      },
+      child: Scaffold(
+        key: _mobileScaffoldKey,
+        drawerEnableOpenDragGesture: true,
+        drawer: _MobileNavigationDrawer(
+          onAccountSelected: () => _openAccountPage(context),
+          onFinancialCycleSelected: () => _openFinancialCyclePage(context),
+        ),
+        body: AppDrawerScope(
+          openDrawer: () => _mobileScaffoldKey.currentState?.openDrawer(),
+          goToDashboard: () => _select(0),
+          child: Stack(
+            children: [
+              PageView(
+                controller: _pageController,
+                onPageChanged: _onPageChanged,
+                children: [
+                  _KeepAlivePage(
+                    child: DashboardPage(onAddTransaction: () => _select(1)),
                   ),
-                ),
-                label: _destinations[index].label,
-                labelStyle: TextStyle(
-                  color: _selectedIndex == index
-                      ? Colors.white
-                      : Colors.white70,
-                  fontSize: 12,
-                  fontWeight: _selectedIndex == index
-                      ? FontWeight.w700
-                      : FontWeight.w500,
+                  _KeepAlivePage(
+                    child: TransactionPage(
+                      initialDetectedTransaction: pendingDetectedTransaction,
+                    ),
+                  ),
+                  const _KeepAlivePage(child: StatisticsPage()),
+                  const _KeepAlivePage(child: DebtLoanPage()),
+                  const _KeepAlivePage(child: CategoryManagementPage()),
+                ],
+              ),
+              Positioned(
+                left: 0,
+                top: 88,
+                bottom: 0,
+                width: 28,
+                child: _DrawerEdgeSwipeRegion(onOpenDrawer: _openDrawer),
+              ),
+              Positioned(
+                right: 0,
+                top: 88,
+                bottom: 0,
+                width: 28,
+                child: _DrawerEdgeSwipeRegion(onOpenDrawer: _openDrawer),
+              ),
+            ],
+          ),
+        ),
+        bottomNavigationBar: _selectedIndex >= _accountIndex
+            ? null
+            : SafeArea(
+                top: false,
+                child: CurvedNavigationBar(
+                  index: _selectedIndex,
+                  height: 70,
+                  color: AppColors.primaryDark,
+                  buttonBackgroundColor: AppColors.primary,
+                  backgroundColor: AppColors.background,
+                  animationCurve: Curves.easeOutCubic,
+                  animationDuration: Duration(milliseconds: 500),
+                  onTap: _select,
+                  items: [
+                    for (var index = 0; index < _destinations.length; index++)
+                      CurvedNavigationBarItem(
+                        child: Tooltip(
+                          message: _destinations[index].tooltip,
+                          child: Icon(
+                            _selectedIndex == index
+                                ? _destinations[index].selectedIcon
+                                : _destinations[index].icon,
+                            size: 25,
+                            color: Colors.white,
+                          ),
+                        ),
+                        label: _destinations[index].label,
+                        labelStyle: TextStyle(
+                          color: _selectedIndex == index
+                              ? Colors.white
+                              : Colors.white70,
+                          fontSize: 12,
+                          fontWeight: _selectedIndex == index
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                        ),
+                      ),
+                  ],
                 ),
               ),
-          ],
+      ),
+    );
+  }
+
+  void _openAccountPage(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AccountPage(
+          onBackToDashboard: () {
+            Navigator.of(context).pop();
+            _select(0);
+          },
+        ),
+      ),
+    );
+  }
+
+  void _openDrawer() {
+    _mobileScaffoldKey.currentState?.openDrawer();
+  }
+
+  void _openFinancialCyclePage(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => FinancialCyclePage(
+          onBackToDashboard: () {
+            Navigator.of(context).pop();
+            _select(0);
+          },
         ),
       ),
     );
@@ -145,7 +219,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     setState(() => _selectedIndex = index);
 
-    if (index < _destinations.length && _pageController.hasClients) {
+    if (index <= _financialCycleIndex && _pageController.hasClients) {
       _pageController.animateToPage(
         index,
         duration: const Duration(milliseconds: 300),
@@ -158,6 +232,48 @@ class _AppShellState extends ConsumerState<AppShell> {
     if (_selectedIndex != index) {
       setState(() => _selectedIndex = index);
     }
+  }
+}
+
+class _DrawerEdgeSwipeRegion extends StatefulWidget {
+  const _DrawerEdgeSwipeRegion({required this.onOpenDrawer});
+
+  final VoidCallback onOpenDrawer;
+
+  @override
+  State<_DrawerEdgeSwipeRegion> createState() => _DrawerEdgeSwipeRegionState();
+}
+
+class _DrawerEdgeSwipeRegionState extends State<_DrawerEdgeSwipeRegion> {
+  double _distance = 0;
+  bool _opened = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragStart: (_) {
+        _distance = 0;
+        _opened = false;
+      },
+      onHorizontalDragUpdate: (details) {
+        if (_opened || details.delta.dx == 0) return;
+        _distance += details.delta.dx.abs();
+        if (_distance >= 12) {
+          _opened = true;
+          widget.onOpenDrawer();
+        }
+      },
+      onHorizontalDragEnd: (_) {
+        _distance = 0;
+        _opened = false;
+      },
+      onHorizontalDragCancel: () {
+        _distance = 0;
+        _opened = false;
+      },
+      child: const SizedBox.expand(),
+    );
   }
 }
 
@@ -188,12 +304,14 @@ class _DesktopSidebar extends StatelessWidget {
     required this.extended,
     required this.onSelected,
     required this.onAccountSelected,
+    required this.onFinancialCycleSelected,
   });
 
   final int selectedIndex;
   final bool extended;
   final ValueChanged<int> onSelected;
   final VoidCallback onAccountSelected;
+  final VoidCallback onFinancialCycleSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -226,15 +344,17 @@ class _DesktopSidebar extends StatelessWidget {
               const Divider(),
               const SizedBox(height: AppSpacing.xs),
               _SidebarDestination(
-                item: const _Destination(
-                  label: 'Account',
-                  tooltip: 'Account and settings',
-                  icon: Icons.settings_outlined,
-                  selectedIcon: Icons.settings,
-                ),
+                item: _accountDestination,
                 selected: selectedIndex == 5,
                 extended: extended,
                 onTap: onAccountSelected,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              _SidebarDestination(
+                item: _financialCycleDestination,
+                selected: selectedIndex == 6,
+                extended: extended,
+                onTap: onFinancialCycleSelected,
               ),
             ],
           ),
@@ -381,3 +501,71 @@ const _destinations = [
     selectedIcon: Icons.category_rounded,
   ),
 ];
+
+const _accountDestination = _Destination(
+  label: 'Account',
+  tooltip: 'Account',
+  icon: Icons.settings_outlined,
+  selectedIcon: Icons.settings,
+);
+
+const _financialCycleDestination = _Destination(
+  label: 'Financial Cycle',
+  tooltip: 'Financial Cycle',
+  icon: Icons.payments_outlined,
+  selectedIcon: Icons.payments,
+);
+
+class _MobileNavigationDrawer extends StatelessWidget {
+  const _MobileNavigationDrawer({
+    required this.onAccountSelected,
+    required this.onFinancialCycleSelected,
+  });
+
+  final VoidCallback onAccountSelected;
+  final VoidCallback onFinancialCycleSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      child: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.sm,
+                AppSpacing.lg,
+                AppSpacing.lg,
+              ),
+              child: Text(
+                'Fleeca',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+            ),
+            const Divider(),
+            ListTile(
+              leading: Icon(_accountDestination.icon),
+              title: const Text('Account'),
+              subtitle: const Text('Profile'),
+              onTap: () {
+                Navigator.of(context).pop();
+                onAccountSelected();
+              },
+            ),
+            ListTile(
+              leading: Icon(_financialCycleDestination.icon),
+              title: const Text('Financial Cycle'),
+              subtitle: const Text('Payday-based financial periods'),
+              onTap: () {
+                Navigator.of(context).pop();
+                onFinancialCycleSelected();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

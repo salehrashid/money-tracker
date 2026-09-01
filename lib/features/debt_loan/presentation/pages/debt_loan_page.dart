@@ -280,6 +280,7 @@ class _DebtContent extends ConsumerWidget {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'debt-fab',
         onPressed: operationState.isLoading
             ? null
             : () => _showCreateDialog(context, ref, userId),

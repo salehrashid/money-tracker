@@ -1,4 +1,5 @@
 import '../../../../shared/models/finance_enums.dart';
+import '../../../../core/financial_cycle/financial_period.dart';
 
 class DashboardOverview {
   const DashboardOverview({
@@ -8,6 +9,7 @@ class DashboardOverview {
     required this.netCashFlow,
     required this.recentTransactions,
     required this.expenseBreakdown,
+    this.period,
   });
 
   final double totalBalance;
@@ -16,6 +18,7 @@ class DashboardOverview {
   final double netCashFlow;
   final List<DashboardRecentTransaction> recentTransactions;
   final List<DashboardExpenseBreakdown> expenseBreakdown;
+  final FinancialPeriod? period;
 
   bool get isEmpty =>
       totalBalance == 0 &&

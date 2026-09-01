@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/errors/app_failure.dart';
+import '../../../settings/presentation/providers/financial_settings_providers.dart';
 import '../../../../core/utils/result.dart';
 import '../../../accounts/domain/entities/account.dart';
 import '../../../accounts/presentation/providers/account_providers.dart';
@@ -24,11 +25,13 @@ final dashboardOverviewProvider =
       final transactionsState = ref.watch(transactionListProvider(userId));
       final accountsState = ref.watch(accountListProvider(userId));
       final categoriesState = ref.watch(categoryListProvider(userId));
+      final cycleDayState = ref.watch(financialCycleDayProvider(userId));
       final states = [transactionsState, accountsState, categoriesState];
 
       if (states.any((state) => state.isLoading)) {
         return const AsyncLoading();
       }
+      if (cycleDayState.isLoading) return const AsyncLoading();
 
       for (final state in states) {
         if (state.hasError) {
@@ -42,6 +45,7 @@ final dashboardOverviewProvider =
       final transactionsResult = transactionsState.value;
       final accountsResult = accountsState.value;
       final categoriesResult = categoriesState.value;
+      final cycleDay = cycleDayState.value ?? 1;
       if (transactionsResult == null ||
           accountsResult == null ||
           categoriesResult == null) {
@@ -65,6 +69,7 @@ final dashboardOverviewProvider =
             transactions:
                 (transactionsResult as Success<List<TransactionEntity>>).value,
             now: DateTime.now(),
+            financialCycleDay: cycleDay,
           );
 
       return AsyncData(Success(overview));

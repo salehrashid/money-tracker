@@ -90,11 +90,7 @@ class ApplyTransactionFiltersUseCase {
         : DateTime(
             criteria.endDate!.year,
             criteria.endDate!.month,
-            criteria.endDate!.day,
-            23,
-            59,
-            59,
-            999,
+            criteria.endDate!.day + 1,
           );
 
     return transactions
@@ -123,7 +119,7 @@ class ApplyTransactionFiltersUseCase {
           if (startDate != null && transactionDate.isBefore(startDate)) {
             return false;
           }
-          if (endDate != null && transactionDate.isAfter(endDate)) {
+          if (endDate != null && !transactionDate.isBefore(endDate)) {
             return false;
           }
 
