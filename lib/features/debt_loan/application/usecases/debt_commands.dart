@@ -7,7 +7,7 @@ class SaveDebtCommand {
     required this.amount,
     required this.status,
     required this.note,
-    this.dueDate,
+    required this.transactionDate,
   });
 
   final DebtKind kind;
@@ -15,5 +15,5 @@ class SaveDebtCommand {
   final double amount;
   final DebtStatus status;
   final String note;
-  final DateTime? dueDate;
+  final DateTime transactionDate;
 }

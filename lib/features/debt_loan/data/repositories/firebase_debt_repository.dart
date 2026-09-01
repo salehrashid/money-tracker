@@ -104,17 +104,11 @@ int _sortDebts(Debt first, Debt second) {
     return statusCompare;
   }
 
-  final firstDueDate = first.dueDate;
-  final secondDueDate = second.dueDate;
-  if (firstDueDate != null && secondDueDate != null) {
-    final dueDateCompare = firstDueDate.compareTo(secondDueDate);
-    if (dueDateCompare != 0) {
-      return dueDateCompare;
-    }
-  } else if (firstDueDate != null) {
-    return -1;
-  } else if (secondDueDate != null) {
-    return 1;
+  final transactionDateCompare = first.transactionDate.compareTo(
+    second.transactionDate,
+  );
+  if (transactionDateCompare != 0) {
+    return transactionDateCompare;
   }
 
   return second.updatedAt.compareTo(first.updatedAt);

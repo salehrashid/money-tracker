@@ -621,15 +621,11 @@ class _DebtTile extends StatelessWidget {
                     children: [
                       Text(debtKindLabel(debt.kind)),
                       Text(debtStatusLabel(debt.status)),
-                      if (debt.dueDate != null)
-                        Text(
-                          'Due ${formatDebtDate(debt.dueDate!)}',
-                          style: TextStyle(
-                            color: _isOverdue(debt)
-                                ? colorScheme.error
-                                : colorScheme.onSurfaceVariant,
-                          ),
-                        ),
+                      Text(
+                        '${debt.kind == DebtKind.receivable ? 'Lent' : 'Borrowed'} '
+                        '${formatDebtDate(debt.transactionDate)}',
+                        style: TextStyle(color: colorScheme.onSurfaceVariant),
+                      ),
                     ],
                   ),
                   if (debt.note.isNotEmpty) ...[
@@ -842,21 +838,4 @@ class _CenteredProgress extends StatelessWidget {
   Widget build(BuildContext context) {
     return const AppLoadingState();
   }
-}
-
-bool _isOverdue(Debt debt) {
-  final dueDate = debt.dueDate;
-  if (dueDate == null || debt.status != DebtStatus.open) {
-    return false;
-  }
-
-  final now = DateTime.now();
-  final today = DateTime(now.year, now.month, now.day);
-  final localDueDate = dueDate.toLocal();
-  final dueDay = DateTime(
-    localDueDate.year,
-    localDueDate.month,
-    localDueDate.day,
-  );
-  return dueDay.isBefore(today);
 }

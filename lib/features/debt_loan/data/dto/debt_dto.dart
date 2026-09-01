@@ -15,7 +15,7 @@ class DebtDto {
     required this.note,
     required this.createdAt,
     required this.updatedAt,
-    this.dueDate,
+    required this.transactionDate,
   });
 
   final String id;
@@ -24,7 +24,7 @@ class DebtDto {
   final double amount;
   final String currency;
   final DebtStatus status;
-  final DateTime? dueDate;
+  final DateTime transactionDate;
   final String note;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -37,7 +37,7 @@ class DebtDto {
       amount: debt.amount,
       currency: debt.currency,
       status: debt.status,
-      dueDate: debt.dueDate,
+      transactionDate: debt.transactionDate,
       note: debt.note,
       createdAt: debt.createdAt,
       updatedAt: debt.updatedAt,
@@ -49,6 +49,7 @@ class DebtDto {
   }
 
   factory DebtDto.fromMap(Map<String, dynamic> data, {String? documentId}) {
+    final createdAt = requiredDateTime(data, 'createdAt');
     return DebtDto(
       id: optionalString(data, 'id') ?? documentId ?? '',
       kind: DebtKind.fromFirestore(requiredString(data, 'kind')),
@@ -56,9 +57,11 @@ class DebtDto {
       amount: requiredDouble(data, 'amount'),
       currency: requiredString(data, 'currency'),
       status: DebtStatus.fromFirestore(requiredString(data, 'status')),
-      dueDate: optionalDateTime(data, 'dueDate'),
+      // Existing records do not have transactionDate. Their creation date is
+      // the safest fallback because dueDate represented a different concept.
+      transactionDate: optionalDateTime(data, 'transactionDate') ?? createdAt,
       note: optionalString(data, 'note') ?? '',
-      createdAt: requiredDateTime(data, 'createdAt'),
+      createdAt: createdAt,
       updatedAt: requiredDateTime(data, 'updatedAt'),
     );
   }
@@ -71,7 +74,7 @@ class DebtDto {
       amount: amount,
       currency: currency,
       status: status,
-      dueDate: dueDate,
+      transactionDate: transactionDate,
       note: note,
       createdAt: createdAt,
       updatedAt: updatedAt,
@@ -86,7 +89,7 @@ class DebtDto {
       'amount': amount,
       'currency': currency,
       'status': status.firestoreValue,
-      'dueDate': dueDate == null ? null : timestampFromDate(dueDate!),
+      'transactionDate': timestampFromDate(transactionDate),
       'note': note,
       'createdAt': timestampFromDate(createdAt),
       'updatedAt': timestampFromDate(updatedAt),

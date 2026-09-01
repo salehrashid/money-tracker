@@ -90,7 +90,7 @@ void main() {
         'amount': 75000,
         'currency': 'IDR',
         'status': 'open',
-        'dueDate': null,
+        'transactionDate': createdAt,
         'note': 'Dinner split',
         'createdAt': createdAt,
         'updatedAt': updatedAt,
@@ -99,7 +99,7 @@ void main() {
       expect(category.toFirestore()['type'], 'expense');
       expect(account.toFirestore()['type'], 'cash');
       expect(debt.toFirestore()['kind'], 'receivable');
-      expect(debt.toDomain().dueDate, isNull);
+      expect(debt.toDomain().transactionDate, createdAt);
     });
 
     test('serializes and parses notification and receipt models', () {

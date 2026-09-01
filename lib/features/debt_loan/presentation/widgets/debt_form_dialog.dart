@@ -22,7 +22,7 @@ class _DebtFormDialogState extends State<DebtFormDialog> {
   late final TextEditingController _noteController;
   late DebtKind _kind;
   late DebtStatus _status;
-  DateTime? _dueDate;
+  late DateTime _transactionDate;
 
   @override
   void initState() {
@@ -30,7 +30,7 @@ class _DebtFormDialogState extends State<DebtFormDialog> {
     final debt = widget.debt;
     _kind = debt?.kind ?? DebtKind.debt;
     _status = debt?.status ?? DebtStatus.open;
-    _dueDate = debt?.dueDate?.toLocal();
+    _transactionDate = debt?.transactionDate.toLocal() ?? DateTime.now();
     _personNameController = TextEditingController(text: debt?.personName ?? '');
     _amountController = TextEditingController(text: _initialAmount(debt));
     _noteController = TextEditingController(text: debt?.note ?? '');
@@ -54,7 +54,10 @@ class _DebtFormDialogState extends State<DebtFormDialog> {
       content: SizedBox(
         width: double.infinity,
         child: ConstrainedBox(
-          constraints: BoxConstraints(minWidth: dialogWidth, maxWidth: dialogWidth),
+          constraints: BoxConstraints(
+            minWidth: dialogWidth,
+            maxWidth: dialogWidth,
+          ),
           child: SingleChildScrollView(
             child: Form(
               key: _formKey,
@@ -134,20 +137,10 @@ class _DebtFormDialogState extends State<DebtFormDialog> {
                     runSpacing: 12,
                     children: [
                       OutlinedButton.icon(
-                        onPressed: _pickDueDate,
+                        onPressed: _pickTransactionDate,
                         icon: const Icon(Icons.event_outlined),
-                        label: Text(
-                          _dueDate == null
-                              ? 'No due date'
-                              : formatDebtDate(_dueDate!),
-                        ),
+                        label: Text(_transactionDateLabel()),
                       ),
-                      if (_dueDate != null)
-                        IconButton.outlined(
-                          tooltip: 'Clear due date',
-                          onPressed: () => setState(() => _dueDate = null),
-                          icon: const Icon(Icons.close),
-                        ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -191,21 +184,26 @@ class _DebtFormDialogState extends State<DebtFormDialog> {
     );
   }
 
-  Future<void> _pickDueDate() async {
+  Future<void> _pickTransactionDate() async {
     final now = DateTime.now();
     final selected = await showDatePicker(
       context: context,
-      initialDate: _dueDate ?? now,
+      initialDate: _transactionDate,
       firstDate: DateTime(2000),
-      lastDate: now.add(const Duration(days: 3650)),
+      lastDate: now,
     );
     if (selected == null) {
       return;
     }
 
     setState(() {
-      _dueDate = DateTime(selected.year, selected.month, selected.day);
+      _transactionDate = DateTime(selected.year, selected.month, selected.day);
     });
+  }
+
+  String _transactionDateLabel() {
+    final label = _kind == DebtKind.receivable ? 'Lent date' : 'Borrowed date';
+    return '$label: ${formatDebtDate(_transactionDate)}';
   }
 
   SaveDebtCommand? _command() {
@@ -221,7 +219,7 @@ class _DebtFormDialogState extends State<DebtFormDialog> {
       personName: _personNameController.text,
       amount: amount,
       status: _status,
-      dueDate: _dueDate,
+      transactionDate: _transactionDate,
       note: _noteController.text,
     );
   }

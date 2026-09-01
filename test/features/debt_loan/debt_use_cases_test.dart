@@ -21,7 +21,7 @@ void main() {
         'amount': 100000,
         'currency': 'IDR',
         'status': 'open',
-        'dueDate': null,
+        'transactionDate': DateTime.utc(2026, 1, 1),
         'note': '',
         'createdAt': createdAt,
         'updatedAt': updatedAt,
@@ -37,12 +37,13 @@ void main() {
       final useCase = CreateDebtUseCase(repository);
 
       final result = await useCase.execute(
-        const SaveDebtCommand(
+        SaveDebtCommand(
           kind: DebtKind.debt,
           personName: ' ',
           amount: 100000,
           status: DebtStatus.open,
           note: '',
+          transactionDate: DateTime.utc(2026, 1, 1),
         ),
       );
 
@@ -55,12 +56,13 @@ void main() {
       final useCase = CreateDebtUseCase(repository);
 
       final result = await useCase.execute(
-        const SaveDebtCommand(
+        SaveDebtCommand(
           kind: DebtKind.receivable,
           personName: '  Ari  ',
           amount: 75000,
           status: DebtStatus.open,
           note: '  Dinner split  ',
+          transactionDate: DateTime.utc(2026, 1, 1),
         ),
       );
 
@@ -136,6 +138,7 @@ Debt _debt({required String id}) {
     amount: 100000,
     currency: 'IDR',
     status: DebtStatus.open,
+    transactionDate: now,
     note: '',
     createdAt: now,
     updatedAt: now,

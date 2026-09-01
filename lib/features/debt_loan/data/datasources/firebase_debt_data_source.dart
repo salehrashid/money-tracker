@@ -37,7 +37,7 @@ class FirebaseDebtDataSource {
             amount: debt.amount,
             currency: debt.currency,
             status: debt.status,
-            dueDate: debt.dueDate,
+            transactionDate: debt.transactionDate,
             note: debt.note,
             createdAt: debt.createdAt,
             updatedAt: debt.updatedAt,
