@@ -52,7 +52,7 @@ abstract final class AppBreakpoints {
 
 ThemeData buildAppTheme({Brightness brightness = Brightness.light}) {
   final isDark = brightness == Brightness.dark;
-  final background = isDark ? const Color(0xFF101614) : AppColors.background;
+  final background = isDark ? const Color(0xFF000000) : AppColors.background;
   final surface = isDark ? const Color(0xFF18211F) : AppColors.surface;
   final surfaceVariant = isDark
       ? const Color(0xFF23302D)

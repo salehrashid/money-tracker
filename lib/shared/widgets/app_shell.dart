@@ -258,7 +258,7 @@ class _AppShellState extends ConsumerState<AppShell>
                   height: 70,
                   color: navigationColor,
                   buttonBackgroundColor: navigationButtonColor,
-                  backgroundColor: colorScheme.surface,
+                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
                   animationCurve: Curves.easeOutCubic,
                   animationDuration: Duration(milliseconds: 500),
                   onTap: _select,
