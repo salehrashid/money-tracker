@@ -339,7 +339,7 @@ class _FinancialHistoryCard extends StatelessWidget {
                   formatIdr(entry.net),
                   style: TextStyle(
                     color: entry.net >= 0
-                        ? AppColors.income
+                        ? financeIncomeColor(context)
                         : Theme.of(context).colorScheme.error,
                     fontWeight: FontWeight.w700,
                   ),
@@ -440,7 +440,7 @@ class _SummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final color = switch (tone) {
-      _SummaryTone.positive => AppColors.income,
+      _SummaryTone.positive => financeIncomeColor(context),
       _SummaryTone.negative => colorScheme.error,
       _SummaryTone.neutral => colorScheme.primary,
     };
@@ -532,7 +532,7 @@ class _MonthlyTrendRow extends StatelessWidget {
                 formatIdr(trend.netCashFlow),
                 style: TextStyle(
                   color: trend.netCashFlow >= 0
-                      ? AppColors.income
+                      ? financeIncomeColor(context)
                       : colorScheme.error,
                   fontWeight: FontWeight.w600,
                 ),
@@ -544,7 +544,7 @@ class _MonthlyTrendRow extends StatelessWidget {
             label: 'Income',
             value: trend.income,
             maxAmount: maxAmount,
-            color: AppColors.income,
+            color: financeIncomeColor(context),
           ),
           const SizedBox(height: 6),
           _TrendBar(
@@ -698,7 +698,7 @@ class _ShareBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final color = switch (tone) {
-      _SummaryTone.positive => AppColors.income,
+      _SummaryTone.positive => financeIncomeColor(context),
       _SummaryTone.negative => colorScheme.error,
       _SummaryTone.neutral => colorScheme.primary,
     };

@@ -48,7 +48,7 @@ Color debtKindColor(BuildContext context, DebtKind kind) {
   final colorScheme = Theme.of(context).colorScheme;
   return switch (kind) {
     DebtKind.debt => colorScheme.error,
-    DebtKind.receivable => AppColors.income,
+    DebtKind.receivable => financeIncomeColor(context),
   };
 }
 

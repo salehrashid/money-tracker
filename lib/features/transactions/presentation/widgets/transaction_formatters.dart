@@ -48,7 +48,7 @@ IconData transactionTypeIcon(TransactionType type) {
 Color transactionTypeColor(BuildContext context, TransactionType type) {
   final colorScheme = Theme.of(context).colorScheme;
   return switch (type) {
-    TransactionType.income => AppColors.income,
+    TransactionType.income => financeIncomeColor(context),
     TransactionType.expense => colorScheme.error,
   };
 }

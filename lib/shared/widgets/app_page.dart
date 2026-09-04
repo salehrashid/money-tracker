@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:light_dark_theme_toggle/light_dark_theme_toggle.dart';
 
 import '../../core/offline/offline_providers.dart';
 import '../../core/offline/sync_status.dart';
 import '../../features/auth/domain/entities/auth_user.dart';
 import '../../features/auth/presentation/providers/auth_providers.dart';
+import '../../features/settings/presentation/providers/financial_settings_providers.dart';
 import '../../core/utils/result.dart';
 
 import '../theme/app_theme.dart';
@@ -77,6 +79,73 @@ class AppTopBar extends ConsumerWidget implements PreferredSizeWidget {
         ...actions,
       ],
     );
+  }
+}
+
+class AppThemeToggle extends ConsumerStatefulWidget {
+  const AppThemeToggle({this.size = 32, super.key});
+
+  final double size;
+
+  @override
+  ConsumerState<AppThemeToggle> createState() => _AppThemeToggleState();
+}
+
+class _AppThemeToggleState extends ConsumerState<AppThemeToggle> {
+  var _isSaving = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = ref.watch(authStateProvider).value;
+    final user = switch (auth) {
+      Success<AuthUser?>(:final value) => value,
+      _ => null,
+    };
+    if (user == null) {
+      return const SizedBox.shrink();
+    }
+
+    final settingsResult = ref.watch(financialSettingsProvider(user.id)).value;
+    final isDarkMode =
+        settingsResult?.when(
+          success: (settings) => settings?.isDarkMode ?? false,
+          failure: (_) => false,
+        ) ??
+        false;
+    final colorScheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: 52,
+      height: 48,
+      child: Center(
+        child: LightDarkThemeToggle(
+          size: widget.size,
+          // The package uses true for light mode and false for dark mode.
+          value: !isDarkMode,
+          onChanged: _isSaving || settingsResult == null
+              ? (_) {}
+              : (value) => _setTheme(user.id, value),
+          themeIconType: ThemeIconType.expand,
+          color: colorScheme.onSurfaceVariant,
+          hoverColor: colorScheme.primaryContainer,
+          highlightColor: colorScheme.primaryContainer,
+          padding: const EdgeInsets.all(4),
+          tooltip: isDarkMode ? 'Switch to light mode' : 'Switch to night mode',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _setTheme(String userId, bool isLightMode) async {
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
+    final result = await ref.read(saveDarkModeProvider(userId))(!isLightMode);
+    if (!mounted) return;
+    setState(() => _isSaving = false);
+    if (result case Failure(:final failure)) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(failure.message)));
+    }
   }
 }
 
@@ -214,6 +283,7 @@ class PageHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final isWide = MediaQuery.sizeOf(context).width >= 640;
     final text = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -224,7 +294,7 @@ class PageHeader extends StatelessWidget {
           subtitle,
           style: Theme.of(
             context,
-          ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+          ).textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant),
         ),
       ],
     );
@@ -320,6 +390,7 @@ class AppMessageState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final content = ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 420),
       child: Column(
@@ -328,11 +399,11 @@ class AppMessageState extends StatelessWidget {
           Container(
             width: 64,
             height: 64,
-            decoration: const BoxDecoration(
-              color: AppColors.primaryLight,
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: AppColors.primary, size: 34),
+            child: Icon(icon, color: colorScheme.primary, size: 34),
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
@@ -344,9 +415,9 @@ class AppMessageState extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
           ),
           ?action == null ? null : const SizedBox(height: AppSpacing.lg),
           ?action,
@@ -407,7 +478,8 @@ Future<bool> showAppDeleteConfirmation({
         ),
         FilledButton.icon(
           style: FilledButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.error,
+            backgroundColor: AppColors.expense,
+            foregroundColor: Colors.white,
           ),
           onPressed: () => Navigator.of(context).pop(true),
           icon: const Icon(Icons.delete_outline),

@@ -50,70 +50,94 @@ abstract final class AppBreakpoints {
       MediaQuery.sizeOf(context).width >= desktop;
 }
 
-ThemeData buildAppTheme() {
+ThemeData buildAppTheme({Brightness brightness = Brightness.light}) {
+  final isDark = brightness == Brightness.dark;
+  final background = isDark ? const Color(0xFF101614) : AppColors.background;
+  final surface = isDark ? const Color(0xFF18211F) : AppColors.surface;
+  final surfaceVariant = isDark
+      ? const Color(0xFF23302D)
+      : AppColors.surfaceVariant;
+  final primary = isDark ? const Color(0xFF80CBC4) : AppColors.primary;
+  final primaryDark = isDark ? const Color(0xFF4DB6AC) : AppColors.primaryDark;
+  final primaryLight = isDark
+      ? const Color(0xFF264D49)
+      : AppColors.primaryLight;
+  final textPrimary = isDark ? const Color(0xFFE7F0ED) : AppColors.textPrimary;
+  final textSecondary = isDark
+      ? const Color(0xFFB4C2BE)
+      : AppColors.textSecondary;
+  final textMuted = isDark ? const Color(0xFF87958F) : AppColors.textMuted;
+  final divider = isDark ? const Color(0xFF34423E) : AppColors.divider;
+  final expense = isDark ? const Color(0xFFEF9A9A) : AppColors.expense;
+  const buttonColor = AppColors.primaryDark;
+
   final colorScheme =
       ColorScheme.fromSeed(
         seedColor: AppColors.primary,
-        brightness: Brightness.light,
-        primary: AppColors.primary,
-        secondary: AppColors.primaryDark,
-        error: AppColors.expense,
-        surface: AppColors.surface,
+        brightness: brightness,
+        primary: primary,
+        secondary: primaryDark,
+        error: expense,
+        surface: surface,
       ).copyWith(
-        primaryContainer: AppColors.primaryLight,
-        surfaceContainerLowest: AppColors.surface,
-        surfaceContainerLow: AppColors.surface,
-        surfaceContainer: AppColors.surfaceVariant,
-        surfaceContainerHighest: AppColors.surfaceVariant,
-        outline: AppColors.divider,
-        onSurface: AppColors.textPrimary,
-        onSurfaceVariant: AppColors.textSecondary,
+        primaryContainer: primaryLight,
+        onPrimaryContainer: isDark
+            ? const Color(0xFFD4F4EE)
+            : AppColors.primaryDark,
+        surfaceContainerLowest: background,
+        surfaceContainerLow: surface,
+        surfaceContainer: surfaceVariant,
+        surfaceContainerHighest: surfaceVariant,
+        outline: divider,
+        onSurface: textPrimary,
+        onSurfaceVariant: textSecondary,
       );
 
   final base = ThemeData(
     colorScheme: colorScheme,
     useMaterial3: true,
-    scaffoldBackgroundColor: AppColors.background,
+    brightness: brightness,
+    scaffoldBackgroundColor: background,
     fontFamily: 'Roboto',
   );
 
   final textTheme = base.textTheme.copyWith(
     headlineMedium: base.textTheme.headlineMedium?.copyWith(
-      color: AppColors.textPrimary,
+      color: textPrimary,
       fontSize: 30,
       fontWeight: FontWeight.w700,
       letterSpacing: 0,
     ),
     titleLarge: base.textTheme.titleLarge?.copyWith(
-      color: AppColors.textPrimary,
+      color: textPrimary,
       fontSize: 21,
       fontWeight: FontWeight.w700,
       letterSpacing: 0,
     ),
     titleMedium: base.textTheme.titleMedium?.copyWith(
-      color: AppColors.textPrimary,
+      color: textPrimary,
       fontSize: 17,
       fontWeight: FontWeight.w700,
       letterSpacing: 0,
     ),
     bodyMedium: base.textTheme.bodyMedium?.copyWith(
-      color: AppColors.textPrimary,
+      color: textPrimary,
       fontSize: 14,
       letterSpacing: 0,
     ),
     bodyLarge: base.textTheme.bodyLarge?.copyWith(
-      color: AppColors.textPrimary,
+      color: textPrimary,
       fontSize: 16,
       letterSpacing: 0,
     ),
     labelMedium: base.textTheme.labelMedium?.copyWith(
-      color: AppColors.textSecondary,
+      color: textSecondary,
       fontSize: 13,
       fontWeight: FontWeight.w500,
       letterSpacing: 0,
     ),
     bodySmall: base.textTheme.bodySmall?.copyWith(
-      color: AppColors.textSecondary,
+      color: textSecondary,
       fontSize: 13,
       letterSpacing: 0,
     ),
@@ -126,19 +150,19 @@ ThemeData buildAppTheme() {
 
   final inputBorder = OutlineInputBorder(
     borderRadius: BorderRadius.circular(AppRadius.control),
-    borderSide: const BorderSide(color: AppColors.divider),
+    borderSide: BorderSide(color: divider),
   );
 
   return base.copyWith(
     textTheme: textTheme,
-    appBarTheme: const AppBarTheme(
-      backgroundColor: AppColors.background,
-      foregroundColor: AppColors.textPrimary,
+    appBarTheme: AppBarTheme(
+      backgroundColor: background,
+      foregroundColor: textPrimary,
       centerTitle: false,
       elevation: 0,
       scrolledUnderElevation: 0,
       titleTextStyle: TextStyle(
-        color: AppColors.textPrimary,
+        color: textPrimary,
         fontSize: 22,
         fontWeight: FontWeight.w700,
       ),
@@ -152,41 +176,39 @@ ThemeData buildAppTheme() {
       ),
     ),
     cardTheme: CardThemeData(
-      color: AppColors.surface,
+      color: surface,
       elevation: 0,
       margin: EdgeInsets.zero,
       shadowColor: Colors.black.withValues(alpha: 0.05),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.card),
-        side: const BorderSide(color: AppColors.divider),
+        side: BorderSide(color: divider),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: AppColors.surface,
+      fillColor: surface,
       border: inputBorder,
       enabledBorder: inputBorder,
       focusedBorder: inputBorder.copyWith(
-        borderSide: const BorderSide(color: AppColors.primary, width: 1.6),
+        borderSide: BorderSide(color: primary, width: 1.6),
       ),
-      errorBorder: inputBorder.copyWith(
-        borderSide: const BorderSide(color: AppColors.expense),
-      ),
+      errorBorder: inputBorder.copyWith(borderSide: BorderSide(color: expense)),
       focusedErrorBorder: inputBorder.copyWith(
-        borderSide: const BorderSide(color: AppColors.expense, width: 1.6),
+        borderSide: BorderSide(color: expense, width: 1.6),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      labelStyle: const TextStyle(color: AppColors.textSecondary),
-      hintStyle: const TextStyle(color: AppColors.textMuted),
+      labelStyle: TextStyle(color: textSecondary),
+      hintStyle: TextStyle(color: textMuted),
     ),
     navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: AppColors.surface,
-      indicatorColor: AppColors.primaryLight,
+      backgroundColor: surface,
+      indicatorColor: primaryLight,
       labelTextStyle: WidgetStateProperty.resolveWith(
         (states) => TextStyle(
           color: states.contains(WidgetState.selected)
-              ? AppColors.primaryDark
-              : AppColors.textSecondary,
+              ? primaryDark
+              : textSecondary,
           fontSize: 12,
           fontWeight: states.contains(WidgetState.selected)
               ? FontWeight.w700
@@ -196,48 +218,45 @@ ThemeData buildAppTheme() {
       iconTheme: WidgetStateProperty.resolveWith(
         (states) => IconThemeData(
           color: states.contains(WidgetState.selected)
-              ? AppColors.primary
-              : AppColors.textSecondary,
+              ? primary
+              : textSecondary,
         ),
       ),
     ),
-    navigationRailTheme: const NavigationRailThemeData(
-      backgroundColor: AppColors.surface,
-      selectedIconTheme: IconThemeData(color: AppColors.primary),
-      unselectedIconTheme: IconThemeData(color: AppColors.textSecondary),
+    navigationRailTheme: NavigationRailThemeData(
+      backgroundColor: surface,
+      selectedIconTheme: IconThemeData(color: primary),
+      unselectedIconTheme: IconThemeData(color: textSecondary),
       selectedLabelTextStyle: TextStyle(
-        color: AppColors.primaryDark,
+        color: primaryDark,
         fontWeight: FontWeight.w700,
       ),
-      unselectedLabelTextStyle: TextStyle(color: AppColors.textSecondary),
-      indicatorColor: AppColors.primaryLight,
+      unselectedLabelTextStyle: TextStyle(color: textSecondary),
+      indicatorColor: primaryLight,
     ),
     segmentedButtonTheme: SegmentedButtonThemeData(
       style: ButtonStyle(
         visualDensity: VisualDensity.compact,
-        side: WidgetStateProperty.all(
-          const BorderSide(color: AppColors.divider),
-        ),
+        side: WidgetStateProperty.all(BorderSide(color: divider)),
         shape: WidgetStateProperty.all(
           RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.control),
           ),
         ),
         backgroundColor: WidgetStateProperty.resolveWith(
-          (states) => states.contains(WidgetState.selected)
-              ? AppColors.primaryLight
-              : AppColors.surface,
+          (states) =>
+              states.contains(WidgetState.selected) ? buttonColor : surface,
         ),
         foregroundColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.selected)
-              ? AppColors.primaryDark
-              : AppColors.textPrimary,
+              ? Colors.white
+              : textPrimary,
         ),
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: AppColors.primary,
+        backgroundColor: buttonColor,
         foregroundColor: Colors.white,
         minimumSize: const Size(48, 44),
         shape: RoundedRectangleBorder(
@@ -247,9 +266,9 @@ ThemeData buildAppTheme() {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.primaryDark,
+        foregroundColor: buttonColor,
         minimumSize: const Size(48, 44),
-        side: const BorderSide(color: AppColors.divider),
+        side: const BorderSide(color: buttonColor),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.control),
         ),
@@ -257,50 +276,47 @@ ThemeData buildAppTheme() {
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: AppColors.primaryDark,
+        foregroundColor: buttonColor,
         minimumSize: const Size(48, 40),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.control),
         ),
       ),
     ),
-    floatingActionButtonTheme: const FloatingActionButtonThemeData(
-      backgroundColor: AppColors.primary,
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: buttonColor,
       foregroundColor: Colors.white,
       elevation: 2,
     ),
     chipTheme: base.chipTheme.copyWith(
-      backgroundColor: AppColors.surfaceVariant,
-      selectedColor: AppColors.primaryLight,
-      side: const BorderSide(color: AppColors.divider),
+      backgroundColor: surfaceVariant,
+      selectedColor: primaryLight,
+      side: BorderSide(color: divider),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.pill),
       ),
-      labelStyle: const TextStyle(
-        color: AppColors.textPrimary,
-        fontWeight: FontWeight.w500,
-      ),
+      labelStyle: TextStyle(color: textPrimary, fontWeight: FontWeight.w500),
     ),
     dialogTheme: DialogThemeData(
-      backgroundColor: AppColors.surface,
-      surfaceTintColor: AppColors.surface,
+      backgroundColor: surface,
+      surfaceTintColor: surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.dialog),
       ),
       titleTextStyle: textTheme.titleLarge,
     ),
-    bottomSheetTheme: const BottomSheetThemeData(
-      backgroundColor: AppColors.surface,
-      modalBackgroundColor: AppColors.surface,
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: surface,
+      modalBackgroundColor: surface,
       showDragHandle: true,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
     ),
-    dividerTheme: const DividerThemeData(color: AppColors.divider, space: 1),
+    dividerTheme: DividerThemeData(color: divider, space: 1),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
-      backgroundColor: AppColors.textPrimary,
+      backgroundColor: textPrimary,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.control),
       ),
@@ -309,5 +325,13 @@ ThemeData buildAppTheme() {
 }
 
 Color financeToneColor(BuildContext context, bool isPositive) {
-  return isPositive ? AppColors.income : Theme.of(context).colorScheme.error;
+  return isPositive
+      ? financeIncomeColor(context)
+      : Theme.of(context).colorScheme.error;
+}
+
+Color financeIncomeColor(BuildContext context) {
+  return Theme.of(context).brightness == Brightness.dark
+      ? const Color(0xFF80CBC4)
+      : AppColors.income;
 }

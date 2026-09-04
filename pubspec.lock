@@ -472,6 +472,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.2"
+  light_dark_theme_toggle:
+    dependency: "direct main"
+    description:
+      name: light_dark_theme_toggle
+      sha256: "2e4b9fc7d16407f542b809195c9c69c74513d54b19cc225bcde2f484c27cdefe"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.2"
   lints:
     dependency: transitive
     description:

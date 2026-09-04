@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/errors/app_failure.dart';
 import '../../../../core/utils/result.dart';
 import '../../../../shared/models/finance_enums.dart';
-import '../../../../shared/theme/app_theme.dart';
 import '../../../../shared/undo_delete/pending_delete_controller.dart';
 import '../../../../shared/widgets/app_page.dart';
 import '../../../../shared/widgets/undo_delete_snackbar.dart';
@@ -582,9 +581,10 @@ class _NotificationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _statusColor(context, log);
+    final colorScheme = Theme.of(context).colorScheme;
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      color: log.isRead ? AppColors.surface : AppColors.primaryLight,
+      color: log.isRead ? colorScheme.surface : colorScheme.primaryContainer,
       child: ListTile(
         onTap: isBusy ? null : onTap,
         onLongPress: isBusy ? null : onLongPress,
@@ -608,7 +608,7 @@ class _NotificationTile extends StatelessWidget {
             ),
             if (!log.isRead) const SizedBox(width: 8),
             if (!log.isRead)
-              const Icon(Icons.circle, size: 9, color: AppColors.primary),
+              Icon(Icons.circle, size: 9, color: colorScheme.primary),
           ],
         ),
         subtitle: Padding(
@@ -681,7 +681,11 @@ class _MetaChip extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: AppColors.textSecondary),
+        Icon(
+          icon,
+          size: 14,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
         const SizedBox(width: 4),
         Text(label, style: Theme.of(context).textTheme.bodySmall),
       ],
@@ -815,9 +819,10 @@ IconData _statusIcon(NotificationLog log) {
 }
 
 Color _statusColor(BuildContext context, NotificationLog log) {
+  final colorScheme = Theme.of(context).colorScheme;
   return switch (log.status) {
-    NotificationLogStatus.pendingReview => AppColors.warning,
-    NotificationLogStatus.saved => AppColors.primary,
+    NotificationLogStatus.pendingReview => colorScheme.tertiary,
+    NotificationLogStatus.saved => colorScheme.primary,
     NotificationLogStatus.ignoredNonTransaction ||
     NotificationLogStatus.ignoredPromo ||
     NotificationLogStatus.ignoredLowConfidence => Theme.of(

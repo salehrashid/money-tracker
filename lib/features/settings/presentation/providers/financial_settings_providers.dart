@@ -52,5 +52,29 @@ final saveFinancialSettingsProvider =
     Provider.family<Future<Result<void>> Function(int), String>((ref, userId) {
       return (day) => ref
           .read(financialSettingsRepositoryProvider(userId))
-          .saveSettings(FinancialSettings(financialCycleDay: day));
+          .saveSettings(
+            FinancialSettings(
+              financialCycleDay: day,
+              isDarkMode: _currentSettings(ref, userId)?.isDarkMode ?? false,
+            ),
+          );
     });
+
+final saveDarkModeProvider =
+    Provider.family<Future<Result<void>> Function(bool), String>((ref, userId) {
+      return (isDarkMode) => ref
+          .read(financialSettingsRepositoryProvider(userId))
+          .saveSettings(
+            FinancialSettings(
+              financialCycleDay:
+                  _currentSettings(ref, userId)?.financialCycleDay ??
+                  FinancialCycleService.defaultCycleDay,
+              isDarkMode: isDarkMode,
+            ),
+          );
+    });
+
+FinancialSettings? _currentSettings(Ref ref, String userId) {
+  final result = ref.read(financialSettingsProvider(userId)).value;
+  return result?.when(success: (settings) => settings, failure: (_) => null);
+}

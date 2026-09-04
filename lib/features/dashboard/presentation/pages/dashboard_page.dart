@@ -295,7 +295,7 @@ class _SummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final color = switch (tone) {
-      _SummaryTone.positive => AppColors.income,
+      _SummaryTone.positive => financeIncomeColor(context),
       _SummaryTone.negative => colorScheme.error,
       _SummaryTone.neutral => colorScheme.primary,
     };
@@ -468,7 +468,7 @@ class _RecentTransactionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final isIncome = transaction.type == TransactionType.income;
     final color = isIncome
-        ? AppColors.income
+        ? financeIncomeColor(context)
         : Theme.of(context).colorScheme.error;
     final amountPrefix = isIncome ? '+' : '-';
 
