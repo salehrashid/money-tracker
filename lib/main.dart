@@ -9,6 +9,8 @@ import 'core/firebase/firebase_app_initializer.dart';
 import 'core/offline/offline_database.dart';
 import 'core/utils/result.dart';
 import 'features/auth/presentation/pages/auth_gate.dart';
+import 'features/auth/presentation/providers/auth_providers.dart';
+import 'features/settings/presentation/providers/financial_settings_providers.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/undo_delete/pending_delete_controller.dart';
 
@@ -57,6 +59,21 @@ class _App extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final authResult = ref.watch(authStateProvider).value;
+    final userId = authResult?.when(
+      success: (user) => user?.id,
+      failure: (_) => null,
+    );
+    final settingsResult = userId == null
+        ? null
+        : ref.watch(financialSettingsProvider(userId)).value;
+    final isDarkMode =
+        settingsResult?.when(
+          success: (settings) => settings?.isDarkMode ?? false,
+          failure: (_) => false,
+        ) ??
+        false;
+
     ref.listen<PendingDeleteFailure?>(pendingDeleteFailureProvider, (
       previous,
       next,
@@ -79,6 +96,8 @@ class _App extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       title: 'Fleeca',
       theme: buildAppTheme(),
+      darkTheme: buildAppTheme(brightness: Brightness.dark),
+      themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
       home: firebaseResult.when(
         success: (_) => const AuthGate(),
         failure: (failure) => _StartupFailurePage(message: failure.message),

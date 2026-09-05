@@ -170,6 +170,14 @@ class _AppShellState extends ConsumerState<AppShell>
     };
 
     final width = MediaQuery.sizeOf(context).width;
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = colorScheme.brightness == Brightness.dark;
+    final navigationColor = isDark
+        ? const Color(0xFF16352F)
+        : AppColors.primaryDark;
+    final navigationButtonColor = isDark
+        ? const Color(0xFF2E8B80)
+        : AppColors.primary;
     if (width >= AppBreakpoints.desktop) {
       return Scaffold(
         body: Row(
@@ -248,9 +256,9 @@ class _AppShellState extends ConsumerState<AppShell>
                 child: CurvedNavigationBar(
                   index: _selectedIndex,
                   height: 70,
-                  color: AppColors.primaryDark,
-                  buttonBackgroundColor: AppColors.primary,
-                  backgroundColor: AppColors.background,
+                  color: navigationColor,
+                  buttonBackgroundColor: navigationButtonColor,
+                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
                   animationCurve: Curves.easeOutCubic,
                   animationDuration: Duration(milliseconds: 500),
                   onTap: _select,
@@ -420,7 +428,7 @@ class _DesktopSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final width = extended ? 240.0 : 88.0;
     return Material(
-      color: AppColors.surface,
+      color: Theme.of(context).colorScheme.surface,
       child: SafeArea(
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
@@ -474,28 +482,39 @@ class _Brand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final brandIcon = Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.control),
+      ),
+      child: Image.asset('app-icon.png', fit: BoxFit.contain),
+    );
+
     return Semantics(
       header: true,
       label: 'Fleeca money management',
-      child: Row(
-        mainAxisAlignment: extended
-            ? MainAxisAlignment.start
-            : MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppRadius.control),
+      child: extended
+          ? Row(
+              children: [
+                brandIcon,
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    'Fleeca',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+                const AppThemeToggle(),
+              ],
+            )
+          : Column(
+              children: [
+                brandIcon,
+                const SizedBox(height: AppSpacing.xs),
+                const AppThemeToggle(),
+              ],
             ),
-            child: Image.asset('app-icon.png', fit: BoxFit.contain),
-          ),
-          if (extended) ...[
-            const SizedBox(width: AppSpacing.sm),
-            Text('Fleeca', style: Theme.of(context).textTheme.titleLarge),
-          ],
-        ],
-      ),
     );
   }
 }
@@ -515,20 +534,21 @@ class _SidebarDestination extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final foreground = selected
-        ? AppColors.primaryDark
-        : AppColors.textSecondary;
+        ? colorScheme.onPrimaryContainer
+        : colorScheme.onSurfaceVariant;
     final child = InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppRadius.control),
-      hoverColor: AppColors.surfaceVariant,
-      focusColor: AppColors.primaryLight,
+      hoverColor: colorScheme.surfaceContainerHighest,
+      focusColor: colorScheme.primaryContainer,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         height: 48,
         padding: EdgeInsets.symmetric(horizontal: extended ? 14 : 0),
         decoration: BoxDecoration(
-          color: selected ? AppColors.primaryLight : Colors.transparent,
+          color: selected ? colorScheme.primaryContainer : Colors.transparent,
           borderRadius: BorderRadius.circular(AppRadius.control),
         ),
         child: Row(
@@ -642,9 +662,16 @@ class _MobileNavigationDrawer extends StatelessWidget {
                 AppSpacing.lg,
                 AppSpacing.lg,
               ),
-              child: Text(
-                'Fleeca',
-                style: Theme.of(context).textTheme.headlineSmall,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Fleeca',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                  ),
+                  const AppThemeToggle(),
+                ],
               ),
             ),
             const Divider(),

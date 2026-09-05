@@ -71,6 +71,7 @@ class _AuthenticatedApp extends ConsumerWidget {
       'transaction_drafts',
       'debts',
       'notification_logs',
+      'settings',
     ]) {
       coordinator.register(collection);
     }
