@@ -8,6 +8,7 @@ class SaveDebtCommand {
     required this.status,
     required this.note,
     required this.transactionDate,
+    this.transferProofBase64,
   });
 
   final DebtKind kind;
@@ -16,4 +17,5 @@ class SaveDebtCommand {
   final DebtStatus status;
   final String note;
   final DateTime transactionDate;
+  final String? transferProofBase64;
 }

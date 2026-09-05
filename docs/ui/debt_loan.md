@@ -19,6 +19,10 @@ Define UI behavior and layout for debt loan.
 - Show clear validation messages.
 - Do not hide important financial information.
 - Format currency as IDR.
+- Show a `Transfer proof (optional)` field in add and edit forms, with an `Upload photo` action.
+- Show a preview and `Replace photo` / `Remove photo` actions when attached. Photo changes apply only when the form is saved.
+- Disable Save and attachment actions while preparing a selected photo; allow saving without a photo after cancellation or a selection error.
+- Offer `View transfer proof` on records with an attachment, opening a zoomable image dialog.
 
 ## Acceptance Criteria
 

@@ -16,11 +16,14 @@ Debt/receivable entity.
 - `id`: string
 - `createdAt`: DateTime
 - `updatedAt`: DateTime
+- `transferProofBase64`: nullable string containing one prepared transfer receipt image; absent or empty values in older records mean no attachment.
 
 ## Serialization
 
 - Provide `fromFirestore` / `toFirestore` mapping in data layer.
 - Do not expose raw Firestore maps directly to UI.
+- Serialize `transferProofBase64` as null when removed so updates clear the saved attachment.
+- Keep the photo when copying a record unless `clearTransferProof` is explicitly requested.
 
 ## Testing
 

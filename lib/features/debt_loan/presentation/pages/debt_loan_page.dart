@@ -16,6 +16,7 @@ import '../../application/usecases/debt_commands.dart';
 import '../../domain/entities/debt.dart';
 import '../providers/debt_providers.dart';
 import '../widgets/debt_form_dialog.dart';
+import '../widgets/transfer_proof_preview.dart';
 import '../widgets/debt_formatters.dart';
 
 final _debtKindFilterProvider =
@@ -641,6 +642,15 @@ class _DebtTile extends StatelessWidget {
                     formatDebtIdr(debt.amount),
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
+                  if (debt.transferProofBase64 != null)
+                    TextButton.icon(
+                      onPressed: () => showTransferProofDialog(
+                        context,
+                        debt.transferProofBase64!,
+                      ),
+                      icon: const Icon(Icons.image_outlined),
+                      label: const Text('View transfer proof'),
+                    ),
                 ],
               ),
             ),

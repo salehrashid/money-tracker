@@ -1,5 +1,7 @@
 import '../../../../shared/models/finance_enums.dart';
 
+const debtTransferProofMaxBytes = 600 * 1024;
+
 class Debt {
   const Debt({
     required this.id,
@@ -12,6 +14,7 @@ class Debt {
     required this.createdAt,
     required this.updatedAt,
     required this.transactionDate,
+    this.transferProofBase64,
   });
 
   final String id;
@@ -22,6 +25,7 @@ class Debt {
   final DebtStatus status;
   final DateTime transactionDate;
   final String note;
+  final String? transferProofBase64;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -34,6 +38,8 @@ class Debt {
     DebtStatus? status,
     DateTime? transactionDate,
     String? note,
+    String? transferProofBase64,
+    bool clearTransferProof = false,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -46,6 +52,9 @@ class Debt {
       status: status ?? this.status,
       transactionDate: transactionDate ?? this.transactionDate,
       note: note ?? this.note,
+      transferProofBase64: clearTransferProof
+          ? null
+          : transferProofBase64 ?? this.transferProofBase64,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

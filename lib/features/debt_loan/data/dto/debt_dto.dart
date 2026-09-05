@@ -16,6 +16,7 @@ class DebtDto {
     required this.createdAt,
     required this.updatedAt,
     required this.transactionDate,
+    this.transferProofBase64,
   });
 
   final String id;
@@ -26,6 +27,7 @@ class DebtDto {
   final DebtStatus status;
   final DateTime transactionDate;
   final String note;
+  final String? transferProofBase64;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -39,6 +41,7 @@ class DebtDto {
       status: debt.status,
       transactionDate: debt.transactionDate,
       note: debt.note,
+      transferProofBase64: debt.transferProofBase64,
       createdAt: debt.createdAt,
       updatedAt: debt.updatedAt,
     );
@@ -50,6 +53,7 @@ class DebtDto {
 
   factory DebtDto.fromMap(Map<String, dynamic> data, {String? documentId}) {
     final createdAt = requiredDateTime(data, 'createdAt');
+    final transferProof = optionalString(data, 'transferProofBase64');
     return DebtDto(
       id: optionalString(data, 'id') ?? documentId ?? '',
       kind: DebtKind.fromFirestore(requiredString(data, 'kind')),
@@ -61,6 +65,9 @@ class DebtDto {
       // the safest fallback because dueDate represented a different concept.
       transactionDate: optionalDateTime(data, 'transactionDate') ?? createdAt,
       note: optionalString(data, 'note') ?? '',
+      transferProofBase64: transferProof == null || transferProof.isEmpty
+          ? null
+          : transferProof,
       createdAt: createdAt,
       updatedAt: requiredDateTime(data, 'updatedAt'),
     );
@@ -76,6 +83,7 @@ class DebtDto {
       status: status,
       transactionDate: transactionDate,
       note: note,
+      transferProofBase64: transferProofBase64,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
@@ -91,6 +99,7 @@ class DebtDto {
       'status': status.firestoreValue,
       'transactionDate': timestampFromDate(transactionDate),
       'note': note,
+      'transferProofBase64': transferProofBase64,
       'createdAt': timestampFromDate(createdAt),
       'updatedAt': timestampFromDate(updatedAt),
     };

@@ -39,6 +39,7 @@ class FirebaseDebtDataSource {
             status: debt.status,
             transactionDate: debt.transactionDate,
             note: debt.note,
+            transferProofBase64: debt.transferProofBase64,
             createdAt: debt.createdAt,
             updatedAt: debt.updatedAt,
           )

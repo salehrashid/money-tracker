@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/errors/app_failure.dart';
 import '../../../../shared/models/finance_enums.dart';
 import '../../../../shared/widgets/responsive_controls.dart';
 import '../../application/usecases/debt_commands.dart';
 import '../../domain/entities/debt.dart';
+import '../services/transfer_proof_picker.dart';
 import 'debt_formatters.dart';
+import 'transfer_proof_preview.dart';
 
 class DebtFormDialog extends StatefulWidget {
-  const DebtFormDialog({this.debt, super.key});
+  const DebtFormDialog({
+    this.debt,
+    this.transferProofPicker = const TransferProofPicker(),
+    super.key,
+  });
 
   final Debt? debt;
+  final TransferProofPicker transferProofPicker;
 
   @override
   State<DebtFormDialog> createState() => _DebtFormDialogState();
@@ -23,6 +31,9 @@ class _DebtFormDialogState extends State<DebtFormDialog> {
   late DebtKind _kind;
   late DebtStatus _status;
   late DateTime _transactionDate;
+  String? _transferProofBase64;
+  String? _transferProofError;
+  bool _isPickingPhoto = false;
 
   @override
   void initState() {
@@ -34,6 +45,7 @@ class _DebtFormDialogState extends State<DebtFormDialog> {
     _personNameController = TextEditingController(text: debt?.personName ?? '');
     _amountController = TextEditingController(text: _initialAmount(debt));
     _noteController = TextEditingController(text: debt?.note ?? '');
+    _transferProofBase64 = debt?.transferProofBase64;
   }
 
   @override
@@ -154,6 +166,8 @@ class _DebtFormDialogState extends State<DebtFormDialog> {
                       labelText: 'Notes (optional)',
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  _buildTransferProofField(context),
                 ],
               ),
             ),
@@ -166,22 +180,106 @@ class _DebtFormDialogState extends State<DebtFormDialog> {
           child: const Text('Cancel'),
         ),
         FilledButton.icon(
-          onPressed: () {
-            if (!(_formKey.currentState?.validate() ?? false)) {
-              return;
-            }
-            final command = _command();
-            if (command == null) {
-              return;
-            }
+          onPressed: _isPickingPhoto
+              ? null
+              : () {
+                  if (!(_formKey.currentState?.validate() ?? false)) {
+                    return;
+                  }
+                  final command = _command();
+                  if (command == null) {
+                    return;
+                  }
 
-            Navigator.of(context).pop(command);
-          },
+                  Navigator.of(context).pop(command);
+                },
           icon: const Icon(Icons.check),
           label: const Text('Save'),
         ),
       ],
     );
+  }
+
+  Widget _buildTransferProofField(BuildContext context) {
+    final proof = _transferProofBase64;
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Transfer proof (optional)', style: theme.textTheme.titleSmall),
+        const SizedBox(height: 8),
+        Text(
+          'Attach a transfer receipt photo, or save without one. JPG, PNG or '
+          'WebP, up to 10 MB. Large photos are resized automatically.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        if (proof != null) ...[
+          const SizedBox(height: 12),
+          TransferProofPreview(base64Data: proof),
+        ],
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              onPressed: _isPickingPhoto ? null : _pickTransferProof,
+              icon: const Icon(Icons.add_photo_alternate_outlined),
+              label: Text(proof == null ? 'Upload photo' : 'Replace photo'),
+            ),
+            if (proof != null)
+              TextButton.icon(
+                onPressed: _isPickingPhoto
+                    ? null
+                    : () => setState(() {
+                        _transferProofBase64 = null;
+                        _transferProofError = null;
+                      }),
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('Remove photo'),
+              ),
+          ],
+        ),
+        if (_isPickingPhoto) ...[
+          const SizedBox(height: 8),
+          const LinearProgressIndicator(semanticsLabel: 'Preparing photo'),
+        ],
+        if (_transferProofError != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            _transferProofError!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.error,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _pickTransferProof() async {
+    setState(() {
+      _isPickingPhoto = true;
+      _transferProofError = null;
+    });
+
+    try {
+      final proof = await widget.transferProofPicker.pick();
+      if (!mounted || proof == null) return;
+      setState(() => _transferProofBase64 = proof);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _transferProofError = error is AppFailure
+            ? error.message
+            : 'Unable to open this photo. Please try another image.';
+      });
+    } finally {
+      if (mounted) setState(() => _isPickingPhoto = false);
+    }
   }
 
   Future<void> _pickTransactionDate() async {
@@ -221,6 +319,7 @@ class _DebtFormDialogState extends State<DebtFormDialog> {
       status: _status,
       transactionDate: _transactionDate,
       note: _noteController.text,
+      transferProofBase64: _transferProofBase64,
     );
   }
 }

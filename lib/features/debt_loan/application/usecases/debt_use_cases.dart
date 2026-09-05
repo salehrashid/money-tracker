@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../../../core/errors/app_failure.dart';
 import '../../../../core/utils/result.dart';
 import '../../../../shared/models/finance_enums.dart';
@@ -37,6 +39,7 @@ class CreateDebtUseCase {
         status: command.status,
         transactionDate: command.transactionDate.toUtc(),
         note: command.note.trim(),
+        transferProofBase64: _transferProofOrNull(command.transferProofBase64),
         createdAt: now,
         updatedAt: now,
       ),
@@ -67,6 +70,9 @@ class UpdateDebtUseCase {
         status: command.status,
         transactionDate: command.transactionDate.toUtc(),
         note: command.note.trim(),
+        transferProofBase64: _transferProofOrNull(command.transferProofBase64),
+        clearTransferProof:
+            _transferProofOrNull(command.transferProofBase64) == null,
         updatedAt: DateTime.now().toUtc(),
       ),
     );
@@ -155,5 +161,34 @@ AppFailure? _validate(SaveDebtCommand command) {
     );
   }
 
+  final transferProof = _transferProofOrNull(command.transferProofBase64);
+  if (transferProof != null) {
+    const maxEncodedLength = ((debtTransferProofMaxBytes + 2) ~/ 3) * 4;
+    const tooLargeFailure = AppFailure(
+      type: AppFailureType.validation,
+      code: 'debt-transfer-proof-too-large',
+      message: 'Choose a smaller transfer proof photo.',
+    );
+    if (transferProof.length > maxEncodedLength) {
+      return tooLargeFailure;
+    }
+    try {
+      final bytes = base64Decode(transferProof);
+      if (bytes.length > debtTransferProofMaxBytes) {
+        return tooLargeFailure;
+      }
+    } on FormatException {
+      return const AppFailure(
+        type: AppFailureType.validation,
+        code: 'invalid-debt-transfer-proof',
+        message: 'Choose a valid transfer proof photo.',
+      );
+    }
+  }
+
   return null;
+}
+
+String? _transferProofOrNull(String? value) {
+  return value == null || value.isEmpty ? null : value;
 }
