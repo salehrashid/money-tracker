@@ -75,7 +75,7 @@ class _AuthenticatedApp extends ConsumerWidget {
     ]) {
       coordinator.register(collection);
     }
-    return const AppShell();
+    return AppShell(userId: userId);
   }
 }
 

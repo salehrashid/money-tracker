@@ -4,6 +4,7 @@ import 'package:curved_labeled_navigation_bar/curved_navigation_bar.dart';
 import 'package:curved_labeled_navigation_bar/curved_navigation_bar_item.dart';
 
 import '../../features/auth/presentation/providers/auth_providers.dart';
+import '../../features/backup/presentation/backup_data_page.dart';
 import '../../features/accounts/presentation/pages/account_management_page.dart';
 import '../../features/categories/presentation/pages/category_management_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
@@ -16,7 +17,9 @@ import 'app_page.dart';
 import '../theme/app_theme.dart';
 
 class AppShell extends ConsumerStatefulWidget {
-  const AppShell({super.key});
+  const AppShell({required this.userId, super.key});
+
+  final String userId;
 
   @override
   ConsumerState<AppShell> createState() => _AppShellState();
@@ -26,6 +29,7 @@ class _AppShellState extends ConsumerState<AppShell>
     with WidgetsBindingObserver {
   static const _financialCycleIndex = 5;
   static const _accountsIndex = 6;
+  static const _backupIndex = 7;
   late final PageController _pageController;
   final _mobileScaffoldKey = GlobalKey<ScaffoldState>();
   var _selectedIndex = 0;
@@ -167,6 +171,7 @@ class _AppShellState extends ConsumerState<AppShell>
       4 => const CategoryManagementPage(),
       _financialCycleIndex => const FinancialCyclePage(),
       _accountsIndex => const AccountManagementPage(),
+      _backupIndex => BackupDataPage(userId: widget.userId),
       _ => DashboardPage(onAddTransaction: () => _select(1)),
     };
 
@@ -189,6 +194,7 @@ class _AppShellState extends ConsumerState<AppShell>
               onSelected: _select,
               onFinancialCycleSelected: () => _select(_financialCycleIndex),
               onAccountsSelected: () => _select(_accountsIndex),
+              onBackupSelected: () => _select(_backupIndex),
               onSignOut: _signOut,
             ),
             const VerticalDivider(width: 1),
@@ -211,6 +217,7 @@ class _AppShellState extends ConsumerState<AppShell>
         drawer: _MobileNavigationDrawer(
           onFinancialCycleSelected: () => _openFinancialCyclePage(context),
           onAccountsSelected: () => _openAccountsPage(context),
+          onBackupSelected: () => _openBackupPage(context),
           onSignOut: _signOut,
         ),
         body: AppDrawerScope(
@@ -319,6 +326,14 @@ class _AppShellState extends ConsumerState<AppShell>
     );
   }
 
+  void _openBackupPage(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => BackupDataPage(userId: widget.userId),
+      ),
+    );
+  }
+
   void _select(int index) {
     if (_selectedIndex == index) {
       return;
@@ -416,6 +431,7 @@ class _DesktopSidebar extends StatelessWidget {
     required this.onSelected,
     required this.onFinancialCycleSelected,
     required this.onAccountsSelected,
+    required this.onBackupSelected,
     required this.onSignOut,
   });
 
@@ -424,6 +440,7 @@ class _DesktopSidebar extends StatelessWidget {
   final ValueChanged<int> onSelected;
   final VoidCallback onFinancialCycleSelected;
   final VoidCallback onAccountsSelected;
+  final VoidCallback onBackupSelected;
   final Future<void> Function() onSignOut;
 
   @override
@@ -468,6 +485,13 @@ class _DesktopSidebar extends StatelessWidget {
                 selected: selectedIndex == 5,
                 extended: extended,
                 onTap: onFinancialCycleSelected,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              _SidebarDestination(
+                item: _backupDestination,
+                selected: selectedIndex == 7,
+                extended: extended,
+                onTap: onBackupSelected,
               ),
               const SizedBox(height: AppSpacing.xs),
               _SidebarDestination(
@@ -655,15 +679,24 @@ const _financialCycleDestination = _Destination(
   selectedIcon: Icons.payments,
 );
 
+const _backupDestination = _Destination(
+  label: 'Backup & Data',
+  tooltip: 'Export, backup, and restore',
+  icon: Icons.cloud_download_outlined,
+  selectedIcon: Icons.cloud_download,
+);
+
 class _MobileNavigationDrawer extends StatelessWidget {
   const _MobileNavigationDrawer({
     required this.onFinancialCycleSelected,
     required this.onAccountsSelected,
+    required this.onBackupSelected,
     required this.onSignOut,
   });
 
   final VoidCallback onFinancialCycleSelected;
   final VoidCallback onAccountsSelected;
+  final VoidCallback onBackupSelected;
   final Future<void> Function() onSignOut;
 
   @override
@@ -711,6 +744,15 @@ class _MobileNavigationDrawer extends StatelessWidget {
                     onTap: () {
                       Navigator.of(context).pop();
                       onFinancialCycleSelected();
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(_backupDestination.icon),
+                    title: const Text('Backup & Data'),
+                    subtitle: const Text('Export, backup, and restore'),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      onBackupSelected();
                     },
                   ),
                 ],

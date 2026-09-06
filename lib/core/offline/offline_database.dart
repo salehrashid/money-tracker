@@ -84,6 +84,55 @@ class OfflineDatabase {
     _notify(userId, collection);
   }
 
+  /// Commits a validated backup import in one Hive batch. Imported records are
+  /// deliberately marked pending so the existing offline sync pipeline uploads
+  /// them when connectivity is available.
+  Future<void> commitImport({
+    required String userId,
+    required Map<String, List<Map<String, dynamic>>> collections,
+    required bool replace,
+  }) async {
+    final now = DateTime.now().toUtc().toIso8601String();
+    final writes = <String, dynamic>{};
+
+    for (final entry in collections.entries) {
+      final existing = {
+        for (final record in records(userId, entry.key)) record.id: record,
+      };
+      final incomingIds = entry.value
+          .map((item) => item['id'] as String)
+          .toSet();
+      if (replace) {
+        for (final record in existing.values.where(
+          (item) => !incomingIds.contains(item.id),
+        )) {
+          writes[_key(userId, entry.key, record.id)] = {
+            'id': record.id,
+            'data': record.data,
+            'status': SyncStatus.pendingDelete.name,
+            'queuedAt': now,
+          };
+        }
+      }
+      for (final data in entry.value) {
+        final id = data['id'] as String;
+        writes[_key(userId, entry.key, id)] = {
+          'id': id,
+          'data': data,
+          'status': existing.containsKey(id)
+              ? SyncStatus.pendingUpdate.name
+              : SyncStatus.pendingCreate.name,
+          'queuedAt': now,
+        };
+      }
+    }
+
+    await _box.putAll(writes);
+    for (final collection in collections.keys) {
+      _notify(userId, collection);
+    }
+  }
+
   Future<void> mergeRemote({
     required String userId,
     required String collection,
