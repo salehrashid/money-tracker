@@ -6,6 +6,7 @@ import '../../domain/entities/category.dart';
 import '../../domain/repositories/category_repository.dart';
 import '../datasources/firebase_category_data_source.dart';
 import 'package:uuid/uuid.dart';
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode;
 
 class FirebaseCategoryRepository implements CategoryRepository {
   FirebaseCategoryRepository({
@@ -21,6 +22,7 @@ class FirebaseCategoryRepository implements CategoryRepository {
   @override
   Stream<Result<List<Category>>> watchCategories() async* {
     await for (final categories in _local.watch()) {
+      _logOrphans(categories);
       categories.sort(_sortCategories);
       yield Success(categories);
     }
@@ -30,6 +32,7 @@ class FirebaseCategoryRepository implements CategoryRepository {
   Future<Result<List<Category>>> fetchCategories() async {
     try {
       final categories = _local.current..sort(_sortCategories);
+      _logOrphans(categories);
       return Success(categories);
     } catch (error) {
       return Failure(_mapError(error));
@@ -184,6 +187,19 @@ class FirebaseCategoryRepository implements CategoryRepository {
     }
 
     return _errorMapper.map(error);
+  }
+}
+
+void _logOrphans(List<Category> categories) {
+  if (!kDebugMode) return;
+  final ids = categories.map((item) => item.id).toSet();
+  for (final category in categories) {
+    final parentId = category.parentCategoryId;
+    if (parentId != null && !ids.contains(parentId)) {
+      debugPrint(
+        'Category ${category.id} references missing parent $parentId; treating it as a root category.',
+      );
+    }
   }
 }
 

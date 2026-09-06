@@ -11,6 +11,7 @@ import '../../../../shared/widgets/app_page.dart';
 import '../../../../shared/widgets/responsive_controls.dart';
 import '../../../../shared/widgets/undo_delete_snackbar.dart';
 import '../../application/usecases/category_commands.dart';
+import '../../application/usecases/category_use_cases.dart';
 import '../../domain/entities/category.dart';
 import '../providers/category_providers.dart';
 import '../widgets/category_color.dart';
@@ -26,6 +27,18 @@ final _categoryArchiveFilterProvider =
     NotifierProvider.autoDispose<_CategoryArchiveFilterNotifier, bool>(
       _CategoryArchiveFilterNotifier.new,
     );
+
+final _collapsedCategoryIdsProvider =
+    NotifierProvider.autoDispose<_CollapsedCategoryIdsNotifier, Set<String>>(
+      _CollapsedCategoryIdsNotifier.new,
+    );
+
+class _CollapsedCategoryIdsNotifier extends Notifier<Set<String>> {
+  @override
+  Set<String> build() => {};
+  void toggle(String id) =>
+      state = state.contains(id) ? ({...state}..remove(id)) : {...state, id};
+}
 
 class _CategoryTypeFilterNotifier extends Notifier<TransactionType?> {
   @override
@@ -99,6 +112,7 @@ class _CategoryContent extends ConsumerWidget {
     final selectedType = ref.watch(_categoryTypeFilterProvider);
     final showArchived = ref.watch(_categoryArchiveFilterProvider);
     final pendingDeletions = ref.watch(pendingDeleteControllerProvider);
+    final collapsedIds = ref.watch(_collapsedCategoryIdsProvider);
     final isDesktop = AppBreakpoints.isDesktop(context);
 
     ref.listen<AsyncValue<void>>(categoryOperationStateProvider, (
@@ -175,17 +189,33 @@ class _CategoryContent extends ConsumerWidget {
                     ),
                   )
                   .toList(growable: false);
-              final filtered =
-                  categories.where((category) {
-                    final matchesType =
-                        selectedType == null || category.type == selectedType;
-                    return matchesType && category.isArchived == showArchived;
-                  }).toList()..sort((a, b) {
-                    final typeOrder = a.type.index.compareTo(b.type.index);
-                    return typeOrder != 0
-                        ? typeOrder
-                        : a.name.toLowerCase().compareTo(b.name.toLowerCase());
-                  });
+              final filtered = categories.where((category) {
+                final matchesType =
+                    selectedType == null || category.type == selectedType;
+                return matchesType && category.isArchived == showArchived;
+              }).toList();
+              final filteredIds = filtered.map((item) => item.id).toSet();
+              final roots =
+                  filtered
+                      .where(
+                        (item) =>
+                            item.parentCategoryId == null ||
+                            !filteredIds.contains(item.parentCategoryId),
+                      )
+                      .toList()
+                    ..sort(_categoryUiSort);
+              final ordered = <Category>[];
+              for (final root in roots) {
+                ordered.add(root);
+                if (!collapsedIds.contains(root.id)) {
+                  ordered.addAll(
+                    filtered
+                        .where((item) => item.parentCategoryId == root.id)
+                        .toList()
+                      ..sort(_categoryUiSort),
+                  );
+                }
+              }
 
               return RefreshIndicator(
                 onRefresh: () async =>
@@ -228,7 +258,12 @@ class _CategoryContent extends ConsumerWidget {
                               : () => _seedDefaults(context, ref, userId),
                           onCreate: operationState.isLoading
                               ? null
-                              : () => _showCreateDialog(context, ref, userId),
+                              : () => _showCreateDialog(
+                                  context,
+                                  ref,
+                                  userId,
+                                  categories,
+                                ),
                         ),
                       )
                     else if (filtered.isEmpty)
@@ -244,7 +279,7 @@ class _CategoryContent extends ConsumerWidget {
                       SliverPadding(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                         sliver: SliverList.separated(
-                          itemCount: filtered.length,
+                          itemCount: ordered.length,
                           separatorBuilder: (_, _) => const SizedBox(height: 8),
                           itemBuilder: (context, index) {
                             return Center(
@@ -257,8 +292,8 @@ class _CategoryContent extends ConsumerWidget {
                                       CrossAxisAlignment.stretch,
                                   children: [
                                     if (index == 0 ||
-                                        filtered[index - 1].type !=
-                                            filtered[index].type) ...[
+                                        ordered[index - 1].type !=
+                                            ordered[index].type) ...[
                                       Padding(
                                         padding: const EdgeInsets.fromLTRB(
                                           AppSpacing.xxs,
@@ -267,7 +302,7 @@ class _CategoryContent extends ConsumerWidget {
                                           AppSpacing.xs,
                                         ),
                                         child: Text(
-                                          '${_typeLabel(filtered[index].type)} categories',
+                                          '${_typeLabel(ordered[index].type)} categories',
                                           style: Theme.of(
                                             context,
                                           ).textTheme.titleMedium,
@@ -275,27 +310,48 @@ class _CategoryContent extends ConsumerWidget {
                                       ),
                                     ],
                                     _CategoryTile(
-                                      category: filtered[index],
+                                      category: ordered[index],
+                                      isChild:
+                                          ordered[index].parentCategoryId !=
+                                              null &&
+                                          filteredIds.contains(
+                                            ordered[index].parentCategoryId,
+                                          ),
+                                      hasChildren: filtered.any(
+                                        (item) =>
+                                            item.parentCategoryId ==
+                                            ordered[index].id,
+                                      ),
+                                      isCollapsed: collapsedIds.contains(
+                                        ordered[index].id,
+                                      ),
+                                      onToggle: () => ref
+                                          .read(
+                                            _collapsedCategoryIdsProvider
+                                                .notifier,
+                                          )
+                                          .toggle(ordered[index].id),
                                       isBusy: operationState.isLoading,
                                       onEdit: () => _showEditDialog(
                                         context,
                                         ref,
                                         userId,
-                                        filtered[index],
+                                        ordered[index],
+                                        categories,
                                       ),
                                       onArchiveChanged: (isArchived) =>
                                           _setArchived(
                                             context,
                                             ref,
                                             userId,
-                                            filtered[index],
+                                            ordered[index],
                                             isArchived,
                                           ),
                                       onDelete: () => _confirmDelete(
                                         context,
                                         ref,
                                         userId,
-                                        filtered[index],
+                                        ordered[index],
                                       ),
                                     ),
                                   ],
@@ -326,11 +382,16 @@ class _CategoryContent extends ConsumerWidget {
   Future<void> _showCreateDialog(
     BuildContext context,
     WidgetRef ref,
-    String userId,
-  ) async {
+    String userId, [
+    List<Category> categories = const [],
+  ]) async {
     final command = await showDialog<SaveCategoryCommand>(
       context: context,
-      builder: (_) => const CategoryFormDialog(),
+      builder: (_) => CategoryFormDialog(
+        categories: categories.isNotEmpty
+            ? categories
+            : _categoriesFrom(ref, userId),
+      ),
     );
     if (command == null || !context.mounted) {
       return;
@@ -347,10 +408,12 @@ class _CategoryContent extends ConsumerWidget {
     WidgetRef ref,
     String userId,
     Category category,
+    List<Category> categories,
   ) async {
     final command = await showDialog<SaveCategoryCommand>(
       context: context,
-      builder: (_) => CategoryFormDialog(category: category),
+      builder: (_) =>
+          CategoryFormDialog(category: category, categories: categories),
     );
     if (command == null || !context.mounted) {
       return;
@@ -396,6 +459,43 @@ class _CategoryContent extends ConsumerWidget {
     String userId,
     Category category,
   ) async {
+    final children = _categoriesFrom(
+      ref,
+      userId,
+    ).where((item) => item.parentCategoryId == category.id).toList();
+    if (children.isNotEmpty) {
+      final strategy = await showDialog<DeleteCategoryStrategy>(
+        context: context,
+        builder: (_) => _DeleteParentCategoryDialog(
+          categoryName: category.name,
+          childCount: children.length,
+        ),
+      );
+      if (strategy == null || !context.mounted) return;
+      final useCase = ref.read(deleteCategoryUseCaseProvider(userId));
+      final affectedCategories =
+          strategy == DeleteCategoryStrategy.deleteChildren
+          ? [category, ...children]
+          : [category];
+      final itemKeys = affectedCategories
+          .map((item) => pendingDeleteItemKey('category', userId, item.id))
+          .toSet();
+      final operationKey =
+          '${pendingDeleteItemKey('category', userId, category.id)}:${strategy.name}';
+      scheduleUndoDelete<Category>(
+        context: context,
+        ref: ref,
+        operationKey: operationKey,
+        itemKeys: itemKeys,
+        items: affectedCategories,
+        message: strategy == DeleteCategoryStrategy.moveChildrenToRoot
+            ? 'Category deleted; sub-categories moved to root'
+            : 'Category and sub-categories deleted',
+        failureMessage: 'Could not update categories. Please try again.',
+        commitDelete: () => useCase.execute(category.id, strategy: strategy),
+      );
+      return;
+    }
     final confirmed = await showAppDeleteConfirmation(
       context: context,
       title: 'Delete category?',
@@ -431,6 +531,179 @@ class _CategoryContent extends ConsumerWidget {
     result.when(
       success: (_) => notifier.setSuccess(),
       failure: (failure) => notifier.setFailure(failure, StackTrace.current),
+    );
+  }
+}
+
+class _DeleteParentCategoryDialog extends StatefulWidget {
+  const _DeleteParentCategoryDialog({
+    required this.categoryName,
+    required this.childCount,
+  });
+
+  final String categoryName;
+  final int childCount;
+
+  @override
+  State<_DeleteParentCategoryDialog> createState() =>
+      _DeleteParentCategoryDialogState();
+}
+
+class _DeleteParentCategoryDialogState
+    extends State<_DeleteParentCategoryDialog> {
+  DeleteCategoryStrategy _strategy = DeleteCategoryStrategy.moveChildrenToRoot;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final childLabel = widget.childCount == 1
+        ? 'sub-category'
+        : 'sub-categories';
+
+    return AlertDialog(
+      title: Text('Delete "${widget.categoryName}"?'),
+      content: SizedBox(
+        width: responsiveDialogWidth(context),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'This category contains ${widget.childCount} $childLabel.\n'
+              'Transactions will not be deleted.',
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Text(
+              'What should happen to its sub-categories?',
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            RadioGroup<DeleteCategoryStrategy>(
+              groupValue: _strategy,
+              onChanged: (value) {
+                if (value != null) setState(() => _strategy = value);
+              },
+              child: Column(
+                children: [
+                  _DeleteCategoryOption(
+                    value: DeleteCategoryStrategy.moveChildrenToRoot,
+                    selected:
+                        _strategy == DeleteCategoryStrategy.moveChildrenToRoot,
+                    title: 'Move to root',
+                    subtitle: 'Keep ${widget.childCount} $childLabel',
+                    icon: Icons.call_split_outlined,
+                    color: colors.primary,
+                    onTap: () => setState(
+                      () =>
+                          _strategy = DeleteCategoryStrategy.moveChildrenToRoot,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  _DeleteCategoryOption(
+                    value: DeleteCategoryStrategy.deleteChildren,
+                    selected:
+                        _strategy == DeleteCategoryStrategy.deleteChildren,
+                    title: 'Delete sub-categories',
+                    subtitle:
+                        'Delete this category and its ${widget.childCount} $childLabel',
+                    icon: Icons.delete_outline,
+                    color: colors.error,
+                    onTap: () => setState(
+                      () => _strategy = DeleteCategoryStrategy.deleteChildren,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.icon(
+          style: FilledButton.styleFrom(
+            backgroundColor: colors.error,
+            foregroundColor: colors.onError,
+          ),
+          onPressed: () => Navigator.pop(context, _strategy),
+          icon: const Icon(Icons.delete_outline),
+          label: const Text('Delete category'),
+        ),
+      ],
+    );
+  }
+}
+
+class _DeleteCategoryOption extends StatelessWidget {
+  const _DeleteCategoryOption({
+    required this.value,
+    required this.selected,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final DeleteCategoryStrategy value;
+  final bool selected;
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Material(
+      color: selected ? color.withValues(alpha: 0.08) : Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: selected ? color : colors.outlineVariant,
+          width: selected ? 1.5 : 1,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          child: Row(
+            children: [
+              Radio<DeleteCategoryStrategy>(value: value, activeColor: color),
+              const SizedBox(width: AppSpacing.xs),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: color,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              Icon(icon, color: color),
+              const SizedBox(width: AppSpacing.sm),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -497,6 +770,10 @@ class _CategoryTile extends StatelessWidget {
     required this.onEdit,
     required this.onArchiveChanged,
     required this.onDelete,
+    required this.isChild,
+    required this.hasChildren,
+    required this.isCollapsed,
+    required this.onToggle,
   });
 
   final Category category;
@@ -504,114 +781,152 @@ class _CategoryTile extends StatelessWidget {
   final VoidCallback onEdit;
   final ValueChanged<bool> onArchiveChanged;
   final VoidCallback onDelete;
+  final bool isChild;
+  final bool hasChildren;
+  final bool isCollapsed;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final color = categoryColor(category.color);
 
-    return Card(
-      margin: EdgeInsets.zero,
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: color.withValues(alpha: 0.16),
-          foregroundColor: color,
-          child: Icon(categoryIconData(category.icon)),
-        ),
-        title: Text(
-          category.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Wrap(
-          spacing: 8,
-          runSpacing: 4,
-          children: [
-            Text(_typeLabel(category.type)),
-            if (category.isDefault)
-              Text('Default', style: TextStyle(color: colorScheme.primary)),
-            if (category.isArchived)
-              Text('Archived', style: TextStyle(color: colorScheme.error)),
-          ],
-        ),
-        trailing: AppBreakpoints.isMobile(context)
-            ? PopupMenuButton<_CategoryAction>(
-                tooltip: 'Category actions',
-                onSelected: (action) {
-                  switch (action) {
-                    case _CategoryAction.edit:
-                      onEdit();
-                    case _CategoryAction.archive:
-                      onArchiveChanged(!category.isArchived);
-                    case _CategoryAction.delete:
-                      onDelete();
-                  }
-                },
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    value: _CategoryAction.edit,
-                    enabled: !isBusy && !category.isDefault,
-                    child: const ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(Icons.edit_outlined),
-                      title: Text('Edit'),
-                    ),
+    return Padding(
+      padding: EdgeInsets.only(left: isChild ? 28 : 0),
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: ListTile(
+          leading: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (hasChildren)
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  tooltip: isCollapsed
+                      ? 'Expand sub-categories'
+                      : 'Collapse sub-categories',
+                  onPressed: onToggle,
+                  icon: Icon(
+                    isCollapsed ? Icons.chevron_right : Icons.expand_more,
                   ),
-                  PopupMenuItem(
-                    value: _CategoryAction.archive,
-                    enabled: !isBusy,
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(
+                ),
+              CircleAvatar(
+                backgroundColor: color.withValues(alpha: 0.16),
+                foregroundColor: color,
+                child: Icon(categoryIconData(category.icon)),
+              ),
+            ],
+          ),
+          title: Text(
+            category.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              Text(_typeLabel(category.type)),
+              if (category.isDefault)
+                Text('Default', style: TextStyle(color: colorScheme.primary)),
+              if (category.isArchived)
+                Text('Archived', style: TextStyle(color: colorScheme.error)),
+            ],
+          ),
+          trailing: AppBreakpoints.isMobile(context)
+              ? PopupMenuButton<_CategoryAction>(
+                  tooltip: 'Category actions',
+                  onSelected: (action) {
+                    switch (action) {
+                      case _CategoryAction.edit:
+                        onEdit();
+                      case _CategoryAction.archive:
+                        onArchiveChanged(!category.isArchived);
+                      case _CategoryAction.delete:
+                        onDelete();
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: _CategoryAction.edit,
+                      enabled: !isBusy && !category.isDefault,
+                      child: const ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.edit_outlined),
+                        title: Text('Edit'),
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: _CategoryAction.archive,
+                      enabled: !isBusy,
+                      child: ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          category.isArchived
+                              ? Icons.unarchive_outlined
+                              : Icons.archive_outlined,
+                        ),
+                        title: Text(
+                          category.isArchived ? 'Unarchive' : 'Archive',
+                        ),
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: _CategoryAction.delete,
+                      enabled: !isBusy && !category.isDefault,
+                      child: const ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(Icons.delete_outline),
+                        title: Text('Delete'),
+                      ),
+                    ),
+                  ],
+                )
+              : Wrap(
+                  spacing: 4,
+                  children: [
+                    IconButton(
+                      tooltip: 'Edit',
+                      onPressed: isBusy || category.isDefault ? null : onEdit,
+                      icon: const Icon(Icons.edit_outlined),
+                    ),
+                    IconButton(
+                      tooltip: category.isArchived ? 'Unarchive' : 'Archive',
+                      onPressed: isBusy
+                          ? null
+                          : () => onArchiveChanged(!category.isArchived),
+                      icon: Icon(
                         category.isArchived
                             ? Icons.unarchive_outlined
                             : Icons.archive_outlined,
                       ),
-                      title: Text(
-                        category.isArchived ? 'Unarchive' : 'Archive',
-                      ),
                     ),
-                  ),
-                  PopupMenuItem(
-                    value: _CategoryAction.delete,
-                    enabled: !isBusy && !category.isDefault,
-                    child: const ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(Icons.delete_outline),
-                      title: Text('Delete'),
+                    IconButton(
+                      tooltip: 'Delete',
+                      onPressed: isBusy || category.isDefault ? null : onDelete,
+                      icon: const Icon(Icons.delete_outline),
                     ),
-                  ),
-                ],
-              )
-            : Wrap(
-                spacing: 4,
-                children: [
-                  IconButton(
-                    tooltip: 'Edit',
-                    onPressed: isBusy || category.isDefault ? null : onEdit,
-                    icon: const Icon(Icons.edit_outlined),
-                  ),
-                  IconButton(
-                    tooltip: category.isArchived ? 'Unarchive' : 'Archive',
-                    onPressed: isBusy
-                        ? null
-                        : () => onArchiveChanged(!category.isArchived),
-                    icon: Icon(
-                      category.isArchived
-                          ? Icons.unarchive_outlined
-                          : Icons.archive_outlined,
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Delete',
-                    onPressed: isBusy || category.isDefault ? null : onDelete,
-                    icon: const Icon(Icons.delete_outline),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+        ),
       ),
     );
   }
+}
+
+int _categoryUiSort(Category a, Category b) {
+  final type = a.type.index.compareTo(b.type.index);
+  return type != 0
+      ? type
+      : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+}
+
+List<Category> _categoriesFrom(WidgetRef ref, String userId) {
+  final value = ref.read(categoryListProvider(userId)).value;
+  return switch (value) {
+    Success<List<Category>>(:final value) => value,
+    _ => const [],
+  };
 }
 
 enum _CategoryAction { edit, archive, delete }

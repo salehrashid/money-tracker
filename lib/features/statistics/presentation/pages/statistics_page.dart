@@ -10,6 +10,7 @@ import '../../../../shared/widgets/responsive_controls.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../settings/presentation/providers/financial_settings_providers.dart';
 import '../../../transactions/presentation/widgets/transaction_formatters.dart';
+import '../../../transactions/domain/entities/transaction.dart';
 import '../../domain/entities/statistics_overview.dart';
 import '../providers/statistics_providers.dart';
 
@@ -662,16 +663,56 @@ class _CategoryBreakdownCard extends StatelessWidget {
               children: items
                   .take(10)
                   .map(
-                    (item) => _ShareBar(
-                      title: item.categoryName,
-                      subtitle:
-                          '${transactionTypeLabel(item.type)} - ${item.transactionCount} transactions',
-                      amount: item.amount,
-                      share: item.share,
-                      tone: item.type == TransactionType.income
-                          ? _SummaryTone.positive
-                          : _SummaryTone.negative,
-                    ),
+                    (item) => item.children.isEmpty
+                        ? _ShareBar(
+                            title: item.categoryName,
+                            subtitle:
+                                '${transactionTypeLabel(item.type)} - ${item.transactionCount} transactions',
+                            amount: item.amount,
+                            share: item.typeShare ?? item.share,
+                            tone: item.type == TransactionType.income
+                                ? _SummaryTone.positive
+                                : _SummaryTone.negative,
+                          )
+                        : ExpansionTile(
+                            tilePadding: EdgeInsets.zero,
+                            childrenPadding: const EdgeInsets.only(left: 20),
+                            title: Text(item.categoryName),
+                            subtitle: Text(
+                              '${item.transactionCount} transactions',
+                            ),
+                            trailing: Text(formatIdr(item.amount)),
+                            children: [
+                              if (item.directAmount > 0)
+                                _ShareBar(
+                                  title: 'General',
+                                  subtitle: 'Directly assigned',
+                                  amount: item.directAmount,
+                                  share: item.amount == 0
+                                      ? 0
+                                      : item.directAmount / item.amount,
+                                  onTap: () => _showCategoryTransactions(
+                                    context,
+                                    'General',
+                                    item.directTransactions,
+                                  ),
+                                ),
+                              ...item.children.map(
+                                (child) => _ShareBar(
+                                  title: child.categoryName,
+                                  subtitle:
+                                      '${child.transactionCount} transactions',
+                                  amount: child.amount,
+                                  share: child.share,
+                                  onTap: () => _showCategoryTransactions(
+                                    context,
+                                    child.categoryName,
+                                    child.transactions,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                   )
                   .toList(),
             ),
@@ -686,6 +727,7 @@ class _ShareBar extends StatelessWidget {
     required this.amount,
     required this.share,
     this.tone = _SummaryTone.neutral,
+    this.onTap,
   });
 
   final String title;
@@ -693,6 +735,7 @@ class _ShareBar extends StatelessWidget {
   final double amount;
   final double share;
   final _SummaryTone tone;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -703,60 +746,113 @@ class _ShareBar extends StatelessWidget {
       _SummaryTone.neutral => colorScheme.primary,
     };
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelLarge,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerRight,
-                    child: Text(formatIdr(amount)),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
                   ),
                 ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(formatIdr(amount)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                minHeight: 8,
+                value: share.clamp(0, 1),
+                color: color,
+                backgroundColor: colorScheme.surfaceContainerHighest,
               ),
-            ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _showCategoryTransactions(
+  BuildContext context,
+  String title,
+  List<TransactionEntity> transactions,
+) {
+  final sorted = [...transactions]
+    ..sort((a, b) => b.transactionDate.compareTo(a.transactionDate));
+  return showModalBottomSheet<void>(
+    context: context,
+    useSafeArea: true,
+    isScrollControlled: true,
+    builder: (context) => FractionallySizedBox(
+      heightFactor: 0.72,
+      child: Column(
+        children: [
+          ListTile(
+            title: Text(title, style: Theme.of(context).textTheme.titleLarge),
+            subtitle: Text('${sorted.length} transactions'),
+            trailing: IconButton(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.close),
+            ),
           ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              minHeight: 8,
-              value: share.clamp(0, 1),
-              color: color,
-              backgroundColor: colorScheme.surfaceContainerHighest,
+          const Divider(height: 1),
+          Expanded(
+            child: ListView.builder(
+              itemCount: sorted.length,
+              itemBuilder: (context, index) {
+                final transaction = sorted[index];
+                return ListTile(
+                  title: Text(
+                    transaction.note.trim().isEmpty
+                        ? 'Transaction'
+                        : transaction.note,
+                  ),
+                  subtitle: Text(
+                    formatDate(transaction.transactionDate.toLocal()),
+                  ),
+                  trailing: Text(formatIdr(transaction.amount)),
+                );
+              },
             ),
           ),
         ],
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _SectionCard extends StatelessWidget {

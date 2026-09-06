@@ -78,6 +78,14 @@ class ApplyTransactionFiltersUseCase {
     };
     // final accountById = {for (final account in accounts) account.id: account};
     final query = criteria.searchQuery.trim().toLowerCase();
+    final selectedCategoryIds = criteria.categoryId == null
+        ? const <String>{}
+        : {
+            criteria.categoryId!,
+            ...categories
+                .where((item) => item.parentCategoryId == criteria.categoryId)
+                .map((item) => item.id),
+          };
     final startDate = criteria.startDate == null
         ? null
         : DateTime(
@@ -99,7 +107,7 @@ class ApplyTransactionFiltersUseCase {
             return false;
           }
           if (criteria.categoryId != null &&
-              transaction.categoryId != criteria.categoryId) {
+              !selectedCategoryIds.contains(transaction.categoryId)) {
             return false;
           }
           if (criteria.accountId != null &&
@@ -128,6 +136,9 @@ class ApplyTransactionFiltersUseCase {
           }
 
           final category = categoryById[transaction.categoryId];
+          final parent = category == null
+              ? null
+              : categoryById[category.parentCategoryId];
           // final account = accountById[transaction.accountId];
           final searchableText = [
             transaction.note,
@@ -136,6 +147,7 @@ class ApplyTransactionFiltersUseCase {
             transaction.type.firestoreValue,
             transaction.source.firestoreValue,
             category?.name ?? '',
+            parent?.name ?? '',
             // account?.name ?? '',
           ].join(' ').toLowerCase();
 

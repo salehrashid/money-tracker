@@ -8,9 +8,14 @@ import 'category_color.dart';
 import 'category_icon_mapper.dart';
 
 class CategoryFormDialog extends StatefulWidget {
-  const CategoryFormDialog({this.category, super.key});
+  const CategoryFormDialog({
+    required this.categories,
+    this.category,
+    super.key,
+  });
 
   final Category? category;
+  final List<Category> categories;
 
   @override
   State<CategoryFormDialog> createState() => _CategoryFormDialogState();
@@ -22,6 +27,7 @@ class _CategoryFormDialogState extends State<CategoryFormDialog> {
   late TransactionType _type;
   late String _icon;
   late String _color;
+  String? _parentCategoryId;
 
   @override
   void initState() {
@@ -31,6 +37,7 @@ class _CategoryFormDialogState extends State<CategoryFormDialog> {
     _type = category?.type ?? TransactionType.expense;
     _icon = category?.icon ?? categoryIconOptions.first;
     _color = category?.color ?? categoryColorOptions.first;
+    _parentCategoryId = category?.parentCategoryId;
   }
 
   @override
@@ -82,9 +89,57 @@ class _CategoryFormDialogState extends State<CategoryFormDialog> {
                   ],
                   selected: {_type},
                   onSelectionChanged: (values) {
-                    setState(() => _type = values.first);
+                    setState(() {
+                      _type = values.first;
+                      if (!_validParents().any(
+                        (item) => item.id == _parentCategoryId,
+                      )) {
+                        _parentCategoryId = null;
+                      }
+                    });
                   },
                 ),
+                const SizedBox(height: 16),
+                ResponsiveSegmentedButton<bool>(
+                  segments: const [
+                    ResponsiveSegment(value: false, label: 'Root category'),
+                    ResponsiveSegment(value: true, label: 'Sub-category'),
+                  ],
+                  selected: {_parentCategoryId != null},
+                  onSelectionChanged: (values) => setState(() {
+                    _parentCategoryId = values.first
+                        ? (_validParents().firstOrNull?.id)
+                        : null;
+                  }),
+                ),
+                if (_parentCategoryId != null) ...[
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    initialValue:
+                        _validParents().any(
+                          (item) => item.id == _parentCategoryId,
+                        )
+                        ? _parentCategoryId
+                        : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Parent category',
+                    ),
+                    items: _validParents()
+                        .map(
+                          (parent) => DropdownMenuItem(
+                            value: parent.id,
+                            child: Text(parent.name),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged: (value) =>
+                        setState(() => _parentCategoryId = value),
+                    validator: (value) =>
+                        _parentCategoryId != null && value == null
+                        ? 'Select a parent category'
+                        : null,
+                  ),
+                ],
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   initialValue: categoryIconOptions.contains(_icon)
@@ -166,6 +221,7 @@ class _CategoryFormDialogState extends State<CategoryFormDialog> {
                 type: _type,
                 icon: _icon,
                 color: _color,
+                parentCategoryId: _parentCategoryId,
               ),
             );
           },
@@ -175,4 +231,14 @@ class _CategoryFormDialogState extends State<CategoryFormDialog> {
       ],
     );
   }
+
+  List<Category> _validParents() => widget.categories
+      .where(
+        (item) =>
+            item.isRoot &&
+            item.id != widget.category?.id &&
+            item.type == _type &&
+            !item.isArchived,
+      )
+      .toList(growable: false);
 }

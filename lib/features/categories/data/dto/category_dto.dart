@@ -15,6 +15,7 @@ class CategoryDto {
     required this.isArchived,
     required this.createdAt,
     required this.updatedAt,
+    this.parentCategoryId,
   });
 
   final String id;
@@ -26,6 +27,7 @@ class CategoryDto {
   final bool isArchived;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? parentCategoryId;
 
   factory CategoryDto.fromDomain(Category category) {
     return CategoryDto(
@@ -38,6 +40,7 @@ class CategoryDto {
       isArchived: category.isArchived,
       createdAt: category.createdAt,
       updatedAt: category.updatedAt,
+      parentCategoryId: category.parentCategoryId,
     );
   }
 
@@ -56,6 +59,7 @@ class CategoryDto {
       isArchived: requiredBool(data, 'isArchived'),
       createdAt: requiredDateTime(data, 'createdAt'),
       updatedAt: requiredDateTime(data, 'updatedAt'),
+      parentCategoryId: optionalString(data, 'parentCategoryId'),
     );
   }
 
@@ -70,6 +74,7 @@ class CategoryDto {
       isArchived: isArchived,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      parentCategoryId: parentCategoryId,
     );
   }
 
@@ -84,6 +89,7 @@ class CategoryDto {
       'isArchived': isArchived,
       'createdAt': timestampFromDate(createdAt),
       'updatedAt': timestampFromDate(updatedAt),
+      'parentCategoryId': parentCategoryId,
     };
   }
 }

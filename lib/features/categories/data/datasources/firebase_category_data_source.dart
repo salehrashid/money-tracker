@@ -47,6 +47,7 @@ class FirebaseCategoryDataSource {
             isArchived: category.isArchived,
             createdAt: category.createdAt,
             updatedAt: category.updatedAt,
+            parentCategoryId: category.parentCategoryId,
           )
         : category;
 

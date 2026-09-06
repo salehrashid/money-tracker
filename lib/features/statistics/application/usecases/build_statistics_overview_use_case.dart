@@ -31,6 +31,10 @@ class BuildStatisticsOverviewUseCase {
     var totalExpense = 0.0;
     final amountByCategory = <String, double>{};
     final countByCategory = <String, int>{};
+    final directAmountByCategory = <String, double>{};
+    final rawAmountByCategory = <String, double>{};
+    final rawCountByCategory = <String, int>{};
+    final transactionsByCategory = <String, List<TransactionEntity>>{};
     final amountBySource = <TransactionSource, double>{};
     final countBySource = <TransactionSource, int>{};
     final monthlyBuckets = <_MonthKey, _MonthlyTotals>{};
@@ -56,13 +60,39 @@ class BuildStatisticsOverviewUseCase {
         totalExpense += transaction.amount;
       }
 
-      amountByCategory.update(
+      final category = categoryById[transaction.categoryId];
+      final groupingId =
+          category?.parentCategoryId != null &&
+              categoryById[category!.parentCategoryId]?.type == transaction.type
+          ? category.parentCategoryId!
+          : transaction.categoryId;
+      rawAmountByCategory.update(
         transaction.categoryId,
+        (value) => value + transaction.amount,
+        ifAbsent: () => transaction.amount,
+      );
+      rawCountByCategory.update(
+        transaction.categoryId,
+        (value) => value + 1,
+        ifAbsent: () => 1,
+      );
+      transactionsByCategory
+          .putIfAbsent(transaction.categoryId, () => [])
+          .add(transaction);
+      if (groupingId == transaction.categoryId) {
+        directAmountByCategory.update(
+          groupingId,
+          (value) => value + transaction.amount,
+          ifAbsent: () => transaction.amount,
+        );
+      }
+      amountByCategory.update(
+        groupingId,
         (amount) => amount + transaction.amount,
         ifAbsent: () => transaction.amount,
       );
       countByCategory.update(
-        transaction.categoryId,
+        groupingId,
         (count) => count + 1,
         ifAbsent: () => 1,
       );
@@ -94,16 +124,38 @@ class BuildStatisticsOverviewUseCase {
       }
     }
 
-    final categoryTotal = amountByCategory.values.fold<double>(
+    final sourceTotal = amountBySource.values.fold<double>(
       0,
       (total, amount) => total + amount,
     );
-    final sourceTotal = amountBySource.values.fold<double>(
+    final categoryTotal = amountByCategory.values.fold<double>(
       0,
       (total, amount) => total + amount,
     );
     final categoryBreakdown = amountByCategory.entries.map((entry) {
       final category = categoryById[entry.key];
+      final children =
+          categories
+              .where(
+                (item) =>
+                    item.parentCategoryId == entry.key &&
+                    item.type == category?.type,
+              )
+              .where((item) => (rawAmountByCategory[item.id] ?? 0) != 0)
+              .map(
+                (item) => StatisticsSubcategoryBreakdown(
+                  categoryId: item.id,
+                  categoryName: item.name,
+                  amount: rawAmountByCategory[item.id] ?? 0,
+                  share: entry.value == 0
+                      ? 0
+                      : (rawAmountByCategory[item.id] ?? 0) / entry.value,
+                  transactionCount: rawCountByCategory[item.id] ?? 0,
+                  transactions: transactionsByCategory[item.id] ?? const [],
+                ),
+              )
+              .toList()
+            ..sort((a, b) => b.amount.compareTo(a.amount));
       return StatisticsCategoryBreakdown(
         categoryId: entry.key,
         categoryName: category?.name ?? 'Unknown category',
@@ -111,6 +163,19 @@ class BuildStatisticsOverviewUseCase {
         amount: entry.value,
         share: categoryTotal == 0 ? 0 : entry.value / categoryTotal,
         transactionCount: countByCategory[entry.key] ?? 0,
+        directAmount: directAmountByCategory[entry.key] ?? 0,
+        children: children,
+        directTransactions: transactionsByCategory[entry.key] ?? const [],
+        typeShare:
+            (category?.type == TransactionType.income
+                    ? totalIncome
+                    : totalExpense) ==
+                0
+            ? 0
+            : entry.value /
+                  (category?.type == TransactionType.income
+                      ? totalIncome
+                      : totalExpense),
       );
     }).toList()..sort((a, b) => b.amount.compareTo(a.amount));
 

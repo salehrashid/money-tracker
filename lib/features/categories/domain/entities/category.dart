@@ -11,6 +11,7 @@ class Category {
     required this.isArchived,
     required this.createdAt,
     required this.updatedAt,
+    this.parentCategoryId,
   });
 
   final String id;
@@ -22,6 +23,9 @@ class Category {
   final bool isArchived;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? parentCategoryId;
+
+  bool get isRoot => parentCategoryId == null;
 
   Category copyWith({
     String? id,
@@ -33,6 +37,7 @@ class Category {
     bool? isArchived,
     DateTime? createdAt,
     DateTime? updatedAt,
+    Object? parentCategoryId = _unchanged,
   }) {
     return Category(
       id: id ?? this.id,
@@ -44,6 +49,11 @@ class Category {
       isArchived: isArchived ?? this.isArchived,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      parentCategoryId: identical(parentCategoryId, _unchanged)
+          ? this.parentCategoryId
+          : parentCategoryId as String?,
     );
   }
 }
+
+const Object _unchanged = Object();

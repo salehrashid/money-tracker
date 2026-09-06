@@ -20,11 +20,14 @@ class CreateCategoryUseCase {
 
   final CategoryRepository _repository;
 
-  Future<Result<Category>> execute(SaveCategoryCommand command) {
+  Future<Result<Category>> execute(SaveCategoryCommand command) async {
     final failure = _validate(command);
     if (failure != null) {
-      return Future.value(Failure(failure));
+      return Failure(failure);
     }
+
+    final hierarchyFailure = await _validateHierarchy(_repository, command);
+    if (hierarchyFailure != null) return Failure(hierarchyFailure);
 
     final now = DateTime.now().toUtc();
     return _repository.createCategory(
@@ -38,6 +41,7 @@ class CreateCategoryUseCase {
         isArchived: false,
         createdAt: now,
         updatedAt: now,
+        parentCategoryId: _normalizedParent(command.parentCategoryId),
       ),
     );
   }
@@ -69,6 +73,19 @@ class UpdateCategoryUseCase {
       return Future.value(Failure(failure));
     }
 
+    return _update(category, command);
+  }
+
+  Future<Result<Category>> _update(
+    Category category,
+    SaveCategoryCommand command,
+  ) async {
+    final hierarchyFailure = await _validateHierarchy(
+      _repository,
+      command,
+      category: category,
+    );
+    if (hierarchyFailure != null) return Failure(hierarchyFailure);
     return _repository.updateCategory(
       category.copyWith(
         name: command.name.trim(),
@@ -76,9 +93,60 @@ class UpdateCategoryUseCase {
         icon: command.icon.trim(),
         color: command.color.trim(),
         updatedAt: DateTime.now().toUtc(),
+        parentCategoryId: _normalizedParent(command.parentCategoryId),
       ),
     );
   }
+}
+
+String? _normalizedParent(String? value) {
+  final trimmed = value?.trim();
+  return trimmed == null || trimmed.isEmpty ? null : trimmed;
+}
+
+Future<AppFailure?> _validateHierarchy(
+  CategoryRepository repository,
+  SaveCategoryCommand command, {
+  Category? category,
+}) async {
+  final parentId = _normalizedParent(command.parentCategoryId);
+  if (parentId == null) return null;
+  if (parentId == category?.id) {
+    return const AppFailure(
+      type: AppFailureType.validation,
+      code: 'category-self-parent',
+      message: 'A category cannot be its own parent.',
+    );
+  }
+  final result = await repository.fetchCategories();
+  if (result case Failure<List<Category>>(:final failure)) return failure;
+  final categories = (result as Success<List<Category>>).value;
+  final parent = categories.where((item) => item.id == parentId).firstOrNull;
+  if (parent == null || !parent.isRoot) {
+    return const AppFailure(
+      type: AppFailureType.validation,
+      code: 'invalid-category-parent',
+      message: 'Choose a valid root category.',
+    );
+  }
+  if (parent.type != command.type) {
+    return const AppFailure(
+      type: AppFailureType.validation,
+      code: 'category-parent-type-mismatch',
+      message: 'The parent category must have the same transaction type.',
+    );
+  }
+  if (category != null &&
+      category.isRoot &&
+      categories.any((item) => item.parentCategoryId == category.id)) {
+    return const AppFailure(
+      type: AppFailureType.validation,
+      code: 'category-has-children',
+      message:
+          'This category contains sub-categories. Move or remove them before changing its parent.',
+    );
+  }
+  return null;
 }
 
 class SetCategoryArchivedUseCase {
@@ -114,21 +182,66 @@ class DeleteCategoryUseCase {
 
   final CategoryRepository _repository;
 
-  Future<Result<void>> execute(String categoryId) {
+  Future<Result<void>> execute(
+    String categoryId, {
+    DeleteCategoryStrategy strategy = DeleteCategoryStrategy.rejectIfNotEmpty,
+  }) async {
     if (categoryId.trim().isEmpty) {
-      return Future.value(
-        const Failure(
-          AppFailure(
-            type: AppFailureType.validation,
-            code: 'missing-category-id',
-            message: 'Choose a category first.',
-          ),
+      return const Failure(
+        AppFailure(
+          type: AppFailureType.validation,
+          code: 'missing-category-id',
+          message: 'Choose a category first.',
         ),
       );
     }
-
+    final result = await _repository.fetchCategories();
+    if (result case Failure<List<Category>>(:final failure)) {
+      return Failure(failure);
+    }
+    final categories = (result as Success<List<Category>>).value;
+    final children = categories
+        .where((item) => item.parentCategoryId == categoryId)
+        .toList();
+    if (children.isNotEmpty &&
+        strategy == DeleteCategoryStrategy.rejectIfNotEmpty) {
+      return const Failure(
+        AppFailure(
+          type: AppFailureType.validation,
+          code: 'category-has-children',
+          message:
+              'This category contains sub-categories. Move or remove them before deleting it.',
+        ),
+      );
+    }
+    if (strategy == DeleteCategoryStrategy.moveChildrenToRoot) {
+      for (final child in children) {
+        final update = await _repository.updateCategory(
+          child.copyWith(
+            parentCategoryId: null,
+            updatedAt: DateTime.now().toUtc(),
+          ),
+        );
+        if (update case Failure<Category>(:final failure)) {
+          return Failure(failure);
+        }
+      }
+    } else if (strategy == DeleteCategoryStrategy.deleteChildren) {
+      for (final child in children) {
+        final deletion = await _repository.deleteCategory(child.id);
+        if (deletion case Failure<void>(:final failure)) {
+          return Failure(failure);
+        }
+      }
+    }
     return _repository.deleteCategory(categoryId);
   }
+}
+
+enum DeleteCategoryStrategy {
+  rejectIfNotEmpty,
+  moveChildrenToRoot,
+  deleteChildren,
 }
 
 class SeedDefaultCategoriesUseCase {

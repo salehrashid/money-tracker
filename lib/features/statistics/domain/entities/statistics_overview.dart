@@ -1,4 +1,5 @@
 import '../../../../shared/models/finance_enums.dart';
+import '../../../transactions/domain/entities/transaction.dart';
 
 class StatisticsOverview {
   const StatisticsOverview({
@@ -37,6 +38,10 @@ class StatisticsCategoryBreakdown {
     required this.amount,
     required this.share,
     required this.transactionCount,
+    this.directAmount = 0,
+    this.children = const [],
+    this.typeShare,
+    this.directTransactions = const [],
   });
 
   final String categoryId;
@@ -45,6 +50,30 @@ class StatisticsCategoryBreakdown {
   final double amount;
   final double share;
   final int transactionCount;
+  final double directAmount;
+  final List<StatisticsSubcategoryBreakdown> children;
+
+  /// Share within income or expense. [share] remains the all-category share
+  /// for compatibility with existing consumers.
+  final double? typeShare;
+  final List<TransactionEntity> directTransactions;
+}
+
+class StatisticsSubcategoryBreakdown {
+  const StatisticsSubcategoryBreakdown({
+    required this.categoryId,
+    required this.categoryName,
+    required this.amount,
+    required this.share,
+    required this.transactionCount,
+    this.transactions = const [],
+  });
+  final String categoryId;
+  final String categoryName;
+  final double amount;
+  final double share;
+  final int transactionCount;
+  final List<TransactionEntity> transactions;
 }
 
 class StatisticsMonthlyTrend {

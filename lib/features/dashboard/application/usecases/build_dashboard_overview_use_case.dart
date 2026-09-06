@@ -45,8 +45,15 @@ class BuildDashboardOverviewUseCase {
           monthlyIncome += transaction.amount;
         } else {
           monthlyExpense += transaction.amount;
+          final category = categoryById[transaction.categoryId];
+          final groupingId =
+              category?.parentCategoryId != null &&
+                  categoryById[category!.parentCategoryId]?.type ==
+                      transaction.type
+              ? category.parentCategoryId!
+              : transaction.categoryId;
           expenseByCategory.update(
-            transaction.categoryId,
+            groupingId,
             (amount) => amount + transaction.amount,
             ifAbsent: () => transaction.amount,
           );

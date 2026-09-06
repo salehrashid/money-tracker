@@ -154,7 +154,9 @@ class _TransactionFormDialogState extends State<TransactionFormDialog> {
                       .map(
                         (category) => DropdownMenuItem(
                           value: category.id,
-                          child: Text(category.name),
+                          child: Text(
+                            _categoryLabel(category, availableCategories),
+                          ),
                         ),
                       )
                       .toList(growable: false),
@@ -311,6 +313,14 @@ class _TransactionFormDialogState extends State<TransactionFormDialog> {
       _accountId = accountIds.isEmpty ? null : accountIds.first;
     }
   }
+}
+
+String _categoryLabel(Category category, List<Category> categories) {
+  if (category.parentCategoryId == null) return category.name;
+  final parent = categories
+      .where((item) => item.id == category.parentCategoryId)
+      .firstOrNull;
+  return parent == null ? category.name : '${parent.name} → ${category.name}';
 }
 
 String _initialAmount(
