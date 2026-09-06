@@ -23,14 +23,14 @@ void main() {
 
   group('EnsureDefaultAccountUseCase', () {
     test(
-      'creates IDR cash and rekening accounts when the user has no accounts',
+      'creates only the IDR cash account when the user has no accounts',
       () async {
         final repository = _FakeAccountRepository();
         final useCase = EnsureDefaultAccountUseCase(repository);
 
         await useCase.execute('user-1');
 
-        expect(repository.createdAccounts, hasLength(2));
+        expect(repository.createdAccounts, hasLength(1));
 
         final cashAccount = repository.createdAccounts[0];
         expect(cashAccount.id, 'user-1_cash_default');
@@ -39,34 +39,19 @@ void main() {
         expect(cashAccount.currency, 'IDR');
         expect(cashAccount.openingBalance, 0);
         expect(cashAccount.isArchived, isFalse);
-
-        final rekeningAccount = repository.createdAccounts[1];
-        expect(rekeningAccount.id, 'user-1_rekening_default');
-        expect(rekeningAccount.name, 'Rekening');
-        expect(rekeningAccount.type, AccountType.bank);
-        expect(rekeningAccount.currency, 'IDR');
-        expect(rekeningAccount.openingBalance, 0);
-        expect(rekeningAccount.isArchived, isFalse);
       },
     );
 
-    test(
-      'creates only rekening when the existing cash default exists',
-      () async {
-        final repository = _FakeAccountRepository(
-          accounts: [_account(id: 'user-1_cash_default')],
-        );
-        final useCase = EnsureDefaultAccountUseCase(repository);
+    test('does not create a hardcoded bank when cash already exists', () async {
+      final repository = _FakeAccountRepository(
+        accounts: [_account(id: 'user-1_cash_default')],
+      );
+      final useCase = EnsureDefaultAccountUseCase(repository);
 
-        await useCase.execute('user-1');
+      await useCase.execute('user-1');
 
-        expect(repository.createdAccounts, hasLength(1));
-        final account = repository.createdAccounts.single;
-        expect(account.id, 'user-1_rekening_default');
-        expect(account.name, 'Rekening');
-        expect(account.type, AccountType.bank);
-      },
-    );
+      expect(repository.createdAccounts, isEmpty);
+    });
 
     test('does not create default accounts when both already exist', () async {
       final repository = _FakeAccountRepository(

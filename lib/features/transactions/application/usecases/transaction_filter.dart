@@ -1,6 +1,7 @@
 import '../../../../features/categories/domain/entities/category.dart';
 import '../../../../shared/models/finance_enums.dart';
 import '../../domain/entities/transaction.dart';
+import '../../../accounts/domain/entities/account.dart';
 
 class TransactionFilterCriteria {
   const TransactionFilterCriteria({
@@ -70,13 +71,13 @@ class ApplyTransactionFiltersUseCase {
   List<TransactionEntity> execute({
     required List<TransactionEntity> transactions,
     required List<Category> categories,
-    // required List<Account> accounts,
+    List<Account> accounts = const [],
     required TransactionFilterCriteria criteria,
   }) {
     final categoryById = {
       for (final category in categories) category.id: category,
     };
-    // final accountById = {for (final account in accounts) account.id: account};
+    final accountById = {for (final account in accounts) account.id: account};
     final query = criteria.searchQuery.trim().toLowerCase();
     final selectedCategoryIds = criteria.categoryId == null
         ? const <String>{}
@@ -84,6 +85,14 @@ class ApplyTransactionFiltersUseCase {
             criteria.categoryId!,
             ...categories
                 .where((item) => item.parentCategoryId == criteria.categoryId)
+                .map((item) => item.id),
+          };
+    final selectedAccountIds = criteria.accountId == null
+        ? const <String>{}
+        : {
+            criteria.accountId!,
+            ...accounts
+                .where((item) => item.parentAccountId == criteria.accountId)
                 .map((item) => item.id),
           };
     final startDate = criteria.startDate == null
@@ -111,7 +120,7 @@ class ApplyTransactionFiltersUseCase {
             return false;
           }
           if (criteria.accountId != null &&
-              transaction.accountId != criteria.accountId) {
+              !selectedAccountIds.contains(transaction.accountId)) {
             return false;
           }
           if (criteria.minAmount != null &&
@@ -139,7 +148,7 @@ class ApplyTransactionFiltersUseCase {
           final parent = category == null
               ? null
               : categoryById[category.parentCategoryId];
-          // final account = accountById[transaction.accountId];
+          final account = accountById[transaction.accountId];
           final searchableText = [
             transaction.note,
             transaction.amount.toStringAsFixed(0),
@@ -148,7 +157,7 @@ class ApplyTransactionFiltersUseCase {
             transaction.source.firestoreValue,
             category?.name ?? '',
             parent?.name ?? '',
-            // account?.name ?? '',
+            account?.name ?? '',
           ].join(' ').toLowerCase();
 
           return searchableText.contains(query);

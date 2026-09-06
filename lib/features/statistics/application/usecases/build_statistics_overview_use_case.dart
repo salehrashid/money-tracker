@@ -15,13 +15,27 @@ class BuildStatisticsOverviewUseCase {
     required DateTime now,
     int financialCycleDay = FinancialCycleService.defaultCycleDay,
     bool useFinancialCycles = false,
+    String? accountId,
   }) {
     final categoryById = {
       for (final category in categories) category.id: category,
     };
     final accountById = {for (final account in accounts) account.id: account};
+    final selectedAccountIds = accountId == null
+        ? const <String>{}
+        : {
+            accountId,
+            ...accounts
+                .where((item) => item.parentAccountId == accountId)
+                .map((item) => item.id),
+          };
     final activeTransactions = transactions
         .where((transaction) => !transaction.isDeleted)
+        .where(
+          (transaction) =>
+              accountId == null ||
+              selectedAccountIds.contains(transaction.accountId),
+        )
         .where((transaction) {
           final account = accountById[transaction.accountId];
           return account == null || !account.isArchived;

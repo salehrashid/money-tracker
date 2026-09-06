@@ -8,6 +8,9 @@ import '../../../../shared/theme/app_theme.dart';
 import '../../../../shared/widgets/app_page.dart';
 import '../../../../shared/widgets/responsive_controls.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../accounts/domain/entities/account.dart';
+import '../../../accounts/presentation/providers/account_providers.dart';
+import '../../../../core/utils/result.dart';
 import '../../../settings/presentation/providers/financial_settings_providers.dart';
 import '../../../transactions/presentation/widgets/transaction_formatters.dart';
 import '../../../transactions/domain/entities/transaction.dart';
@@ -67,6 +70,11 @@ class _StatisticsContent extends ConsumerWidget {
     final selection = ref.watch(statisticsPeriodProvider);
     final cycleDay = ref.watch(financialCycleDayProvider(userId)).value ?? 1;
     final history = ref.watch(financialHistoryProvider(userId));
+    final accountsResult = ref.watch(accountListProvider(userId)).value;
+    final accounts = accountsResult is Success<List<Account>>
+        ? accountsResult.value
+        : const <Account>[];
+    final selectedAccountId = ref.watch(statisticsAccountFilterProvider);
 
     return Column(
       children: [
@@ -110,6 +118,42 @@ class _StatisticsContent extends ConsumerWidget {
                 selected: {selection.period},
                 onSelectionChanged: (values) =>
                     _selectPeriod(context, ref, values.first, selection),
+              ),
+            ),
+          ),
+        ),
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1180),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.sm,
+                AppSpacing.md,
+                0,
+              ),
+              child: DropdownButtonFormField<String>(
+                initialValue:
+                    accounts.any((item) => item.id == selectedAccountId)
+                    ? selectedAccountId
+                    : null,
+                decoration: const InputDecoration(labelText: 'Account'),
+                items: [
+                  const DropdownMenuItem<String>(child: Text('All accounts')),
+                  ...accounts.map(
+                    (account) => DropdownMenuItem(
+                      value: account.id,
+                      child: Text(
+                        account.parentAccountId == null
+                            ? account.name
+                            : '  ${account.name}${account.isArchived ? ' (Archived)' : ''}',
+                      ),
+                    ),
+                  ),
+                ],
+                onChanged: ref
+                    .read(statisticsAccountFilterProvider.notifier)
+                    .set,
               ),
             ),
           ),

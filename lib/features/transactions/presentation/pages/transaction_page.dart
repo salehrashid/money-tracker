@@ -191,7 +191,7 @@ class _TransactionContent extends ConsumerWidget {
           transactions: applyFilters.execute(
             transactions: screenData.transactions,
             categories: screenData.categories,
-            // accounts: data.accounts,
+            accounts: screenData.accounts,
             criteria: filterCriteria,
           ),
           filterCriteria: filterCriteria,
@@ -1031,7 +1031,7 @@ class _TransactionTile extends StatelessWidget {
         subtitle: Text(
           [
             category?.name ?? 'Unknown category',
-            account?.name ?? 'Unknown account',
+            account?.name ?? 'No account',
             formatDate(transaction.transactionDate),
             transactionSourceLabel(transaction.source),
             ?transaction.note.isNotEmpty ? transaction.note : null,

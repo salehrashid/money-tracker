@@ -3,7 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:curved_labeled_navigation_bar/curved_navigation_bar.dart';
 import 'package:curved_labeled_navigation_bar/curved_navigation_bar_item.dart';
 
-import '../../features/auth/presentation/pages/account_page.dart';
+import '../../features/auth/presentation/providers/auth_providers.dart';
+import '../../features/accounts/presentation/pages/account_management_page.dart';
 import '../../features/categories/presentation/pages/category_management_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../../features/debt_loan/presentation/pages/debt_loan_page.dart';
@@ -23,8 +24,8 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell>
     with WidgetsBindingObserver {
-  static const _accountIndex = 5;
-  static const _financialCycleIndex = 6;
+  static const _financialCycleIndex = 5;
+  static const _accountsIndex = 6;
   late final PageController _pageController;
   final _mobileScaffoldKey = GlobalKey<ScaffoldState>();
   var _selectedIndex = 0;
@@ -164,8 +165,8 @@ class _AppShellState extends ConsumerState<AppShell>
       2 => const StatisticsPage(),
       3 => const DebtLoanPage(),
       4 => const CategoryManagementPage(),
-      _accountIndex => const AccountPage(),
       _financialCycleIndex => const FinancialCyclePage(),
+      _accountsIndex => const AccountManagementPage(),
       _ => DashboardPage(onAddTransaction: () => _select(1)),
     };
 
@@ -186,8 +187,9 @@ class _AppShellState extends ConsumerState<AppShell>
               selectedIndex: _selectedIndex,
               extended: width >= 1240,
               onSelected: _select,
-              onAccountSelected: () => _select(_accountIndex),
               onFinancialCycleSelected: () => _select(_financialCycleIndex),
+              onAccountsSelected: () => _select(_accountsIndex),
+              onSignOut: _signOut,
             ),
             const VerticalDivider(width: 1),
             Expanded(child: page),
@@ -207,8 +209,9 @@ class _AppShellState extends ConsumerState<AppShell>
         key: _mobileScaffoldKey,
         drawerEnableOpenDragGesture: true,
         drawer: _MobileNavigationDrawer(
-          onAccountSelected: () => _openAccountPage(context),
           onFinancialCycleSelected: () => _openFinancialCyclePage(context),
+          onAccountsSelected: () => _openAccountsPage(context),
+          onSignOut: _signOut,
         ),
         body: AppDrawerScope(
           openDrawer: () => _mobileScaffoldKey.currentState?.openDrawer(),
@@ -249,7 +252,7 @@ class _AppShellState extends ConsumerState<AppShell>
             ],
           ),
         ),
-        bottomNavigationBar: _selectedIndex >= _accountIndex
+        bottomNavigationBar: _selectedIndex >= _destinations.length
             ? null
             : SafeArea(
                 top: false,
@@ -293,19 +296,6 @@ class _AppShellState extends ConsumerState<AppShell>
     );
   }
 
-  void _openAccountPage(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => AccountPage(
-          onBackToDashboard: () {
-            Navigator.of(context).pop();
-            _select(0);
-          },
-        ),
-      ),
-    );
-  }
-
   void _openDrawer() {
     _mobileScaffoldKey.currentState?.openDrawer();
   }
@@ -323,6 +313,12 @@ class _AppShellState extends ConsumerState<AppShell>
     );
   }
 
+  void _openAccountsPage(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const AccountManagementPage()),
+    );
+  }
+
   void _select(int index) {
     if (_selectedIndex == index) {
       return;
@@ -330,13 +326,17 @@ class _AppShellState extends ConsumerState<AppShell>
 
     setState(() => _selectedIndex = index);
 
-    if (index <= _financialCycleIndex && _pageController.hasClients) {
+    if (index < _destinations.length && _pageController.hasClients) {
       _pageController.animateToPage(
         index,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOutCubic,
       );
     }
+  }
+
+  Future<void> _signOut() async {
+    await ref.read(authRepositoryProvider).signOut();
   }
 
   void _onPageChanged(int index) {
@@ -414,15 +414,17 @@ class _DesktopSidebar extends StatelessWidget {
     required this.selectedIndex,
     required this.extended,
     required this.onSelected,
-    required this.onAccountSelected,
     required this.onFinancialCycleSelected,
+    required this.onAccountsSelected,
+    required this.onSignOut,
   });
 
   final int selectedIndex;
   final bool extended;
   final ValueChanged<int> onSelected;
-  final VoidCallback onAccountSelected;
   final VoidCallback onFinancialCycleSelected;
+  final VoidCallback onAccountsSelected;
+  final Future<void> Function() onSignOut;
 
   @override
   Widget build(BuildContext context) {
@@ -455,17 +457,24 @@ class _DesktopSidebar extends StatelessWidget {
               const Divider(),
               const SizedBox(height: AppSpacing.xs),
               _SidebarDestination(
-                item: _accountDestination,
-                selected: selectedIndex == 5,
+                item: _accountsDestination,
+                selected: selectedIndex == 6,
                 extended: extended,
-                onTap: onAccountSelected,
+                onTap: onAccountsSelected,
               ),
               const SizedBox(height: AppSpacing.xs),
               _SidebarDestination(
                 item: _financialCycleDestination,
-                selected: selectedIndex == 6,
+                selected: selectedIndex == 5,
                 extended: extended,
                 onTap: onFinancialCycleSelected,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              _SidebarDestination(
+                item: _signOutDestination,
+                selected: false,
+                extended: extended,
+                onTap: onSignOut,
               ),
             ],
           ),
@@ -625,11 +634,18 @@ const _destinations = [
   ),
 ];
 
-const _accountDestination = _Destination(
-  label: 'Account',
-  tooltip: 'Account',
-  icon: Icons.settings_outlined,
-  selectedIcon: Icons.settings,
+const _accountsDestination = _Destination(
+  label: 'Accounts',
+  tooltip: 'Financial accounts',
+  icon: Icons.account_balance_wallet_outlined,
+  selectedIcon: Icons.account_balance_wallet,
+);
+
+const _signOutDestination = _Destination(
+  label: 'Sign out',
+  tooltip: 'Sign out',
+  icon: Icons.logout,
+  selectedIcon: Icons.logout,
 );
 
 const _financialCycleDestination = _Destination(
@@ -641,19 +657,20 @@ const _financialCycleDestination = _Destination(
 
 class _MobileNavigationDrawer extends StatelessWidget {
   const _MobileNavigationDrawer({
-    required this.onAccountSelected,
     required this.onFinancialCycleSelected,
+    required this.onAccountsSelected,
+    required this.onSignOut,
   });
 
-  final VoidCallback onAccountSelected;
   final VoidCallback onFinancialCycleSelected;
+  final VoidCallback onAccountsSelected;
+  final Future<void> Function() onSignOut;
 
   @override
   Widget build(BuildContext context) {
     return Drawer(
       child: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+        child: Column(
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(
@@ -675,24 +692,40 @@ class _MobileNavigationDrawer extends StatelessWidget {
               ),
             ),
             const Divider(),
+            Expanded(
+              child: ListView(
+                children: [
+                  ListTile(
+                    leading: Icon(_accountsDestination.icon),
+                    title: const Text('Accounts'),
+                    subtitle: const Text('Cash, banks, wallets, and pockets'),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      onAccountsSelected();
+                    },
+                  ),
+                  ListTile(
+                    leading: Icon(_financialCycleDestination.icon),
+                    title: const Text('Financial Cycle'),
+                    subtitle: const Text('Payday-based financial periods'),
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      onFinancialCycleSelected();
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const Divider(),
             ListTile(
-              leading: Icon(_accountDestination.icon),
-              title: const Text('Account'),
-              subtitle: const Text('Profile'),
-              onTap: () {
+              leading: Icon(_signOutDestination.icon),
+              title: const Text('Sign out'),
+              onTap: () async {
                 Navigator.of(context).pop();
-                onAccountSelected();
+                await onSignOut();
               },
             ),
-            ListTile(
-              leading: Icon(_financialCycleDestination.icon),
-              title: const Text('Financial Cycle'),
-              subtitle: const Text('Payday-based financial periods'),
-              onTap: () {
-                Navigator.of(context).pop();
-                onFinancialCycleSelected();
-              },
-            ),
+            const SizedBox(height: AppSpacing.sm),
           ],
         ),
       ),

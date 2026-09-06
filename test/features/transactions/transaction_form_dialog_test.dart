@@ -8,7 +8,7 @@ import 'package:money_tracker/features/transactions/presentation/widgets/transac
 import 'package:money_tracker/shared/models/finance_enums.dart';
 
 void main() {
-  testWidgets('selects Rekening IDR for a detected myBCA transaction', (
+  testWidgets('does not assume an account for a detected myBCA transaction', (
     tester,
   ) async {
     SaveTransactionCommand? savedCommand;
@@ -58,57 +58,58 @@ void main() {
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 
-    expect(savedCommand?.accountId, 'rekening');
+    expect(savedCommand, isNull);
+    expect(find.text('Select a financial account'), findsOneWidget);
   });
 
-  testWidgets(
-    'keeps the first active account fallback when Rekening is absent',
-    (tester) async {
-      SaveTransactionCommand? savedCommand;
+  testWidgets('requires account selection when only Cash exists', (
+    tester,
+  ) async {
+    SaveTransactionCommand? savedCommand;
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Builder(
-            builder: (context) => Scaffold(
-              body: TextButton(
-                onPressed: () async {
-                  savedCommand = await showDialog<SaveTransactionCommand>(
-                    context: context,
-                    builder: (_) => TransactionFormDialog(
-                      categories: [_category()],
-                      accounts: [
-                        _account(
-                          id: 'cash',
-                          name: 'Cash',
-                          type: AccountType.cash,
-                        ),
-                      ],
-                      detectedTransaction: DetectedTransaction(
-                        type: TransactionType.expense,
-                        amount: 25000,
-                        originalText: 'Transaksi Rp25.000',
-                        detectedAt: DateTime(2026, 8, 23),
-                        sourcePackage: 'com.bca.mybca.omni.android',
-                        source: 'myBCA',
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () async {
+                savedCommand = await showDialog<SaveTransactionCommand>(
+                  context: context,
+                  builder: (_) => TransactionFormDialog(
+                    categories: [_category()],
+                    accounts: [
+                      _account(
+                        id: 'cash',
+                        name: 'Cash',
+                        type: AccountType.cash,
                       ),
+                    ],
+                    detectedTransaction: DetectedTransaction(
+                      type: TransactionType.expense,
+                      amount: 25000,
+                      originalText: 'Transaksi Rp25.000',
+                      detectedAt: DateTime(2026, 8, 23),
+                      sourcePackage: 'com.bca.mybca.omni.android',
+                      source: 'myBCA',
                     ),
-                  );
-                },
-                child: const Text('Open'),
-              ),
+                  ),
+                );
+              },
+              child: const Text('Open'),
             ),
           ),
         ),
-      );
+      ),
+    );
 
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Save'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
 
-      expect(savedCommand?.accountId, 'cash');
-    },
-  );
+    expect(savedCommand, isNull);
+    expect(find.text('Select a financial account'), findsOneWidget);
+  });
 }
 
 Account _account({

@@ -8,9 +8,8 @@ import '../../domain/repositories/account_repository.dart';
 /// Ensures every authenticated user has at least the default financial accounts.
 ///
 /// This use case is idempotent: calling it multiple times is safe and will
-/// never create duplicate accounts. Two default accounts are created:
-/// a Cash account and a Rekening (bank) account, both with an opening balance
-/// of 0 in IDR.
+/// never create duplicate accounts. Only Cash is seeded; every other account
+/// name is chosen by the user.
 class EnsureDefaultAccountUseCase {
   const EnsureDefaultAccountUseCase(this._repository);
 
@@ -62,16 +61,6 @@ class EnsureDefaultAccountUseCase {
         id: '${uid}_cash_default',
         name: 'Cash',
         type: AccountType.cash,
-        currency: 'IDR',
-        openingBalance: 0,
-        isArchived: false,
-        createdAt: now,
-        updatedAt: now,
-      ),
-      Account(
-        id: '${uid}_rekening_default',
-        name: 'Rekening',
-        type: AccountType.bank,
         currency: 'IDR',
         openingBalance: 0,
         isArchived: false,

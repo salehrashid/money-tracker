@@ -10,3 +10,16 @@ abstract interface class AccountRepository {
   /// Persists [account] to the data store. Idempotent when the document already exists.
   Future<Result<void>> createAccount(Account account);
 }
+
+abstract interface class MutableAccountRepository implements AccountRepository {
+  Future<Result<List<Account>>> fetchAccounts();
+
+  Future<Result<Account>> updateAccount(Account account);
+
+  Future<Result<Account>> setArchived({
+    required String accountId,
+    required bool isArchived,
+  });
+
+  Future<Result<void>> deleteAccount(String accountId);
+}

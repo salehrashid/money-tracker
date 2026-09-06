@@ -19,24 +19,22 @@ final accountDataSourceProvider =
       );
     });
 
-final accountRepositoryProvider = Provider.family<AccountRepository, String>((
-  ref,
-  userId,
-) {
-  return FirebaseAccountRepository(
-    dataSource: ref.watch(accountDataSourceProvider(userId)),
-    local: LocalFirstCollection<Account>(
-      userId: userId,
-      collection: 'accounts',
-      database: ref.watch(offlineDatabaseProvider),
-      coordinator: ref.watch(syncCoordinatorProvider(userId)),
-      fromMap: (map) => AccountDto.fromMap(map).toDomain(),
-      toMap: (value) => AccountDto.fromDomain(value).toFirestore(),
-      idOf: (value) => value.id,
-      isDeleted: (_) => false,
-    ),
-  );
-});
+final accountRepositoryProvider =
+    Provider.family<MutableAccountRepository, String>((ref, userId) {
+      return FirebaseAccountRepository(
+        dataSource: ref.watch(accountDataSourceProvider(userId)),
+        local: LocalFirstCollection<Account>(
+          userId: userId,
+          collection: 'accounts',
+          database: ref.watch(offlineDatabaseProvider),
+          coordinator: ref.watch(syncCoordinatorProvider(userId)),
+          fromMap: (map) => AccountDto.fromMap(map).toDomain(),
+          toMap: (value) => AccountDto.fromDomain(value).toFirestore(),
+          idOf: (value) => value.id,
+          isDeleted: (_) => false,
+        ),
+      );
+    });
 
 final watchAccountsUseCaseProvider =
     Provider.family<WatchAccountsUseCase, String>((ref, userId) {
@@ -54,3 +52,39 @@ final ensureDefaultAccountUseCaseProvider =
         ref.watch(accountRepositoryProvider(userId)),
       );
     });
+
+final createAccountUseCaseProvider =
+    Provider.family<CreateAccountUseCase, String>(
+      (ref, userId) =>
+          CreateAccountUseCase(ref.watch(accountRepositoryProvider(userId))),
+    );
+final updateAccountUseCaseProvider =
+    Provider.family<UpdateAccountUseCase, String>(
+      (ref, userId) =>
+          UpdateAccountUseCase(ref.watch(accountRepositoryProvider(userId))),
+    );
+final setAccountArchivedUseCaseProvider =
+    Provider.family<SetAccountArchivedUseCase, String>(
+      (ref, userId) => SetAccountArchivedUseCase(
+        ref.watch(accountRepositoryProvider(userId)),
+      ),
+    );
+final deleteAccountUseCaseProvider =
+    Provider.family<DeleteAccountUseCase, String>(
+      (ref, userId) =>
+          DeleteAccountUseCase(ref.watch(accountRepositoryProvider(userId))),
+    );
+
+final accountOperationStateProvider =
+    NotifierProvider.autoDispose<AccountOperationNotifier, AsyncValue<void>>(
+      AccountOperationNotifier.new,
+    );
+
+class AccountOperationNotifier extends Notifier<AsyncValue<void>> {
+  @override
+  AsyncValue<void> build() => const AsyncData(null);
+  void setLoading() => state = const AsyncLoading();
+  void setSuccess() => state = const AsyncData(null);
+  void setFailure(Object error, StackTrace stack) =>
+      state = AsyncError(error, stack);
+}

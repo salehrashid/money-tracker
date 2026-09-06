@@ -99,7 +99,7 @@ class BuildDashboardOverviewUseCase {
                   categoryById[transaction.categoryId]?.name ??
                   'Unknown category',
               accountName:
-                  accountById[transaction.accountId]?.name ?? 'Unknown account',
+                  accountById[transaction.accountId]?.name ?? 'No account',
               note: transaction.note,
               transactionDate: transaction.transactionDate,
             ),

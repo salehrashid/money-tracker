@@ -25,7 +25,7 @@ class TransactionDto {
   final double amount;
   final String currency;
   final String categoryId;
-  final String accountId;
+  final String? accountId;
   final String note;
   final TransactionSource source;
   final DateTime transactionDate;
@@ -64,7 +64,7 @@ class TransactionDto {
       amount: requiredDouble(data, 'amount'),
       currency: requiredString(data, 'currency'),
       categoryId: requiredString(data, 'categoryId'),
-      accountId: requiredString(data, 'accountId'),
+      accountId: optionalString(data, 'accountId'),
       note: optionalString(data, 'note') ?? '',
       source: TransactionSource.fromFirestore(requiredString(data, 'source')),
       transactionDate: requiredDateTime(data, 'transactionDate'),

@@ -21,7 +21,7 @@ class TransactionEntity {
   final double amount;
   final String currency;
   final String categoryId;
-  final String accountId;
+  final String? accountId;
   final String note;
   final TransactionSource source;
   final DateTime transactionDate;
@@ -38,6 +38,7 @@ class TransactionEntity {
     String? currency,
     String? categoryId,
     String? accountId,
+    bool clearAccountId = false,
     String? note,
     TransactionSource? source,
     DateTime? transactionDate,
@@ -52,7 +53,7 @@ class TransactionEntity {
       amount: amount ?? this.amount,
       currency: currency ?? this.currency,
       categoryId: categoryId ?? this.categoryId,
-      accountId: accountId ?? this.accountId,
+      accountId: clearAccountId ? null : accountId ?? this.accountId,
       note: note ?? this.note,
       source: source ?? this.source,
       transactionDate: transactionDate ?? this.transactionDate,

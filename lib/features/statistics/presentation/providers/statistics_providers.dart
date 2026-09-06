@@ -64,6 +64,17 @@ final statisticsPeriodProvider =
       StatisticsPeriodSelection
     >(StatisticsPeriodNotifier.new);
 
+final statisticsAccountFilterProvider =
+    NotifierProvider<StatisticsAccountFilterNotifier, String?>(
+      StatisticsAccountFilterNotifier.new,
+    );
+
+class StatisticsAccountFilterNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+  void set(String? value) => state = value;
+}
+
 final buildStatisticsOverviewUseCaseProvider =
     Provider<BuildStatisticsOverviewUseCase>((ref) {
       return const BuildStatisticsOverviewUseCase();
@@ -78,6 +89,7 @@ final statisticsOverviewProvider =
       final accountsState = ref.watch(accountListProvider(userId));
       final categoriesState = ref.watch(categoryListProvider(userId));
       final period = ref.watch(statisticsPeriodProvider);
+      final accountId = ref.watch(statisticsAccountFilterProvider);
       final cycleDayState = ref.watch(financialCycleDayProvider(userId));
       final states = [transactionsState, accountsState, categoriesState];
 
@@ -130,6 +142,7 @@ final statisticsOverviewProvider =
             financialCycleDay: cycleDay,
             useFinancialCycles:
                 period.period == StatisticsPeriod.financialCycle,
+            accountId: accountId,
           );
 
       return AsyncData(Success(overview));

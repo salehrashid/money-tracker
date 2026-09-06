@@ -2,6 +2,8 @@ enum AccountType {
   cash('cash'),
   bank('bank'),
   eWallet('e_wallet'),
+  card('card'),
+  pocket('pocket'),
   other('other');
 
   const AccountType(this.firestoreValue);
@@ -13,6 +15,9 @@ enum AccountType {
       'cash' => AccountType.cash,
       'bank' => AccountType.bank,
       'e_wallet' => AccountType.eWallet,
+      'ewallet' => AccountType.eWallet,
+      'card' => AccountType.card,
+      'pocket' => AccountType.pocket,
       'other' => AccountType.other,
       _ => throw FormatException('Unknown account type: $value'),
     };
