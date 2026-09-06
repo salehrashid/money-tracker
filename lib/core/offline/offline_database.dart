@@ -84,6 +84,23 @@ class OfflineDatabase {
     _notify(userId, collection);
   }
 
+  /// Removes every locally cached record owned by [userId].
+  Future<void> clearUser(String userId) async {
+    final prefix = '$userId::';
+    final keys = _box.keys
+        .whereType<String>()
+        .where((key) => key.startsWith(prefix))
+        .toList(growable: false);
+    final collections = keys
+        .map((key) => key.substring(prefix.length).split('::').first)
+        .toSet();
+
+    await _box.deleteAll(keys);
+    for (final collection in collections) {
+      _notify(userId, collection);
+    }
+  }
+
   /// Commits a validated backup import in one Hive batch. Imported records are
   /// deliberately marked pending so the existing offline sync pipeline uploads
   /// them when connectivity is available.

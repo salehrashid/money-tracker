@@ -76,7 +76,7 @@ void main() {
   test('invalid relationship is rejected before local data changes', () async {
     await _seed(database, 'source');
     final backup = service.createBackup('source');
-    backup.datasets['transactions']!.single['accountId'] = 'missing';
+    backup.datasets['transactions']!.single['categoryId'] = 'missing';
 
     expect(
       () => service.preview(
@@ -87,6 +87,27 @@ void main() {
     );
     expect(database.records('target', 'transactions'), isEmpty);
   });
+
+  test(
+    'orphaned account reference is warned about and safely cleared',
+    () async {
+      await _seed(database, 'source');
+      final backup = service.createBackup('source');
+      backup.datasets['transactions']!.single['accountId'] = 'deleted-account';
+
+      final decoded = service.preview(
+        service.encode(backup, BackupFileFormat.xlsx),
+        'backup.xlsx',
+      );
+      expect(decoded.warnings.single, contains('missing account'));
+
+      await service.import('target', decoded.backup, ImportMode.merge);
+      expect(
+        database.records('target', 'transactions').single.data['accountId'],
+        isNull,
+      );
+    },
+  );
 
   test('replace creates tombstones for records absent from backup', () async {
     await _seed(database, 'source');

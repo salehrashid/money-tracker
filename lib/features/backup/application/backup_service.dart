@@ -81,8 +81,7 @@ class BackupService {
         : throw const BackupException(
             'Choose a Fleeca .xlsx or .zip backup file.',
           );
-    _validate(backup);
-    final warnings = <String>[];
+    final warnings = _validate(backup);
     if (backup.metadata.schemaVersion < BackupMetadata.currentSchemaVersion) {
       warnings.add(
         'This backup uses an older schema and will be migrated during import.',
@@ -98,6 +97,21 @@ class BackupService {
   ) async {
     _validate(backup);
     final incoming = _collections(backup);
+    final importedAccountIds = incoming['accounts']!
+        .map((row) => row['id'])
+        .toSet();
+    final availableAccountIds = mode == ImportMode.merge
+        ? {
+            ...importedAccountIds,
+            ..._active(userId, 'accounts').map((row) => row.id),
+          }
+        : importedAccountIds;
+    for (final transaction in incoming['transactions']!) {
+      final accountId = transaction['accountId'];
+      if (accountId != null && !availableAccountIds.contains(accountId)) {
+        transaction['accountId'] = null;
+      }
+    }
     var inserted = 0;
     var updated = 0;
     var skipped = 0;
@@ -144,14 +158,23 @@ class BackupService {
       .toList();
 
   Map<String, List<Map<String, dynamic>>> _collections(FleecaBackup backup) => {
-    'accounts': [...?backup.datasets['accounts']],
-    'categories': [
-      ...?backup.datasets['categories'],
-      ...?backup.datasets['subcategories'],
+    'accounts': [
+      for (final row in backup.datasets['accounts'] ?? const []) {...row},
     ],
-    'debts': [...?backup.datasets['debts'], ...?backup.datasets['loans']],
-    'transactions': [...?backup.datasets['transactions']],
-    'settings': [...?backup.datasets['settings']],
+    'categories': [
+      for (final row in backup.datasets['categories'] ?? const []) {...row},
+      for (final row in backup.datasets['subcategories'] ?? const []) {...row},
+    ],
+    'debts': [
+      for (final row in backup.datasets['debts'] ?? const []) {...row},
+      for (final row in backup.datasets['loans'] ?? const []) {...row},
+    ],
+    'transactions': [
+      for (final row in backup.datasets['transactions'] ?? const []) {...row},
+    ],
+    'settings': [
+      for (final row in backup.datasets['settings'] ?? const []) {...row},
+    ],
   };
 
   bool _isImportedNewer(
@@ -165,7 +188,8 @@ class BackupService {
     return false;
   }
 
-  void _validate(FleecaBackup backup) {
+  List<String> _validate(FleecaBackup backup) {
+    final warnings = <String>[];
     final collections = _collections(backup);
     for (final entry in collections.entries) {
       final ids = <String>{};
@@ -224,15 +248,18 @@ class BackupService {
     }
     for (final transaction in collections['transactions']!) {
       final account = transaction['accountId'];
-      if (account != null && !accountIds.contains(account))
-        throw BackupException(
-          'Transaction ${transaction['id']} references a missing account.',
+      if (account != null && !accountIds.contains(account)) {
+        warnings.add(
+          'Transaction ${transaction['id']} references a missing account. '
+          'The account link will be cleared if that account does not exist locally.',
         );
+      }
       if (!categoryIds.contains(transaction['categoryId']))
         throw BackupException(
           'Transaction ${transaction['id']} references a missing category.',
         );
     }
+    return warnings;
   }
 
   Map<String, dynamic> _accountMap(OfflineRecord row) {

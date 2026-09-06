@@ -47,6 +47,28 @@ void main() {
     },
   );
 
+  test('clearUser removes only records owned by that user', () async {
+    await database.putRecord(
+      userId: 'user-a',
+      collection: 'transactions',
+      id: 'transaction-a',
+      data: const {'id': 'transaction-a'},
+      status: SyncStatus.synced,
+    );
+    await database.putRecord(
+      userId: 'user-b',
+      collection: 'transactions',
+      id: 'transaction-b',
+      data: const {'id': 'transaction-b'},
+      status: SyncStatus.synced,
+    );
+
+    await database.clearUser('user-a');
+
+    expect(database.records('user-a', 'transactions'), isEmpty);
+    expect(database.records('user-b', 'transactions'), hasLength(1));
+  });
+
   test('older remote data cannot replace a newer pending local edit', () async {
     await database.putRecord(
       userId: 'user-a',

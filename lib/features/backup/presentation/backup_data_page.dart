@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/app_page.dart';
+import '../../auth/presentation/providers/auth_providers.dart';
 import '../domain/backup_models.dart';
 import 'backup_providers.dart';
 
@@ -74,6 +75,20 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
                   ),
                 ],
               ),
+              // const SizedBox(height: AppSpacing.md),
+              // _Section(
+              //   title: 'Testing',
+              //   children: [
+              //     _Action(
+              //       icon: Icons.delete_forever_outlined,
+              //       title: 'Format All Data',
+              //       subtitle:
+              //           'Permanently delete all app data for this account',
+              //       destructive: true,
+              //       onTap: _busy ? null : _formatAllData,
+              //     ),
+              //   ],
+              // ),
               if (_busy)
                 const Padding(
                   padding: EdgeInsets.only(top: AppSpacing.md),
@@ -102,8 +117,9 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
             name,
             extension,
           );
-      if (path != null && mounted)
+      if (path != null && mounted) {
         _message('Backup created: $name (${backup.totalRecords} records).');
+      }
     });
   }
 
@@ -115,8 +131,9 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
       final path = await ref
           .read(backupFileServiceProvider)
           .save(service.encodeTransactions(backup), name, 'xlsx');
-      if (path != null && mounted)
+      if (path != null && mounted) {
         _message('Transaction export created: $name.');
+      }
     });
   }
 
@@ -144,7 +161,7 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
       final result = await ref
           .read(backupServiceProvider(widget.userId))
           .import(widget.userId, preview.backup, mode);
-      if (mounted)
+      if (mounted) {
         await showDialog<void>(
           context: context,
           builder: (_) => AlertDialog(
@@ -161,6 +178,25 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
             ],
           ),
         );
+      }
+    });
+  }
+
+  Future<void> _formatAllData() async {
+    final confirmed =
+        await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => const _FormatAllDataDialog(),
+        ) ??
+        false;
+    if (!confirmed || !mounted) return;
+
+    await _run(() async {
+      await ref
+          .read(formatAllDataServiceProvider(widget.userId))
+          .format(widget.userId);
+      await ref.read(authRepositoryProvider).signOut();
     });
   }
 
@@ -171,11 +207,13 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
     } on BackupException catch (error) {
       if (mounted) _message(error.message, error: true);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         _message(
-          'The operation could not be completed. No data was changed.',
+          'The operation could not be completed. Check your data before '
+          'trying again.',
           error: true,
         );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -227,20 +265,88 @@ class _Action extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
+    this.destructive = false,
   });
   final IconData icon;
   final String title;
   final String subtitle;
   final VoidCallback? onTap;
+  final bool destructive;
   @override
-  Widget build(BuildContext context) => ListTile(
-    dense: true,
-    leading: Icon(icon),
-    title: Text(title),
-    subtitle: Text(subtitle),
-    trailing: const Icon(Icons.chevron_right),
-    onTap: onTap,
-  );
+  Widget build(BuildContext context) {
+    final color = destructive ? Theme.of(context).colorScheme.error : null;
+    return ListTile(
+      dense: true,
+      leading: Icon(icon, color: color),
+      title: Text(title, style: TextStyle(color: color)),
+      subtitle: Text(subtitle),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: onTap,
+    );
+  }
+}
+
+class _FormatAllDataDialog extends StatefulWidget {
+  const _FormatAllDataDialog();
+
+  @override
+  State<_FormatAllDataDialog> createState() => _FormatAllDataDialogState();
+}
+
+class _FormatAllDataDialogState extends State<_FormatAllDataDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canFormat = _controller.text.trim() == 'FORMAT';
+    return AlertDialog(
+      icon: Icon(
+        Icons.warning_amber_rounded,
+        color: Theme.of(context).colorScheme.error,
+      ),
+      title: const Text('Format All Data?'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'All accounts, categories, transactions, debts, imports, '
+            'notifications, settings, and local cache will be permanently '
+            'deleted. Your login account will not be deleted.',
+          ),
+          const SizedBox(height: 16),
+          const Text('Type FORMAT to continue.'),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            autocorrect: false,
+            decoration: const InputDecoration(labelText: 'Confirmation'),
+            onChanged: (_) => setState(() {}),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: canFormat ? () => Navigator.pop(context, true) : null,
+          style: FilledButton.styleFrom(
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+          child: const Text('Format Data'),
+        ),
+      ],
+    );
+  }
 }
 
 class _PreviewDialog extends StatefulWidget {
