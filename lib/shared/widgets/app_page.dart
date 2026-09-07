@@ -491,3 +491,26 @@ Future<bool> showAppDeleteConfirmation({
 
   return confirmed == true;
 }
+
+Future<bool> showAppSignOutConfirmation(BuildContext context) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Sign out?'),
+      content: const Text('Are you sure you want to sign out?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.icon(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          icon: const Icon(Icons.logout),
+          label: const Text('Sign out'),
+        ),
+      ],
+    ),
+  );
+
+  return confirmed == true;
+}

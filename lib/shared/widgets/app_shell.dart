@@ -351,6 +351,11 @@ class _AppShellState extends ConsumerState<AppShell>
   }
 
   Future<void> _signOut() async {
+    final confirmed = await showAppSignOutConfirmation(context);
+    if (!confirmed || !mounted) {
+      return;
+    }
+
     await ref.read(authRepositoryProvider).signOut();
   }
 

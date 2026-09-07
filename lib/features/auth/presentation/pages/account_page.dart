@@ -101,6 +101,11 @@ class _AccountPageState extends ConsumerState<AccountPage> {
   }
 
   Future<void> _signOut() async {
+    final confirmed = await showAppSignOutConfirmation(context);
+    if (!confirmed || !mounted) {
+      return;
+    }
+
     setState(() {
       _isSigningOut = true;
     });
