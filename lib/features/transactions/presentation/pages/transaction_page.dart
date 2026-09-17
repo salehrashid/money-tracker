@@ -409,6 +409,7 @@ class _TransactionBody extends StatelessWidget {
                       criteria: filterCriteria,
                       categories: data.categories,
                       accounts: data.accounts,
+                      transactions: data.transactions,
                       financialCycleDay: financialCycleDay,
                     ),
                   ),
@@ -508,12 +509,14 @@ class _TransactionFilterPanel extends ConsumerStatefulWidget {
     required this.criteria,
     required this.categories,
     required this.accounts,
+    required this.transactions,
     required this.financialCycleDay,
   });
 
   final TransactionFilterCriteria criteria;
   final List<Category> categories;
   final List<Account> accounts;
+  final List<TransactionEntity> transactions;
   final int financialCycleDay;
 
   @override
@@ -577,6 +580,39 @@ class _TransactionFilterPanelState
           (account) => !account.isArchived || account.id == criteria.accountId,
         )
         .toList(growable: false);
+    final cycleService = const FinancialCycleService();
+    final now = DateTime.now();
+    final currentCycle = cycleService.currentPeriod(
+      cycleDay: widget.financialCycleDay,
+      now: now,
+    );
+    final oldestTransaction = widget.transactions
+        .map((transaction) => transaction.transactionDate.toLocal())
+        .reduce((oldest, date) => date.isBefore(oldest) ? date : oldest);
+    final oldestCycle = cycleService.getFinancialPeriod(
+      oldestTransaction,
+      widget.financialCycleDay,
+    );
+    final historyMonths =
+        (currentCycle.start.year - oldestCycle.start.year) * 12 +
+        currentCycle.start.month -
+        oldestCycle.start.month;
+    final cycleCount = historyMonths < 0 ? 1 : historyMonths + 1;
+    final cycles = [
+      for (var offset = 0; offset < cycleCount; offset++)
+        cycleService.periodByOffset(
+          date: now,
+          cycleDay: widget.financialCycleDay,
+          offset: -offset,
+        ),
+    ];
+    final selectedCycle = cycles
+        .where(
+          (cycle) =>
+              cycle.start == criteria.startDate &&
+              cycle.end == criteria.endDate,
+        )
+        .firstOrNull;
 
     return Card(
       margin: EdgeInsets.zero,
@@ -643,16 +679,49 @@ class _TransactionFilterPanelState
                     }
                   },
                 ),
-                OutlinedButton.icon(
-                  onPressed: () {
-                    final period = const FinancialCycleService().currentPeriod(
-                      cycleDay: widget.financialCycleDay,
-                    );
-                    notifier.setStartDate(period.start);
-                    notifier.setEndDate(period.end);
+                PopupMenuButton<int>(
+                  tooltip: 'Choose financial cycle',
+                  onSelected: (offset) {
+                    final cycle = cycles[offset];
+                    notifier.setDateRange(cycle.start, cycle.end);
                   },
-                  icon: const Icon(Icons.payments_outlined),
-                  label: const Text('Current cycle'),
+                  itemBuilder: (_) => [
+                    for (var offset = 0; offset < cycles.length; offset++)
+                      PopupMenuItem<int>(
+                        value: offset,
+                        child: Text(
+                          offset == 0
+                              ? 'Current cycle (${_cycleLabel(cycles[offset].start)})'
+                              : _cycleLabel(cycles[offset].start),
+                        ),
+                      ),
+                  ],
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.payments_outlined, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          selectedCycle == null
+                              ? 'Choose cycle'
+                              : _cycleLabel(selectedCycle.start),
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(Icons.arrow_drop_down),
+                      ],
+                    ),
+                  ),
                 ),
                 if (AppBreakpoints.isMobile(context))
                   OutlinedButton.icon(
@@ -1308,6 +1377,24 @@ void _syncController(TextEditingController controller, String value) {
     text: value,
     selection: TextSelection.collapsed(offset: value.length),
   );
+}
+
+String _cycleLabel(DateTime start) {
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  return '${start.day} ${months[start.month - 1]} ${start.year} cycle';
 }
 
 String _amountText(double? value) {

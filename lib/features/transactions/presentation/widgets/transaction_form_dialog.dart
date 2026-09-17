@@ -66,6 +66,14 @@ class _TransactionFormDialogState extends State<TransactionFormDialog> {
     );
     _categoryId = transaction?.categoryId ?? draft?.suggestedCategoryId;
     _accountId = transaction?.accountId;
+    if (transaction == null && draft == null && detectedTransaction == null) {
+      for (final account in widget.accounts) {
+        if (!account.isArchived && account.type == AccountType.cash) {
+          _accountId = account.id;
+          break;
+        }
+      }
+    }
     _ensureValidSelections();
   }
 

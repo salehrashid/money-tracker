@@ -178,6 +178,10 @@ class TransactionFilterNotifier extends Notifier<TransactionFilterCriteria> {
     state = state.copyWith(endDate: value, clearEndDate: value == null);
   }
 
+  void setDateRange(DateTime start, DateTime end) {
+    state = state.copyWith(startDate: start, endDate: end);
+  }
+
   void setMinAmount(double? value) {
     state = state.copyWith(minAmount: value, clearMinAmount: value == null);
   }

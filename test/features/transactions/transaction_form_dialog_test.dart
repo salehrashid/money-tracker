@@ -8,6 +8,40 @@ import 'package:money_tracker/features/transactions/presentation/widgets/transac
 import 'package:money_tracker/shared/models/finance_enums.dart';
 
 void main() {
+  testWidgets('preselects the active Cash account for a new transaction', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => showDialog<SaveTransactionCommand>(
+                context: context,
+                builder: (_) => TransactionFormDialog(
+                  categories: [_category()],
+                  accounts: [
+                    _account(id: 'bank', name: 'Bank', type: AccountType.bank),
+                    _account(id: 'cash', name: 'Cash', type: AccountType.cash),
+                  ],
+                ),
+              ),
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    final accountField = tester.widget<DropdownButtonFormField<String>>(
+      find.byType(DropdownButtonFormField<String>).last,
+    );
+    expect(accountField.initialValue, 'cash');
+  });
+
   testWidgets('does not assume an account for a detected myBCA transaction', (
     tester,
   ) async {

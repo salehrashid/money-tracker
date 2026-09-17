@@ -14,6 +14,7 @@ import '../providers/account_providers.dart';
 import '../widgets/account_form_dialog.dart';
 import '../../../transactions/domain/entities/transaction.dart';
 import '../../../transactions/presentation/providers/transaction_providers.dart';
+import '../../../transactions/presentation/widgets/transaction_formatters.dart';
 
 final _showArchivedAccountsProvider =
     NotifierProvider.autoDispose<_ShowArchivedAccountsNotifier, bool>(
@@ -61,6 +62,9 @@ class _Content extends ConsumerWidget {
     final showArchived = ref.watch(_showArchivedAccountsProvider);
     final pendingDeletions = ref.watch(pendingDeleteControllerProvider);
     final transactions = ref.watch(transactionListProvider(userId)).value;
+    final transactionItems = transactions is Success<List<TransactionEntity>>
+        ? transactions.value
+        : const <TransactionEntity>[];
     final Set<String>? referencedIds =
         transactions is Success<List<TransactionEntity>>
         ? transactions.value
@@ -102,31 +106,38 @@ class _Content extends ConsumerWidget {
         icon: const Icon(Icons.add),
         label: const Text('Account'),
       ),
-      body: state.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, _) => const Center(child: Text('Unable to load accounts.')),
-        data: (result) => result.when(
-          failure: (failure) => Center(child: Text(failure.message)),
-          success: (accounts) {
-            final visible = accounts
-                .where((account) {
-                  final pending = pendingDeletions.values.any(
-                    (operation) => operation.itemKeys.contains(
-                      pendingDeleteItemKey('account', userId, account.id),
-                    ),
-                  );
-                  return !pending && account.isArchived == showArchived;
-                })
-                .toList(growable: false);
-            return _list(
-              context,
-              ref,
-              visible,
-              accounts,
-              referencedIds,
-              showArchived,
-            );
-          },
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: state.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (_, _) =>
+                const Center(child: Text('Unable to load accounts.')),
+            data: (result) => result.when(
+              failure: (failure) => Center(child: Text(failure.message)),
+              success: (accounts) {
+                final visible = accounts
+                    .where((account) {
+                      final pending = pendingDeletions.values.any(
+                        (operation) => operation.itemKeys.contains(
+                          pendingDeleteItemKey('account', userId, account.id),
+                        ),
+                      );
+                      return !pending && account.isArchived == showArchived;
+                    })
+                    .toList(growable: false);
+                return _list(
+                  context,
+                  ref,
+                  visible,
+                  accounts,
+                  referencedIds,
+                  showArchived,
+                  transactionItems,
+                );
+              },
+            ),
+          ),
         ),
       ),
     );
@@ -139,6 +150,7 @@ class _Content extends ConsumerWidget {
     List<Account> allAccounts,
     Set<String>? referencedIds,
     bool showArchived,
+    List<TransactionEntity> transactions,
   ) {
     if (accounts.isEmpty) {
       return Column(
@@ -181,7 +193,14 @@ class _Content extends ConsumerWidget {
                         for (final root in roots.where(
                           (item) => item.type == type,
                         )) ...[
-                          _tile(context, ref, allAccounts, root, referencedIds),
+                          _tile(
+                            context,
+                            ref,
+                            allAccounts,
+                            root,
+                            referencedIds,
+                            transactions,
+                          ),
                           for (final child in accounts.where(
                             (item) => item.parentAccountId == root.id,
                           ))
@@ -193,6 +212,7 @@ class _Content extends ConsumerWidget {
                                 allAccounts,
                                 child,
                                 referencedIds,
+                                transactions,
                               ),
                             ),
                         ],
@@ -235,6 +255,7 @@ class _Content extends ConsumerWidget {
     List<Account> accounts,
     Account account,
     Set<String>? referencedIds,
+    List<TransactionEntity> transactions,
   ) => ListTile(
     dense: true,
     leading: Icon(
@@ -246,34 +267,81 @@ class _Content extends ConsumerWidget {
     subtitle: Text(
       '${account.currency} • ${accountTypeLabel(account.type)}${account.isArchived ? ' • Archived' : ''}',
     ),
-    trailing: PopupMenuButton<String>(
-      onSelected: (action) {
-        if (action == 'edit') _edit(context, ref, accounts, account);
-        if (action == 'archive') _archive(ref, account);
-        if (action == 'delete')
-          _delete(
-            context,
-            ref,
-            account,
-            referencedIds == null || referencedIds.contains(account.id),
-          );
-      },
-      itemBuilder: (_) => [
-        const PopupMenuItem(value: 'edit', child: Text('Edit')),
-        PopupMenuItem(
-          value: 'archive',
-          child: Text(account.isArchived ? 'Restore' : 'Archive'),
-        ),
-        PopupMenuItem(
-          value: 'delete',
-          child: Text(
-            'Delete',
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
+    trailing: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          formatIdr(
+            _balanceFor(
+              account,
+              accounts,
+              transactions,
+            ).clamp(0, double.infinity),
           ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(width: 4),
+        PopupMenuButton<String>(
+          onSelected: (action) {
+            if (action == 'edit') _edit(context, ref, accounts, account);
+            if (action == 'archive') _archive(ref, account);
+            if (action == 'delete') {
+              _delete(
+                context,
+                ref,
+                account,
+                referencedIds == null || referencedIds.contains(account.id),
+              );
+            }
+          },
+          itemBuilder: (_) => [
+            const PopupMenuItem(value: 'edit', child: Text('Edit')),
+            PopupMenuItem(
+              value: 'archive',
+              child: Text(account.isArchived ? 'Restore' : 'Archive'),
+            ),
+            PopupMenuItem(
+              value: 'delete',
+              child: Text(
+                'Delete',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+          ],
         ),
       ],
     ),
   );
+
+  double _balanceFor(
+    Account account,
+    List<Account> accounts,
+    List<TransactionEntity> transactions,
+  ) {
+    final includedAccounts = account.parentAccountId == null
+        ? [
+            account,
+            ...accounts.where((item) => item.parentAccountId == account.id),
+          ]
+        : [account];
+    final includedIds = includedAccounts.map((item) => item.id).toSet();
+    var balance = includedAccounts.fold<double>(
+      0,
+      (total, item) => total + item.initialBalance,
+    );
+    for (final transaction in transactions) {
+      if (transaction.isDeleted ||
+          !includedIds.contains(transaction.accountId)) {
+        continue;
+      }
+      balance += transaction.type == TransactionType.income
+          ? transaction.amount
+          : -transaction.amount;
+    }
+    return balance;
+  }
 
   Future<void> _edit(
     BuildContext context,
