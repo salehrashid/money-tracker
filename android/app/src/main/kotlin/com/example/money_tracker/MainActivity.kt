@@ -59,6 +59,12 @@ class MainActivity : FlutterActivity() {
 
     private fun handleNotificationMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
+            "getNotificationListenerHealth" -> {
+                result.success(NotificationListenerHealth.snapshot(this))
+            }
+            "requestNotificationListenerRebind" -> {
+                result.success(NotificationListenerHealth.requestRebind(this))
+            }
             "isNotificationListenerEnabled" -> {
                 result.success(MoneyNotificationBridge.isNotificationListenerEnabled(this))
             }

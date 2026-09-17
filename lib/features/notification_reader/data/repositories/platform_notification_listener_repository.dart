@@ -57,8 +57,8 @@ class PlatformNotificationListenerRepository
     }
 
     try {
-      final isListenerEnabled = await _dataSource
-          .isNotificationListenerEnabled();
+      final health = await _dataSource.getNotificationListenerHealth();
+      final isListenerEnabled = health['notificationAccessGranted'] == true;
       final areNotificationsAllowed = await _dataSource
           .areConfirmationNotificationsAllowed();
       final monitoredPackages = await _dataSource.getMonitoredPackages();
@@ -70,12 +70,32 @@ class PlatformNotificationListenerRepository
           areConfirmationNotificationsAllowed: areNotificationsAllowed,
           monitoredPackages: monitoredPackages,
           capturesAllPackagesInDebug: kDebugMode && monitoredPackages.isEmpty,
+          listenerConnected: health['listenerConnected'] == true,
+          lastConnectedAt: _date(health['lastConnectedAt']),
+          lastDisconnectedAt: _date(health['lastDisconnectedAt']),
+          lastNotificationAt: _date(health['lastNotificationAt']),
+          lastRebindRequestedAt: _date(health['lastRebindRequestedAt']),
+          rebindAttempts: (health['rebindAttempts'] as num?)?.toInt() ?? 0,
+          processStartedAt: _date(health['processStartedAt']),
         ),
       );
     } on Object catch (error) {
       return Failure(_mapPlatformFailure(error));
     }
   }
+
+  @override
+  Future<Result<bool>> requestRebind() async {
+    if (!_isSupported) return const Failure(_unsupportedFailure);
+    try {
+      return Success(await _dataSource.requestNotificationListenerRebind());
+    } on Object catch (error) {
+      return Failure(_mapPlatformFailure(error));
+    }
+  }
+
+  static DateTime? _date(Object? value) =>
+      value is num ? DateTime.fromMillisecondsSinceEpoch(value.toInt()) : null;
 
   @override
   Future<Result<bool>> isNotificationPermissionGranted() async {

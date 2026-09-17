@@ -33,6 +33,16 @@ class NotificationListenerMethodChannelDataSource {
         false;
   }
 
+  Future<Map<Object?, Object?>> getNotificationListenerHealth() async =>
+      await _channel.invokeMapMethod<Object?, Object?>(
+        'getNotificationListenerHealth',
+      ) ??
+      const {};
+
+  Future<bool> requestNotificationListenerRebind() async =>
+      await _channel.invokeMethod<bool>('requestNotificationListenerRebind') ??
+      false;
+
   Future<bool> isNotificationPermissionGranted() async {
     return await _channel.invokeMethod<bool>(
           'isNotificationPermissionGranted',

@@ -493,6 +493,21 @@ class NotificationDebugController extends Notifier<NotificationDebugState> {
     );
   }
 
+  Future<void> requestRebind() async {
+    final result = await ref
+        .read(notificationListenerRepositoryProvider)
+        .requestRebind();
+    await refresh();
+    state = state.copyWith(
+      message: result.when(
+        success: (requested) => requested
+            ? 'Rebind requested.'
+            : 'Rebind skipped (connected, permission off, or cooldown active).',
+        failure: (failure) => failure.message,
+      ),
+    );
+  }
+
   Future<void> requestConfirmationNotificationPermission() async {
     final result = await ref
         .read(requestConfirmationNotificationPermissionUseCaseProvider)

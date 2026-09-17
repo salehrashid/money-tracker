@@ -36,6 +36,8 @@ class _AppShellState extends ConsumerState<AppShell>
   var _notificationPermissionFlowInProgress = false;
   var _notificationAccessDialogVisible = false;
   var _notificationPermissionRequestAttempted = false;
+  var _monitorState = _MonitorState.connecting;
+  var _automaticRecoveryFailed = false;
 
   @override
   void initState() {
@@ -93,10 +95,22 @@ class _AppShellState extends ConsumerState<AppShell>
           .execute();
       await accessResult.when(
         success: (status) async {
-          if (!status.isSupported || status.isListenerEnabled) {
+          if (!status.isSupported) return;
+          if (!status.isListenerEnabled) {
+            _setMonitorState(_MonitorState.permissionRequired);
+            await _showNotificationAccessDialog();
             return;
           }
-          await _showNotificationAccessDialog();
+          if (status.listenerConnected) {
+            _automaticRecoveryFailed = false;
+            _setMonitorState(_MonitorState.active);
+            return;
+          }
+          if (_automaticRecoveryFailed) {
+            _setMonitorState(_MonitorState.recoveryFailed);
+            return;
+          }
+          await _recoverListener();
         },
         failure: (_) async {},
       );
@@ -105,6 +119,81 @@ class _AppShellState extends ConsumerState<AppShell>
     } finally {
       _notificationPermissionFlowInProgress = false;
     }
+  }
+
+  void _setMonitorState(_MonitorState value) {
+    if (mounted && _monitorState != value) {
+      setState(() => _monitorState = value);
+    }
+  }
+
+  Future<void> _recoverListener() async {
+    _setMonitorState(_MonitorState.connecting);
+    await Future<void>.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+    final repository = ref.read(notificationListenerRepositoryProvider);
+    for (final delay in const [2, 5, 5]) {
+      final result = await repository.getStatus();
+      final connected = result.when(
+        success: (status) => status.listenerConnected,
+        failure: (_) => false,
+      );
+      if (connected) {
+        _automaticRecoveryFailed = false;
+        _setMonitorState(_MonitorState.active);
+        return;
+      }
+      await repository.requestRebind();
+      await Future<void>.delayed(Duration(seconds: delay));
+      if (!mounted) return;
+    }
+    final finalResult = await repository.getStatus();
+    final connected = finalResult.when(
+      success: (status) => status.listenerConnected,
+      failure: (_) => false,
+    );
+    _automaticRecoveryFailed = !connected;
+    _setMonitorState(
+      connected ? _MonitorState.active : _MonitorState.recoveryFailed,
+    );
+  }
+
+  void _retryMonitor() {
+    _automaticRecoveryFailed = false;
+    _runNotificationPermissionFlow();
+  }
+
+  Widget _monitorBanner() {
+    if (_monitorState == _MonitorState.active ||
+        _monitorState == _MonitorState.connecting ||
+        _monitorState == _MonitorState.permissionRequired) {
+      return const SizedBox.shrink();
+    }
+    return Material(
+      color: Theme.of(context).colorScheme.errorContainer,
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            children: [
+              const Text(
+                'Bank notification monitor disconnected. Restart the device if recovery keeps failing.',
+              ),
+              TextButton(onPressed: _retryMonitor, child: const Text('Retry')),
+              TextButton(
+                onPressed: () => ref
+                    .read(openNotificationListenerSettingsUseCaseProvider)
+                    .execute(),
+                child: const Text('Notification Access'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _showNotificationAccessDialog() async {
@@ -198,7 +287,14 @@ class _AppShellState extends ConsumerState<AppShell>
               onSignOut: _signOut,
             ),
             const VerticalDivider(width: 1),
-            Expanded(child: page),
+            Expanded(
+              child: Column(
+                children: [
+                  _monitorBanner(),
+                  Expanded(child: page),
+                ],
+              ),
+            ),
           ],
         ),
       );
@@ -220,44 +316,54 @@ class _AppShellState extends ConsumerState<AppShell>
           onBackupSelected: () => _openBackupPage(context),
           onSignOut: _signOut,
         ),
-        body: AppDrawerScope(
-          openDrawer: () => _mobileScaffoldKey.currentState?.openDrawer(),
-          goToDashboard: () => _select(0),
-          child: Stack(
-            children: [
-              PageView(
-                controller: _pageController,
-                onPageChanged: _onPageChanged,
-                children: [
-                  _KeepAlivePage(
-                    child: DashboardPage(onAddTransaction: () => _select(1)),
-                  ),
-                  _KeepAlivePage(
-                    child: TransactionPage(
-                      initialDetectedTransaction: pendingDetectedTransaction,
+        body: Column(
+          children: [
+            _monitorBanner(),
+            Expanded(
+              child: AppDrawerScope(
+                openDrawer: () => _mobileScaffoldKey.currentState?.openDrawer(),
+                goToDashboard: () => _select(0),
+                child: Stack(
+                  children: [
+                    PageView(
+                      controller: _pageController,
+                      onPageChanged: _onPageChanged,
+                      children: [
+                        _KeepAlivePage(
+                          child: DashboardPage(
+                            onAddTransaction: () => _select(1),
+                          ),
+                        ),
+                        _KeepAlivePage(
+                          child: TransactionPage(
+                            initialDetectedTransaction:
+                                pendingDetectedTransaction,
+                          ),
+                        ),
+                        const _KeepAlivePage(child: StatisticsPage()),
+                        const _KeepAlivePage(child: DebtLoanPage()),
+                        const _KeepAlivePage(child: CategoryManagementPage()),
+                      ],
                     ),
-                  ),
-                  const _KeepAlivePage(child: StatisticsPage()),
-                  const _KeepAlivePage(child: DebtLoanPage()),
-                  const _KeepAlivePage(child: CategoryManagementPage()),
-                ],
+                    Positioned(
+                      left: 0,
+                      top: 88,
+                      bottom: 0,
+                      width: 28,
+                      child: _DrawerEdgeSwipeRegion(onOpenDrawer: _openDrawer),
+                    ),
+                    Positioned(
+                      right: 0,
+                      top: 88,
+                      bottom: 0,
+                      width: 28,
+                      child: _DrawerEdgeSwipeRegion(onOpenDrawer: _openDrawer),
+                    ),
+                  ],
+                ),
               ),
-              Positioned(
-                left: 0,
-                top: 88,
-                bottom: 0,
-                width: 28,
-                child: _DrawerEdgeSwipeRegion(onOpenDrawer: _openDrawer),
-              ),
-              Positioned(
-                right: 0,
-                top: 88,
-                bottom: 0,
-                width: 28,
-                child: _DrawerEdgeSwipeRegion(onOpenDrawer: _openDrawer),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
         bottomNavigationBar: _selectedIndex >= _destinations.length
             ? null
@@ -365,6 +471,8 @@ class _AppShellState extends ConsumerState<AppShell>
     }
   }
 }
+
+enum _MonitorState { permissionRequired, connecting, active, recoveryFailed }
 
 class _DrawerEdgeSwipeRegion extends StatefulWidget {
   const _DrawerEdgeSwipeRegion({required this.onOpenDrawer});

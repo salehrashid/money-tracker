@@ -44,6 +44,7 @@ class NotificationDebugPage extends ConsumerWidget {
               status: state.status,
               message: state.message,
               onOpenSettings: notifier.openNotificationAccessSettings,
+              onRequestRebind: notifier.requestRebind,
               onRequestPostPermission:
                   notifier.requestConfirmationNotificationPermission,
             ),
@@ -69,6 +70,7 @@ class _PermissionPanel extends StatelessWidget {
   const _PermissionPanel({
     required this.status,
     required this.onOpenSettings,
+    required this.onRequestRebind,
     required this.onRequestPostPermission,
     this.message,
   });
@@ -76,6 +78,7 @@ class _PermissionPanel extends StatelessWidget {
   final AsyncValue<Result<NotificationListenerStatus>> status;
   final String? message;
   final VoidCallback onOpenSettings;
+  final VoidCallback onRequestRebind;
   final VoidCallback onRequestPostPermission;
 
   @override
@@ -106,21 +109,27 @@ class _PermissionPanel extends StatelessWidget {
             message: 'Open Android Notification Access and enable Fleeca.',
             color: colorScheme.error,
             onOpenSettings: onOpenSettings,
+            onRequestRebind: onRequestRebind,
             onRequestPostPermission: onRequestPostPermission,
             detail: message,
           ),
           data: (result) => result.when(
             success: (value) => _PermissionContent(
               title: value.isListenerEnabled
-                  ? 'Notification Access enabled'
+                  ? value.listenerConnected
+                        ? 'Notification monitor active'
+                        : 'Notification monitor disconnected'
                   : 'Notification Access is off',
               message: value.isListenerEnabled
-                  ? 'Waiting for posted notifications.'
+                  ? value.listenerConnected
+                        ? 'Waiting for posted notifications.'
+                        : 'Notification Access is enabled, but the listener is not connected.'
                   : 'Enable Fleeca in Android Notification Access.',
-              color: value.isListenerEnabled
+              color: value.listenerConnected
                   ? colorScheme.primary
                   : colorScheme.error,
               onOpenSettings: onOpenSettings,
+              onRequestRebind: onRequestRebind,
               onRequestPostPermission: onRequestPostPermission,
               detail: [
                 'Supported: ${value.isSupported}',
@@ -129,6 +138,12 @@ class _PermissionPanel extends StatelessWidget {
                 'Raw listener captures all in debug: '
                     '${value.capturesAllPackagesInDebug}',
                 'Monitored packages: ${value.monitoredPackages.join(', ')}',
+                'Last connected: ${value.lastConnectedAt ?? '-'}',
+                'Last disconnected: ${value.lastDisconnectedAt ?? '-'}',
+                'Last notification: ${value.lastNotificationAt ?? '-'}',
+                'Last rebind: ${value.lastRebindRequestedAt ?? '-'}',
+                'Rebind attempts: ${value.rebindAttempts}',
+                'Process started: ${value.processStartedAt ?? '-'}',
                 ?message,
               ].join('\n'),
             ),
@@ -137,6 +152,7 @@ class _PermissionPanel extends StatelessWidget {
               message: failure.message,
               color: colorScheme.error,
               onOpenSettings: onOpenSettings,
+              onRequestRebind: onRequestRebind,
               onRequestPostPermission: onRequestPostPermission,
               detail: message,
             ),
@@ -153,6 +169,7 @@ class _PermissionContent extends StatelessWidget {
     required this.message,
     required this.color,
     required this.onOpenSettings,
+    required this.onRequestRebind,
     required this.onRequestPostPermission,
     this.detail,
   });
@@ -161,6 +178,7 @@ class _PermissionContent extends StatelessWidget {
   final String message;
   final Color color;
   final VoidCallback onOpenSettings;
+  final VoidCallback onRequestRebind;
   final VoidCallback onRequestPostPermission;
   final String? detail;
 
@@ -196,6 +214,11 @@ class _PermissionContent extends StatelessWidget {
               onPressed: onOpenSettings,
               icon: const Icon(Icons.settings_outlined),
               label: const Text('Notification Access'),
+            ),
+            OutlinedButton.icon(
+              onPressed: onRequestRebind,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Request Rebind'),
             ),
             OutlinedButton.icon(
               onPressed: onRequestPostPermission,

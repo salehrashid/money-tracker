@@ -6,16 +6,36 @@ import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.content.pm.PackageManager
 import android.service.notification.StatusBarNotification
+import android.content.Intent
+import android.os.IBinder
 
 class MoneyNotificationListenerService : NotificationListenerService() {
+    override fun onCreate() {
+        super.onCreate()
+        NotificationListenerHealth.created(this)
+    }
+
+    override fun onBind(intent: Intent?): IBinder? {
+        NotificationListenerHealth.bound()
+        return super.onBind(intent)
+    }
+
     override fun onListenerConnected() {
         super.onListenerConnected()
+        NotificationListenerHealth.connected(this)
         MoneyNotificationBridge.logLifecycle("Notification Listener Connected")
     }
 
     override fun onListenerDisconnected() {
+        NotificationListenerHealth.disconnected(this)
         MoneyNotificationBridge.logLifecycle("Notification Listener Disconnected")
         super.onListenerDisconnected()
+        NotificationListenerHealth.requestRebind(this)
+    }
+
+    override fun onDestroy() {
+        NotificationListenerHealth.destroyed()
+        super.onDestroy()
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
@@ -24,8 +44,12 @@ class MoneyNotificationListenerService : NotificationListenerService() {
             return
         }
 
+        NotificationListenerHealth.notificationReceived(this, sbn.packageName)
+
         val payload = buildPayload(sbn)
-        MoneyNotificationBridge.logNotification("Notification Posted", payload)
+        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            MoneyNotificationBridge.logNotification("Notification Posted", payload)
+        }
 
         NativeNotificationPipeline.processNotification(this, payload)
 
@@ -39,7 +63,9 @@ class MoneyNotificationListenerService : NotificationListenerService() {
         }
 
         val payload = buildPayload(sbn)
-        MoneyNotificationBridge.logNotification("Notification Removed", payload)
+        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            MoneyNotificationBridge.logNotification("Notification Removed", payload)
+        }
     }
 
     private fun buildPayload(sbn: StatusBarNotification): Map<String, Any?> {
