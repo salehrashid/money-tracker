@@ -29,6 +29,21 @@ flutter test
 flutter build apk
 ```
 
+## Debian package
+
+On a Debian or Ubuntu build machine with the Flutter Linux desktop toolchain and
+`dpkg-deb` installed, run:
+
+```bash
+./scripts/build_deb.sh
+```
+
+The script builds a release bundle and writes `build/linux/fleeca_<version>_<arch>.deb`.
+Install it with `sudo apt install ./build/linux/fleeca_<version>_<arch>.deb` (replace
+the placeholders with the generated filename). The package includes a desktop
+launcher and icon. It bundles the Firebase configuration from `.env` at build
+time; use the intended configuration before building.
+
 Android native notification parser tests live under `android/app/src/test` and
 can be run with:
 
