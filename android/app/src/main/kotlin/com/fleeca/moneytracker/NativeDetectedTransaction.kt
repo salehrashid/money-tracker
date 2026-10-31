@@ -1,4 +1,4 @@
-package com.example.money_tracker
+package com.fleeca.moneytracker
 
 enum class NotificationSource(val label: String) {
     MYBCA("myBCA"),

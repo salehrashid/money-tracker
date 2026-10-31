@@ -1,4 +1,4 @@
-package com.example.money_tracker
+package com.fleeca.moneytracker
 
 import android.Manifest
 import android.app.Notification
@@ -25,7 +25,7 @@ object MoneyNotificationBridge {
     private const val monitoredPackagesKey = "monitored_packages"
     private const val confirmationChannelId = "money_tracker_notification_review"
     private const val maxRecentNotifications = 100
-    private const val reviewIntentAction = "com.example.money_tracker.ADD_TRANSACTION_REVIEW"
+    private const val reviewIntentAction = "com.fleeca.moneytracker.ADD_TRANSACTION_REVIEW"
 
     @Volatile
     private var channel: MethodChannel? = null

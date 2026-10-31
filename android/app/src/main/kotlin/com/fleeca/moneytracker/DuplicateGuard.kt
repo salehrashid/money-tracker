@@ -1,4 +1,4 @@
-package com.example.money_tracker
+package com.fleeca.moneytracker
 
 class DuplicateGuard(private val maxEntries: Int = 200) {
     private val seenKeys = mutableSetOf<String>()

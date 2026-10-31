@@ -1,4 +1,4 @@
-package com.example.money_tracker
+package com.fleeca.moneytracker
 
 import android.content.ComponentName
 import android.content.Context

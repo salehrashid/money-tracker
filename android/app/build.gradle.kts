@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.money_tracker"
+    namespace = "com.fleeca.moneytracker"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,7 +20,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.money_tracker"
+        applicationId = "com.fleeca.moneytracker"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

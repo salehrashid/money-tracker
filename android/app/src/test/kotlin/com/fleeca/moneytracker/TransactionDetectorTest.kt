@@ -1,4 +1,4 @@
-package com.example.money_tracker
+package com.fleeca.moneytracker
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
