@@ -92,48 +92,56 @@ class SyncCoordinator {
         },
       ),
     );
-    final pending =
-        _database
-            .records(userId, collection)
-            .where((record) => record.status.isPending)
-            .toList()
-          ..sort((a, b) {
-            final time = a.queuedAt.compareTo(b.queuedAt);
-            return time != 0 ? time : a.id.compareTo(b.id);
+    final pending = _database.pendingRecords(userId, collection)
+      ..sort((a, b) {
+        final time = a.queuedAt.compareTo(b.queuedAt);
+        return time != 0 ? time : a.id.compareTo(b.id);
+      });
+    var changed = false;
+    try {
+      for (var index = 0; index < pending.length; index++) {
+        final record = pending[index];
+        final document = reference.document(record.id);
+        if (record.status == SyncStatus.pendingDelete) {
+          final deletedAt = DateTime.now().toUtc();
+          final tombstone = {
+            ...record.data,
+            'id': record.id,
+            '_syncDeletedAt': deletedAt,
+            'serverUpdatedAt': deletedAt,
+          };
+          await document.set(tombstone);
+          await _database.putRecord(
+            userId: userId,
+            collection: collection,
+            id: record.id,
+            data: tombstone,
+            status: SyncStatus.syncedDelete,
+            notify: false,
+          );
+        } else {
+          await document.set({
+            ...record.data,
+            'id': record.id,
+            '_syncDeletedAt': null,
+            'serverUpdatedAt': DateTime.now().toUtc(),
           });
-    for (final record in pending) {
-      final document = reference.document(record.id);
-      if (record.status == SyncStatus.pendingDelete) {
-        final deletedAt = DateTime.now().toUtc();
-        final tombstone = {
-          ...record.data,
-          'id': record.id,
-          '_syncDeletedAt': deletedAt,
-          'serverUpdatedAt': deletedAt,
-        };
-        await document.set(tombstone);
-        await _database.putRecord(
-          userId: userId,
-          collection: collection,
-          id: record.id,
-          data: tombstone,
-          status: SyncStatus.syncedDelete,
-        );
-      } else {
-        await document.set({
-          ...record.data,
-          'id': record.id,
-          '_syncDeletedAt': null,
-          'serverUpdatedAt': DateTime.now().toUtc(),
-        });
-        await _database.putRecord(
-          userId: userId,
-          collection: collection,
-          id: record.id,
-          data: record.data,
-          status: SyncStatus.synced,
-        );
+          await _database.putRecord(
+            userId: userId,
+            collection: collection,
+            id: record.id,
+            data: record.data,
+            status: SyncStatus.synced,
+            notify: false,
+          );
+        }
+        changed = true;
+        // Firestore and Hive calls normally yield, but this explicit yield also
+        // keeps a large queue from monopolising the UI isolate between batches.
+        if (index % 25 == 24) await Future<void>.delayed(Duration.zero);
       }
+    } finally {
+      if (changed) _database.notifyCollection(userId, collection);
     }
   }
 
@@ -191,9 +199,7 @@ class SyncCoordinator {
   }
 
   bool get _hasPendingOperations => _registered.any(
-    (collection) => _database
-        .records(userId, collection)
-        .any((record) => record.status.isPending),
+    (collection) => _database.hasPendingRecords(userId, collection),
   );
 
   void _remoteListenerDone(String collection) {
@@ -325,11 +331,4 @@ class LocalFirstCollection<T> {
     );
     unawaited(_coordinator.synchronize());
   }
-}
-
-extension on SyncStatus {
-  bool get isPending => switch (this) {
-    SyncStatus.synced || SyncStatus.syncedDelete => false,
-    _ => true,
-  };
 }

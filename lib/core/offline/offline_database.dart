@@ -36,21 +36,50 @@ class OfflineDatabase {
 
   final Box<dynamic> _box;
   final Map<String, StreamController<void>> _controllers = {};
+  // Hive boxes are shared by every user and collection. Keep the records for a
+  // collection in memory once they have been read so normal UI refreshes and
+  // sync-state checks do not repeatedly walk every key in the box.
+  final Map<String, Map<String, OfflineRecord>> _recordsByCollection = {};
 
   String _prefix(String userId, String collection) => '$userId::$collection::';
 
-  List<OfflineRecord> records(String userId, String collection) {
-    final prefix = _prefix(userId, collection);
-    return _box.keys
-        .whereType<String>()
-        .where((key) => key.startsWith(prefix))
-        .map(
-          (key) => OfflineRecord.fromStored(
-            Map<dynamic, dynamic>.from(_box.get(key) as Map),
-          ),
-        )
-        .toList(growable: false);
+  String _collectionKey(String userId, String collection) =>
+      '$userId::$collection';
+
+  Map<String, OfflineRecord> _recordsFor(String userId, String collection) {
+    final cacheKey = _collectionKey(userId, collection);
+    return _recordsByCollection.putIfAbsent(cacheKey, () {
+      final prefix = _prefix(userId, collection);
+      return {
+        for (final key in _box.keys.whereType<String>())
+          if (key.startsWith(prefix))
+            key.substring(prefix.length): OfflineRecord.fromStored(
+              Map<dynamic, dynamic>.from(_box.get(key) as Map),
+            ),
+      };
+    });
   }
+
+  List<OfflineRecord> records(String userId, String collection) {
+    return List<OfflineRecord>.unmodifiable(
+      _recordsFor(userId, collection).values,
+    );
+  }
+
+  List<OfflineRecord> pendingRecords(String userId, String collection) =>
+      _recordsFor(userId, collection).values
+          .where((record) => _isPending(record.status))
+          .toList(growable: false);
+
+  bool hasPendingRecords(String userId, String collection) => _recordsFor(
+    userId,
+    collection,
+  ).values.any((record) => _isPending(record.status));
+
+  bool _isPending(SyncStatus status) => switch (status) {
+    SyncStatus.synced || SyncStatus.syncedDelete => false,
+    _ => true,
+  };
 
   Stream<void> watch(String userId, String collection) async* {
     yield null;
@@ -69,18 +98,29 @@ class OfflineDatabase {
     required Map<String, dynamic> data,
     required SyncStatus status,
     DateTime? queuedAt,
+    bool notify = true,
   }) async {
+    final storedQueuedAt = (queuedAt ?? DateTime.now().toUtc())
+        .toIso8601String();
     await _box.put(_key(userId, collection, id), {
       'id': id,
       'data': data,
       'status': status.name,
-      'queuedAt': (queuedAt ?? DateTime.now().toUtc()).toIso8601String(),
+      'queuedAt': storedQueuedAt,
     });
-    _notify(userId, collection);
+    final cached = _recordsByCollection[_collectionKey(userId, collection)];
+    cached?[id] = OfflineRecord(
+      id: id,
+      data: Map<String, dynamic>.from(data),
+      status: status,
+      queuedAt: DateTime.parse(storedQueuedAt),
+    );
+    if (notify) _notify(userId, collection);
   }
 
   Future<void> remove(String userId, String collection, String id) async {
     await _box.delete(_key(userId, collection, id));
+    _recordsByCollection[_collectionKey(userId, collection)]?.remove(id);
     _notify(userId, collection);
   }
 
@@ -96,6 +136,7 @@ class OfflineDatabase {
         .toSet();
 
     await _box.deleteAll(keys);
+    _recordsByCollection.removeWhere((key, _) => key.startsWith('$userId::'));
     for (final collection in collections) {
       _notify(userId, collection);
     }
@@ -146,6 +187,18 @@ class OfflineDatabase {
 
     await _box.putAll(writes);
     for (final collection in collections.keys) {
+      final cached = _recordsByCollection[_collectionKey(userId, collection)];
+      if (cached == null) continue;
+      final prefix = _prefix(userId, collection);
+      for (final entry in writes.entries.where(
+        (entry) => entry.key.startsWith(prefix),
+      )) {
+        cached[entry.key.substring(prefix.length)] = OfflineRecord.fromStored(
+          Map<dynamic, dynamic>.from(entry.value as Map),
+        );
+      }
+    }
+    for (final collection in collections.keys) {
       _notify(userId, collection);
     }
   }
@@ -155,10 +208,12 @@ class OfflineDatabase {
     required String collection,
     required Iterable<Map<String, dynamic>> remote,
   }) async {
-    final local = {
-      for (final item in records(userId, collection)) item.id: item,
-    };
+    final local = _recordsFor(userId, collection);
+    final writes = <String, dynamic>{};
+    final updated = <String, OfflineRecord>{};
+    var processed = 0;
     for (final data in remote) {
+      processed++;
       final id = data['id'] as String?;
       if (id == null || id.isEmpty) continue;
       final current = local[id];
@@ -167,25 +222,48 @@ class OfflineDatabase {
       final localUpdated = current == null
           ? null
           : _date(current.data['updatedAt']);
+      final status = data['_syncDeletedAt'] == null
+          ? SyncStatus.synced
+          : SyncStatus.syncedDelete;
       if (localUpdated != null &&
           remoteUpdated != null &&
           localUpdated.isAfter(remoteUpdated)) {
         continue;
       }
-      await putRecord(
-        userId: userId,
-        collection: collection,
+      // `updatedAt` is the document version used by every synced model. An
+      // equal version is already represented locally, so rewriting it would
+      // only trigger a list rebuild for an unchanged Firestore snapshot.
+      if (localUpdated != null &&
+          localUpdated == remoteUpdated &&
+          current?.status == status) {
+        continue;
+      }
+      final queuedAt = DateTime.now().toUtc();
+      writes[_key(userId, collection, id)] = {
+        'id': id,
+        'data': data,
+        'status': status.name,
+        'queuedAt': queuedAt.toIso8601String(),
+      };
+      updated[id] = OfflineRecord(
         id: id,
-        data: data,
-        status: data['_syncDeletedAt'] == null
-            ? SyncStatus.synced
-            : SyncStatus.syncedDelete,
+        data: Map<String, dynamic>.from(data),
+        status: status,
+        queuedAt: queuedAt,
       );
+      // Hive itself remains on this isolate. Yielding while preparing a large
+      // changed snapshot lets rendering and input run before the single,
+      // atomic Hive batch is committed.
+      if (processed % 50 == 0) await Future<void>.delayed(Duration.zero);
     }
+    if (writes.isEmpty) return;
+    await _box.putAll(writes);
+    local.addAll(updated);
+    _notify(userId, collection);
   }
 
   DateTime? _date(Object? value) => switch (value) {
-    DateTime date => date.toUtc(),
+    DateTime date => date.isUtc ? date : date.toUtc(),
     String text => DateTime.tryParse(text)?.toUtc(),
     _ => null,
   };
@@ -193,6 +271,10 @@ class OfflineDatabase {
   void _notify(String userId, String collection) {
     _controllers['$userId::$collection']?.add(null);
   }
+
+  /// Coalesces a group of writes that deliberately suppressed notifications.
+  void notifyCollection(String userId, String collection) =>
+      _notify(userId, collection);
 }
 
 class OfflineRecord {

@@ -194,4 +194,102 @@ void main() {
       'user-b',
     );
   });
+
+  test('pending queries only return unsynchronised records', () async {
+    await database.putRecord(
+      userId: 'user-a',
+      collection: 'transactions',
+      id: 'synced',
+      data: const {'id': 'synced'},
+      status: SyncStatus.synced,
+    );
+    await database.putRecord(
+      userId: 'user-a',
+      collection: 'transactions',
+      id: 'pending',
+      data: const {'id': 'pending'},
+      status: SyncStatus.pendingUpdate,
+    );
+
+    expect(database.hasPendingRecords('user-a', 'transactions'), isTrue);
+    expect(
+      database
+          .pendingRecords('user-a', 'transactions')
+          .map((record) => record.id),
+      ['pending'],
+    );
+  });
+
+  test('merging a remote snapshot emits one collection update', () async {
+    var updates = 0;
+    final subscription = database
+        .watch('user-a', 'transactions')
+        .skip(1)
+        .listen((_) => updates++);
+    await Future<void>.delayed(Duration.zero);
+
+    await database.mergeRemote(
+      userId: 'user-a',
+      collection: 'transactions',
+      remote: [
+        {'id': 'one', 'updatedAt': DateTime.utc(2026, 8, 23)},
+        {'id': 'two', 'updatedAt': DateTime.utc(2026, 8, 23)},
+      ],
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(updates, 1);
+    await subscription.cancel();
+  });
+
+  test(
+    'an unchanged remote snapshot does not notify local listeners',
+    () async {
+      final record = {
+        'id': 'transaction-1',
+        'updatedAt': DateTime.utc(2026, 8, 23),
+        'amount': 42000.0,
+      };
+      await database.mergeRemote(
+        userId: 'user-a',
+        collection: 'transactions',
+        remote: [record],
+      );
+
+      var updates = 0;
+      final subscription = database
+          .watch('user-a', 'transactions')
+          .skip(1)
+          .listen((_) => updates++);
+      await Future<void>.delayed(Duration.zero);
+
+      await database.mergeRemote(
+        userId: 'user-a',
+        collection: 'transactions',
+        remote: [record],
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(updates, 0);
+      await subscription.cancel();
+    },
+  );
+
+  test('pending queries retain all records in a large queue', () async {
+    final queuedAt = DateTime.utc(2026, 8, 23).toIso8601String();
+    await box.putAll({
+      for (var index = 0; index < 500; index++)
+        'user-a::transactions::$index': {
+          'id': '$index',
+          'data': {'id': '$index'},
+          'status': SyncStatus.pendingUpdate.name,
+          'queuedAt': queuedAt,
+        },
+    });
+
+    expect(database.hasPendingRecords('user-a', 'transactions'), isTrue);
+    expect(database.pendingRecords('user-a', 'transactions'), hasLength(500));
+    // A second lookup uses the collection cache rather than re-reading Hive.
+    expect(database.pendingRecords('user-a', 'transactions'), hasLength(500));
+  });
 }
