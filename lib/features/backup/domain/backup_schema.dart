@@ -123,6 +123,5 @@ const backupDatasets = <BackupDataset>[
       'financialCycleDay',
       BackupValueType.integer,
     ),
-    BackupField('is_dark_mode', 'isDarkMode', BackupValueType.boolean),
   ]),
 ];

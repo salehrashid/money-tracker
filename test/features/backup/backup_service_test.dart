@@ -43,6 +43,10 @@ void main() {
       'subcategory-1',
     );
     expect(decoded.datasets['transactions']!.single['amount'], 12500.0);
+    expect(
+      decoded.datasets['settings']!.single.containsKey('isDarkMode'),
+      isFalse,
+    );
   });
 
   test(
@@ -237,5 +241,6 @@ Future<void> _seed(OfflineDatabase database, String userId) async {
     'createdAt': created,
     'updatedAt': created,
   });
+  // A legacy synced value must not be exported or imported as a theme choice.
   await put('settings', 'app', {'financialCycleDay': 25, 'isDarkMode': false});
 }

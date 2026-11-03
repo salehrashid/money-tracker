@@ -6,7 +6,7 @@ import '../../core/offline/offline_providers.dart';
 import '../../core/offline/sync_status.dart';
 import '../../features/auth/domain/entities/auth_user.dart';
 import '../../features/auth/presentation/providers/auth_providers.dart';
-import '../../features/settings/presentation/providers/financial_settings_providers.dart';
+import '../../features/settings/presentation/providers/theme_mode_provider.dart';
 import '../../core/utils/result.dart';
 
 import '../theme/app_theme.dart';
@@ -96,22 +96,7 @@ class _AppThemeToggleState extends ConsumerState<AppThemeToggle> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = ref.watch(authStateProvider).value;
-    final user = switch (auth) {
-      Success<AuthUser?>(:final value) => value,
-      _ => null,
-    };
-    if (user == null) {
-      return const SizedBox.shrink();
-    }
-
-    final settingsResult = ref.watch(financialSettingsProvider(user.id)).value;
-    final isDarkMode =
-        settingsResult?.when(
-          success: (settings) => settings?.isDarkMode ?? false,
-          failure: (_) => false,
-        ) ??
-        false;
+    final isDarkMode = ref.watch(darkModeProvider);
     final colorScheme = Theme.of(context).colorScheme;
     return SizedBox(
       width: 52,
@@ -121,9 +106,7 @@ class _AppThemeToggleState extends ConsumerState<AppThemeToggle> {
           size: widget.size,
           // The package uses true for light mode and false for dark mode.
           value: !isDarkMode,
-          onChanged: _isSaving || settingsResult == null
-              ? (_) {}
-              : (value) => _setTheme(user.id, value),
+          onChanged: _isSaving ? (_) {} : (value) => _setTheme(value),
           themeIconType: ThemeIconType.expand,
           color: colorScheme.onSurfaceVariant,
           hoverColor: colorScheme.primaryContainer,
@@ -135,17 +118,19 @@ class _AppThemeToggleState extends ConsumerState<AppThemeToggle> {
     );
   }
 
-  Future<void> _setTheme(String userId, bool isLightMode) async {
+  Future<void> _setTheme(bool isLightMode) async {
     if (_isSaving) return;
     setState(() => _isSaving = true);
-    final result = await ref.read(saveDarkModeProvider(userId))(!isLightMode);
+    try {
+      await ref.read(darkModeProvider.notifier).setDarkMode(!isLightMode);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to save theme preference.')),
+      );
+    }
     if (!mounted) return;
     setState(() => _isSaving = false);
-    if (result case Failure(:final failure)) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(failure.message)));
-    }
   }
 }
 

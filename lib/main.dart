@@ -3,14 +3,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'core/firebase/firebase_app_initializer.dart';
 import 'core/offline/offline_database.dart';
 import 'core/utils/result.dart';
 import 'features/auth/presentation/pages/auth_gate.dart';
-import 'features/auth/presentation/providers/auth_providers.dart';
-import 'features/settings/presentation/providers/financial_settings_providers.dart';
+import 'features/settings/presentation/providers/theme_mode_provider.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/undo_delete/pending_delete_controller.dart';
 
@@ -35,20 +35,33 @@ Future<void> main() async {
 
   await dotenv.load(fileName: '.env', isOptional: true);
   await OfflineDatabase.initialize();
+  final sharedPreferences = await SharedPreferences.getInstance();
 
   final firebaseResult = await const FirebaseAppInitializer().initialize();
 
-  runApp(MyApp(firebaseResult: firebaseResult));
+  runApp(
+    MyApp(firebaseResult: firebaseResult, sharedPreferences: sharedPreferences),
+  );
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({required this.firebaseResult, super.key});
+  const MyApp({
+    required this.firebaseResult,
+    required this.sharedPreferences,
+    super.key,
+  });
 
   final Result<Object> firebaseResult;
+  final SharedPreferences sharedPreferences;
 
   @override
   Widget build(BuildContext context) {
-    return ProviderScope(child: _App(firebaseResult: firebaseResult));
+    return ProviderScope(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(sharedPreferences),
+      ],
+      child: _App(firebaseResult: firebaseResult),
+    );
   }
 }
 
@@ -59,20 +72,7 @@ class _App extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final authResult = ref.watch(authStateProvider).value;
-    final userId = authResult?.when(
-      success: (user) => user?.id,
-      failure: (_) => null,
-    );
-    final settingsResult = userId == null
-        ? null
-        : ref.watch(financialSettingsProvider(userId)).value;
-    final isDarkMode =
-        settingsResult?.when(
-          success: (settings) => settings?.isDarkMode ?? false,
-          failure: (_) => false,
-        ) ??
-        false;
+    final isDarkMode = ref.watch(darkModeProvider);
 
     ref.listen<PendingDeleteFailure?>(pendingDeleteFailureProvider, (
       previous,

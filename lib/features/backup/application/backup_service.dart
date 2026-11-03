@@ -173,7 +173,8 @@ class BackupService {
       for (final row in backup.datasets['transactions'] ?? const []) {...row},
     ],
     'settings': [
-      for (final row in backup.datasets['settings'] ?? const []) {...row},
+      for (final row in backup.datasets['settings'] ?? const [])
+        FinancialSettingsDto.fromMap(row).toFirestore(),
     ],
   };
 
@@ -289,10 +290,8 @@ class BackupService {
     return result;
   }
 
-  Map<String, dynamic> _settingsMap(OfflineRecord row) => {
-    ...row.data,
-    'id': row.id,
-  };
+  Map<String, dynamic> _settingsMap(OfflineRecord row) =>
+      FinancialSettingsDto.fromMap(row.data, documentId: row.id).toFirestore();
 }
 
 class BackupFileService {
