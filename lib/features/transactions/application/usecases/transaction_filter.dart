@@ -3,6 +3,18 @@ import '../../../../shared/models/finance_enums.dart';
 import '../../domain/entities/transaction.dart';
 import '../../../accounts/domain/entities/account.dart';
 
+enum TransactionSortOrder {
+  defaultOrder,
+  amountAscending,
+  amountDescending;
+
+  String get label => switch (this) {
+    TransactionSortOrder.defaultOrder => 'Default',
+    TransactionSortOrder.amountAscending => 'Amount: Low to High (ASC)',
+    TransactionSortOrder.amountDescending => 'Amount: High to Low (DESC)',
+  };
+}
+
 class TransactionFilterCriteria {
   const TransactionFilterCriteria({
     this.searchQuery = '',
@@ -11,8 +23,7 @@ class TransactionFilterCriteria {
     this.accountId,
     this.startDate,
     this.endDate,
-    this.minAmount,
-    this.maxAmount,
+    this.sortOrder = TransactionSortOrder.defaultOrder,
   });
 
   final String searchQuery;
@@ -21,8 +32,7 @@ class TransactionFilterCriteria {
   final String? accountId;
   final DateTime? startDate;
   final DateTime? endDate;
-  final double? minAmount;
-  final double? maxAmount;
+  final TransactionSortOrder sortOrder;
 
   bool get hasActiveFilters {
     return searchQuery.trim().isNotEmpty ||
@@ -30,9 +40,7 @@ class TransactionFilterCriteria {
         categoryId != null ||
         accountId != null ||
         startDate != null ||
-        endDate != null ||
-        minAmount != null ||
-        maxAmount != null;
+        endDate != null;
   }
 
   TransactionFilterCriteria copyWith({
@@ -42,15 +50,12 @@ class TransactionFilterCriteria {
     String? accountId,
     DateTime? startDate,
     DateTime? endDate,
-    double? minAmount,
-    double? maxAmount,
+    TransactionSortOrder? sortOrder,
     bool clearType = false,
     bool clearCategoryId = false,
     bool clearAccountId = false,
     bool clearStartDate = false,
     bool clearEndDate = false,
-    bool clearMinAmount = false,
-    bool clearMaxAmount = false,
   }) {
     return TransactionFilterCriteria(
       searchQuery: searchQuery ?? this.searchQuery,
@@ -59,8 +64,7 @@ class TransactionFilterCriteria {
       accountId: clearAccountId ? null : accountId ?? this.accountId,
       startDate: clearStartDate ? null : startDate ?? this.startDate,
       endDate: clearEndDate ? null : endDate ?? this.endDate,
-      minAmount: clearMinAmount ? null : minAmount ?? this.minAmount,
-      maxAmount: clearMaxAmount ? null : maxAmount ?? this.maxAmount,
+      sortOrder: sortOrder ?? this.sortOrder,
     );
   }
 }
@@ -110,7 +114,7 @@ class ApplyTransactionFiltersUseCase {
             criteria.endDate!.day + 1,
           );
 
-    return transactions
+    final filteredTransactions = transactions
         .where((transaction) {
           if (criteria.type != null && transaction.type != criteria.type) {
             return false;
@@ -123,15 +127,6 @@ class ApplyTransactionFiltersUseCase {
               !selectedAccountIds.contains(transaction.accountId)) {
             return false;
           }
-          if (criteria.minAmount != null &&
-              transaction.amount < criteria.minAmount!) {
-            return false;
-          }
-          if (criteria.maxAmount != null &&
-              transaction.amount > criteria.maxAmount!) {
-            return false;
-          }
-
           final transactionDate = transaction.transactionDate.toLocal();
           if (startDate != null && transactionDate.isBefore(startDate)) {
             return false;
@@ -163,5 +158,16 @@ class ApplyTransactionFiltersUseCase {
           return searchableText.contains(query);
         })
         .toList(growable: false);
+
+    switch (criteria.sortOrder) {
+      case TransactionSortOrder.defaultOrder:
+        return filteredTransactions;
+      case TransactionSortOrder.amountAscending:
+        return [...filteredTransactions]
+          ..sort((first, second) => first.amount.compareTo(second.amount));
+      case TransactionSortOrder.amountDescending:
+        return [...filteredTransactions]
+          ..sort((first, second) => second.amount.compareTo(first.amount));
+    }
   }
 }

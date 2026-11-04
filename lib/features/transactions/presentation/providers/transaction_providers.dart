@@ -182,12 +182,8 @@ class TransactionFilterNotifier extends Notifier<TransactionFilterCriteria> {
     state = state.copyWith(startDate: start, endDate: end);
   }
 
-  void setMinAmount(double? value) {
-    state = state.copyWith(minAmount: value, clearMinAmount: value == null);
-  }
-
-  void setMaxAmount(double? value) {
-    state = state.copyWith(maxAmount: value, clearMaxAmount: value == null);
+  void setSortOrder(TransactionSortOrder value) {
+    state = state.copyWith(sortOrder: value);
   }
 
   void clear() {

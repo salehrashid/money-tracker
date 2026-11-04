@@ -527,8 +527,6 @@ class _TransactionFilterPanel extends ConsumerStatefulWidget {
 class _TransactionFilterPanelState
     extends ConsumerState<_TransactionFilterPanel> {
   late final TextEditingController _searchController;
-  late final TextEditingController _minAmountController;
-  late final TextEditingController _maxAmountController;
 
   @override
   void initState() {
@@ -536,33 +534,17 @@ class _TransactionFilterPanelState
     _searchController = TextEditingController(
       text: widget.criteria.searchQuery,
     );
-    _minAmountController = TextEditingController(
-      text: _amountText(widget.criteria.minAmount),
-    );
-    _maxAmountController = TextEditingController(
-      text: _amountText(widget.criteria.maxAmount),
-    );
   }
 
   @override
   void didUpdateWidget(covariant _TransactionFilterPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     _syncController(_searchController, widget.criteria.searchQuery);
-    _syncController(
-      _minAmountController,
-      _amountText(widget.criteria.minAmount),
-    );
-    _syncController(
-      _maxAmountController,
-      _amountText(widget.criteria.maxAmount),
-    );
   }
 
   @override
   void dispose() {
     _searchController.dispose();
-    _minAmountController.dispose();
-    _maxAmountController.dispose();
     super.dispose();
   }
 
@@ -791,37 +773,10 @@ class _TransactionFilterPanelState
                     ),
                   ),
                   SizedBox(
-                    width: 150,
-                    child: TextField(
-                      controller: _minAmountController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: const InputDecoration(
-                        labelText: 'Min amount',
-                        prefixText: 'Rp ',
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (value) {
-                        notifier.setMinAmount(_parseAmount(value));
-                      },
-                    ),
-                  ),
-                  SizedBox(
-                    width: 150,
-                    child: TextField(
-                      controller: _maxAmountController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: const InputDecoration(
-                        labelText: 'Max amount',
-                        prefixText: 'Rp ',
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (value) {
-                        notifier.setMaxAmount(_parseAmount(value));
-                      },
+                    width: 260,
+                    child: _SortOrderDropdown(
+                      value: criteria.sortOrder,
+                      onChanged: notifier.setSortOrder,
                     ),
                   ),
                   OutlinedButton.icon(
@@ -905,7 +860,7 @@ class _TransactionFilterPanelState
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    'Narrow results by category, account, amount, or date.',
+                    'Narrow results by category, account, or date, then sort by amount.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: AppSpacing.lg),
@@ -953,38 +908,9 @@ class _TransactionFilterPanelState
                     onChanged: currentNotifier.setAccountId,
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _minAmountController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          decoration: const InputDecoration(
-                            labelText: 'Min amount',
-                            prefixText: 'Rp ',
-                          ),
-                          onChanged: (value) =>
-                              currentNotifier.setMinAmount(_parseAmount(value)),
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: TextField(
-                          controller: _maxAmountController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          decoration: const InputDecoration(
-                            labelText: 'Max amount',
-                            prefixText: 'Rp ',
-                          ),
-                          onChanged: (value) =>
-                              currentNotifier.setMaxAmount(_parseAmount(value)),
-                        ),
-                      ),
-                    ],
+                  _SortOrderDropdown(
+                    value: current.sortOrder,
+                    onChanged: currentNotifier.setSortOrder,
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   Row(
@@ -1060,6 +986,39 @@ class _TransactionFilterPanelState
     }
 
     onSelected(DateTime(selected.year, selected.month, selected.day));
+  }
+}
+
+class _SortOrderDropdown extends StatelessWidget {
+  const _SortOrderDropdown({required this.value, required this.onChanged});
+
+  final TransactionSortOrder value;
+  final ValueChanged<TransactionSortOrder> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<TransactionSortOrder>(
+      key: ValueKey(value),
+      isExpanded: true,
+      initialValue: value,
+      decoration: const InputDecoration(
+        labelText: 'Sort by',
+        border: OutlineInputBorder(),
+      ),
+      items: TransactionSortOrder.values
+          .map(
+            (sortOrder) => DropdownMenuItem(
+              value: sortOrder,
+              child: Text(sortOrder.label),
+            ),
+          )
+          .toList(growable: false),
+      onChanged: (sortOrder) {
+        if (sortOrder != null) {
+          onChanged(sortOrder);
+        }
+      },
+    );
   }
 }
 
@@ -1395,29 +1354,4 @@ String _cycleLabel(DateTime start) {
     'Dec',
   ];
   return '${start.day} ${months[start.month - 1]} ${start.year} cycle';
-}
-
-String _amountText(double? value) {
-  if (value == null) {
-    return '';
-  }
-  if (value == value.roundToDouble()) {
-    return value.round().toString();
-  }
-
-  return value.toString();
-}
-
-double? _parseAmount(String value) {
-  final normalized = value
-      .replaceAll('Rp', '')
-      .replaceAll('rp', '')
-      .replaceAll('.', '')
-      .replaceAll(',', '.')
-      .trim();
-  if (normalized.isEmpty) {
-    return null;
-  }
-
-  return double.tryParse(normalized);
 }

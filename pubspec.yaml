@@ -1,7 +1,7 @@
 name: money_tracker
 description: "A private Flutter and Firebase personal finance tracker."
 publish_to: 'none'
-version: 1.6.5+9
+version: 1.6.6+10
 
 environment:
   sdk: ^3.10.0

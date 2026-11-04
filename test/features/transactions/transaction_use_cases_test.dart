@@ -115,7 +115,101 @@ void main() {
       expect(result.map((transaction) => transaction.id), ['transaction-2']);
     });
 
-    test('filters by type, category, account, amount, and date range', () {
+    test('preserves the default transaction order', () {
+      const useCase = ApplyTransactionFiltersUseCase();
+      final result = useCase.execute(
+        transactions: [
+          _transaction(id: 'transaction-1', amount: 100000),
+          _transaction(id: 'transaction-2', amount: 25000),
+          _transaction(id: 'transaction-3', amount: 75000),
+        ],
+        categories: const [],
+        criteria: const TransactionFilterCriteria(),
+      );
+
+      expect(result.map((transaction) => transaction.id), [
+        'transaction-1',
+        'transaction-2',
+        'transaction-3',
+      ]);
+    });
+
+    test(
+      'sorts filtered transactions by numeric amount in both directions',
+      () {
+        const useCase = ApplyTransactionFiltersUseCase();
+        final transactions = [
+          _transaction(
+            id: 'transaction-1',
+            amount: 100000,
+            categoryId: 'food',
+            accountId: 'cash',
+            transactionDate: DateTime.utc(2026, 1, 15),
+          ),
+          _transaction(
+            id: 'transaction-2',
+            amount: 9000,
+            categoryId: 'food',
+            accountId: 'cash',
+            transactionDate: DateTime.utc(2026, 1, 15),
+          ),
+          _transaction(
+            id: 'transaction-3',
+            amount: 25000,
+            categoryId: 'food',
+            accountId: 'cash',
+            transactionDate: DateTime.utc(2026, 1, 15),
+          ),
+          _transaction(
+            id: 'transaction-4',
+            amount: 1,
+            type: TransactionType.income,
+            categoryId: 'salary',
+            accountId: 'bank',
+            transactionDate: DateTime.utc(2026, 1, 15),
+          ),
+        ];
+        final categories = [
+          _category(id: 'food', name: 'Food'),
+          _category(id: 'salary', name: 'Salary', type: TransactionType.income),
+        ];
+        final baseCriteria = TransactionFilterCriteria(
+          type: TransactionType.expense,
+          categoryId: 'food',
+          accountId: 'cash',
+          startDate: DateTime(2026, 1, 10),
+          endDate: DateTime(2026, 1, 31),
+        );
+
+        final ascending = useCase.execute(
+          transactions: transactions,
+          categories: categories,
+          criteria: baseCriteria.copyWith(
+            sortOrder: TransactionSortOrder.amountAscending,
+          ),
+        );
+        final descending = useCase.execute(
+          transactions: transactions,
+          categories: categories,
+          criteria: baseCriteria.copyWith(
+            sortOrder: TransactionSortOrder.amountDescending,
+          ),
+        );
+
+        expect(ascending.map((transaction) => transaction.id), [
+          'transaction-2',
+          'transaction-3',
+          'transaction-1',
+        ]);
+        expect(descending.map((transaction) => transaction.id), [
+          'transaction-1',
+          'transaction-3',
+          'transaction-2',
+        ]);
+      },
+    );
+
+    test('returns an empty list when combined filters have no matches', () {
       const useCase = ApplyTransactionFiltersUseCase();
       final result = useCase.execute(
         transactions: [
@@ -151,13 +245,12 @@ void main() {
           categoryId: 'food',
           accountId: 'cash',
           startDate: DateTime(2026, 1, 10),
-          endDate: DateTime(2026, 1, 31),
-          minAmount: 50000,
-          maxAmount: 80000,
+          endDate: DateTime(2026, 1, 10),
+          sortOrder: TransactionSortOrder.amountAscending,
         ),
       );
 
-      expect(result.map((transaction) => transaction.id), ['transaction-2']);
+      expect(result, isEmpty);
     });
   });
 }
