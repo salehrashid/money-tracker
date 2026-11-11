@@ -106,37 +106,35 @@ class _Content extends ConsumerWidget {
         icon: const Icon(Icons.add),
         label: const Text('Account'),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
-          child: state.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (_, _) =>
-                const Center(child: Text('Unable to load accounts.')),
-            data: (result) => result.when(
-              failure: (failure) => Center(child: Text(failure.message)),
-              success: (accounts) {
-                final visible = accounts
-                    .where((account) {
-                      final pending = pendingDeletions.values.any(
-                        (operation) => operation.itemKeys.contains(
-                          pendingDeleteItemKey('account', userId, account.id),
-                        ),
-                      );
-                      return !pending && account.isArchived == showArchived;
-                    })
-                    .toList(growable: false);
-                return _list(
-                  context,
-                  ref,
-                  visible,
-                  accounts,
-                  referencedIds,
-                  showArchived,
-                  transactionItems,
-                );
-              },
-            ),
+      body: DesktopMainContent(
+        mobileMaxWidth: 760,
+        child: state.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (_, _) =>
+              const Center(child: Text('Unable to load accounts.')),
+          data: (result) => result.when(
+            failure: (failure) => Center(child: Text(failure.message)),
+            success: (accounts) {
+              final visible = accounts
+                  .where((account) {
+                    final pending = pendingDeletions.values.any(
+                      (operation) => operation.itemKeys.contains(
+                        pendingDeleteItemKey('account', userId, account.id),
+                      ),
+                    );
+                    return !pending && account.isArchived == showArchived;
+                  })
+                  .toList(growable: false);
+              return _list(
+                context,
+                ref,
+                visible,
+                accounts,
+                referencedIds,
+                showArchived,
+                transactionItems,
+              );
+            },
           ),
         ),
       ),

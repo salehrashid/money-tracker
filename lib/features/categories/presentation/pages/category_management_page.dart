@@ -223,24 +223,22 @@ class _CategoryContent extends ConsumerWidget {
                 child: CustomScrollView(
                   slivers: [
                     SliverToBoxAdapter(
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 900),
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                            child: _CategoryToolbar(
-                              selectedType: selectedType,
-                              showArchived: showArchived,
-                              onTypeChanged: (type) => ref
-                                  .read(_categoryTypeFilterProvider.notifier)
-                                  .set(type),
-                              onArchiveChanged: (value) => ref
-                                  .read(_categoryArchiveFilterProvider.notifier)
-                                  .set(value),
-                              onSeedDefaults: operationState.isLoading
-                                  ? null
-                                  : () => _seedDefaults(context, ref, userId),
-                            ),
+                      child: DesktopMainContent(
+                        mobileMaxWidth: 900,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                          child: _CategoryToolbar(
+                            selectedType: selectedType,
+                            showArchived: showArchived,
+                            onTypeChanged: (type) => ref
+                                .read(_categoryTypeFilterProvider.notifier)
+                                .set(type),
+                            onArchiveChanged: (value) => ref
+                                .read(_categoryArchiveFilterProvider.notifier)
+                                .set(value),
+                            onSeedDefaults: operationState.isLoading
+                                ? null
+                                : () => _seedDefaults(context, ref, userId),
                           ),
                         ),
                       ),
@@ -282,80 +280,75 @@ class _CategoryContent extends ConsumerWidget {
                           itemCount: ordered.length,
                           separatorBuilder: (_, _) => const SizedBox(height: 8),
                           itemBuilder: (context, index) {
-                            return Center(
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 900,
-                                ),
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    if (index == 0 ||
-                                        ordered[index - 1].type !=
-                                            ordered[index].type) ...[
-                                      Padding(
-                                        padding: const EdgeInsets.fromLTRB(
-                                          AppSpacing.xxs,
-                                          AppSpacing.sm,
-                                          AppSpacing.xxs,
-                                          AppSpacing.xs,
-                                        ),
-                                        child: Text(
-                                          '${_typeLabel(ordered[index].type)} categories',
-                                          style: Theme.of(
-                                            context,
-                                          ).textTheme.titleMedium,
-                                        ),
+                            return DesktopMainContent(
+                              mobileMaxWidth: 900,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  if (index == 0 ||
+                                      ordered[index - 1].type !=
+                                          ordered[index].type) ...[
+                                    Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        AppSpacing.xxs,
+                                        AppSpacing.sm,
+                                        AppSpacing.xxs,
+                                        AppSpacing.xs,
                                       ),
-                                    ],
-                                    _CategoryTile(
-                                      category: ordered[index],
-                                      isChild:
-                                          ordered[index].parentCategoryId !=
-                                              null &&
-                                          filteredIds.contains(
-                                            ordered[index].parentCategoryId,
-                                          ),
-                                      hasChildren: filtered.any(
-                                        (item) =>
-                                            item.parentCategoryId ==
-                                            ordered[index].id,
-                                      ),
-                                      isCollapsed: collapsedIds.contains(
-                                        ordered[index].id,
-                                      ),
-                                      onToggle: () => ref
-                                          .read(
-                                            _collapsedCategoryIdsProvider
-                                                .notifier,
-                                          )
-                                          .toggle(ordered[index].id),
-                                      isBusy: operationState.isLoading,
-                                      onEdit: () => _showEditDialog(
-                                        context,
-                                        ref,
-                                        userId,
-                                        ordered[index],
-                                        categories,
-                                      ),
-                                      onArchiveChanged: (isArchived) =>
-                                          _setArchived(
-                                            context,
-                                            ref,
-                                            userId,
-                                            ordered[index],
-                                            isArchived,
-                                          ),
-                                      onDelete: () => _confirmDelete(
-                                        context,
-                                        ref,
-                                        userId,
-                                        ordered[index],
+                                      child: Text(
+                                        '${_typeLabel(ordered[index].type)} categories',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.titleMedium,
                                       ),
                                     ),
                                   ],
-                                ),
+                                  _CategoryTile(
+                                    category: ordered[index],
+                                    isChild:
+                                        ordered[index].parentCategoryId !=
+                                            null &&
+                                        filteredIds.contains(
+                                          ordered[index].parentCategoryId,
+                                        ),
+                                    hasChildren: filtered.any(
+                                      (item) =>
+                                          item.parentCategoryId ==
+                                          ordered[index].id,
+                                    ),
+                                    isCollapsed: collapsedIds.contains(
+                                      ordered[index].id,
+                                    ),
+                                    onToggle: () => ref
+                                        .read(
+                                          _collapsedCategoryIdsProvider
+                                              .notifier,
+                                        )
+                                        .toggle(ordered[index].id),
+                                    isBusy: operationState.isLoading,
+                                    onEdit: () => _showEditDialog(
+                                      context,
+                                      ref,
+                                      userId,
+                                      ordered[index],
+                                      categories,
+                                    ),
+                                    onArchiveChanged: (isArchived) =>
+                                        _setArchived(
+                                          context,
+                                          ref,
+                                          userId,
+                                          ordered[index],
+                                          isArchived,
+                                        ),
+                                    onDelete: () => _confirmDelete(
+                                      context,
+                                      ref,
+                                      userId,
+                                      ordered[index],
+                                    ),
+                                  ),
+                                ],
                               ),
                             );
                           },

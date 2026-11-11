@@ -78,83 +78,70 @@ class _StatisticsContent extends ConsumerWidget {
 
     return Column(
       children: [
-        Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1180),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                AppSpacing.md,
-                AppSpacing.md,
-                0,
-              ),
-              child: ResponsiveSegmentedButton<StatisticsPeriod>(
-                horizontalScroll: true,
-                showSelectedIcon: false,
-                segments: const [
-                  ResponsiveSegment(
-                    value: StatisticsPeriod.financialCycle,
-                    icon: Icons.payments_outlined,
-                    label: 'Cycle',
-                  ),
-                  ResponsiveSegment(
-                    value: StatisticsPeriod.week,
-                    label: 'Week',
-                  ),
-                  ResponsiveSegment(
-                    value: StatisticsPeriod.month,
-                    label: 'Month',
-                  ),
-                  ResponsiveSegment(
-                    value: StatisticsPeriod.year,
-                    label: 'Year',
-                  ),
-                  ResponsiveSegment(
-                    value: StatisticsPeriod.custom,
-                    icon: Icons.date_range_outlined,
-                    label: 'Custom',
-                  ),
-                ],
-                selected: {selection.period},
-                onSelectionChanged: (values) =>
-                    _selectPeriod(context, ref, values.first, selection),
-              ),
+        DesktopMainContent(
+          mobileMaxWidth: 1180,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.md,
+              AppSpacing.md,
+              0,
+            ),
+            child: ResponsiveSegmentedButton<StatisticsPeriod>(
+              horizontalScroll: true,
+              showSelectedIcon: false,
+              segments: const [
+                ResponsiveSegment(
+                  value: StatisticsPeriod.financialCycle,
+                  icon: Icons.payments_outlined,
+                  label: 'Cycle',
+                ),
+                ResponsiveSegment(value: StatisticsPeriod.week, label: 'Week'),
+                ResponsiveSegment(
+                  value: StatisticsPeriod.month,
+                  label: 'Month',
+                ),
+                ResponsiveSegment(value: StatisticsPeriod.year, label: 'Year'),
+                ResponsiveSegment(
+                  value: StatisticsPeriod.custom,
+                  icon: Icons.date_range_outlined,
+                  label: 'Custom',
+                ),
+              ],
+              selected: {selection.period},
+              onSelectionChanged: (values) =>
+                  _selectPeriod(context, ref, values.first, selection),
             ),
           ),
         ),
-        Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1180),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                AppSpacing.sm,
-                AppSpacing.md,
-                0,
-              ),
-              child: DropdownButtonFormField<String>(
-                initialValue:
-                    accounts.any((item) => item.id == selectedAccountId)
-                    ? selectedAccountId
-                    : null,
-                decoration: const InputDecoration(labelText: 'Account'),
-                items: [
-                  const DropdownMenuItem<String>(child: Text('All accounts')),
-                  ...accounts.map(
-                    (account) => DropdownMenuItem(
-                      value: account.id,
-                      child: Text(
-                        account.parentAccountId == null
-                            ? account.name
-                            : '  ${account.name}${account.isArchived ? ' (Archived)' : ''}',
-                      ),
+        DesktopMainContent(
+          mobileMaxWidth: 1180,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.md,
+              0,
+            ),
+            child: DropdownButtonFormField<String>(
+              initialValue: accounts.any((item) => item.id == selectedAccountId)
+                  ? selectedAccountId
+                  : null,
+              decoration: const InputDecoration(labelText: 'Account'),
+              items: [
+                const DropdownMenuItem<String>(child: Text('All accounts')),
+                ...accounts.map(
+                  (account) => DropdownMenuItem(
+                    value: account.id,
+                    child: Text(
+                      account.parentAccountId == null
+                          ? account.name
+                          : '  ${account.name}${account.isArchived ? ' (Archived)' : ''}',
                     ),
                   ),
-                ],
-                onChanged: ref
-                    .read(statisticsAccountFilterProvider.notifier)
-                    .set,
-              ),
+                ),
+              ],
+              onChanged: ref.read(statisticsAccountFilterProvider.notifier).set,
             ),
           ),
         ),
@@ -256,59 +243,56 @@ class _StatisticsBody extends StatelessWidget {
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           sliver: SliverToBoxAdapter(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1180),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (selection.period == StatisticsPeriod.financialCycle)
-                      _FinancialCycleNavigator(
-                        period: const FinancialCycleService().periodByOffset(
-                          date: DateTime.now(),
-                          cycleDay: cycleDay,
-                          offset: selection.financialCycleOffset,
-                        ),
+            child: DesktopMainContent(
+              mobileMaxWidth: 1180,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (selection.period == StatisticsPeriod.financialCycle)
+                    _FinancialCycleNavigator(
+                      period: const FinancialCycleService().periodByOffset(
+                        date: DateTime.now(),
+                        cycleDay: cycleDay,
                         offset: selection.financialCycleOffset,
-                        onNavigate: onCycleNavigate,
                       ),
-                    if (selection.period == StatisticsPeriod.financialCycle)
-                      const SizedBox(height: 12),
-                    _SummaryGrid(overview: overview, isWide: isWide),
-                    const SizedBox(height: 16),
-                    if (isWide)
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: _MonthlyTrendCard(
-                              trends: overview.monthlyTrends,
-                            ),
+                      offset: selection.financialCycleOffset,
+                      onNavigate: onCycleNavigate,
+                    ),
+                  if (selection.period == StatisticsPeriod.financialCycle)
+                    const SizedBox(height: 12),
+                  _SummaryGrid(overview: overview, isWide: isWide),
+                  const SizedBox(height: 16),
+                  if (isWide)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: _MonthlyTrendCard(
+                            trends: overview.monthlyTrends,
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            flex: 2,
-                            child: _SourceBreakdownCard(
-                              items: overview.sourceBreakdown,
-                            ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          flex: 2,
+                          child: _SourceBreakdownCard(
+                            items: overview.sourceBreakdown,
                           ),
-                        ],
-                      )
-                    else ...[
-                      _MonthlyTrendCard(trends: overview.monthlyTrends),
-                      const SizedBox(height: 16),
-                      _SourceBreakdownCard(items: overview.sourceBreakdown),
-                    ],
+                        ),
+                      ],
+                    )
+                  else ...[
+                    _MonthlyTrendCard(trends: overview.monthlyTrends),
                     const SizedBox(height: 16),
-                    _CategoryBreakdownCard(items: overview.categoryBreakdown),
-                    if (selection.period ==
-                        StatisticsPeriod.financialCycle) ...[
-                      const SizedBox(height: 16),
-                      _FinancialHistoryCard(history: history),
-                    ],
+                    _SourceBreakdownCard(items: overview.sourceBreakdown),
                   ],
-                ),
+                  const SizedBox(height: 16),
+                  _CategoryBreakdownCard(items: overview.categoryBreakdown),
+                  if (selection.period == StatisticsPeriod.financialCycle) ...[
+                    const SizedBox(height: 16),
+                    _FinancialHistoryCard(history: history),
+                  ],
+                ],
               ),
             ),
           ),

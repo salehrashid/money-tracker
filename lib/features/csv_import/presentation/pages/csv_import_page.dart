@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/errors/app_failure.dart';
 import '../../../../core/utils/result.dart';
 import '../../../../shared/models/finance_enums.dart';
+import '../../../../shared/widgets/app_page.dart';
 import '../../../accounts/domain/entities/account.dart';
 import '../../../accounts/presentation/providers/account_providers.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
@@ -235,58 +236,55 @@ class _CsvImportBody extends StatelessWidget {
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
             sliver: SliverToBoxAdapter(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 1100),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _ImportActions(
-                        isBusy: isBusy,
-                        canImport: canImport,
-                        onPickFile: onPickFile,
-                        onConfirm: onConfirm,
-                        onClear: preview == null ? null : onClear,
+              child: DesktopMainContent(
+                mobileMaxWidth: 1100,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _ImportActions(
+                      isBusy: isBusy,
+                      canImport: canImport,
+                      onPickFile: onPickFile,
+                      onConfirm: onConfirm,
+                      onClear: preview == null ? null : onClear,
+                    ),
+                    const SizedBox(height: 16),
+                    if (!hasRequiredData)
+                      const _MessageState(
+                        icon: Icons.rule_folder_outlined,
+                        title: 'Set up accounts and categories',
+                        message:
+                            'Create at least one account, income category, and expense category before importing.',
+                      )
+                    else
+                      _ImportDefaults(
+                        accounts: data.accounts,
+                        expenseCategories: data.expenseCategories,
+                        incomeCategories: data.incomeCategories,
+                        accountId: accountId ?? data.accounts.first.id,
+                        expenseCategoryId:
+                            expenseCategoryId ??
+                            data.expenseCategories.first.id,
+                        incomeCategoryId:
+                            incomeCategoryId ?? data.incomeCategories.first.id,
+                        onAccountChanged: onAccountChanged,
+                        onExpenseCategoryChanged: onExpenseCategoryChanged,
+                        onIncomeCategoryChanged: onIncomeCategoryChanged,
                       ),
+                    const SizedBox(height: 16),
+                    if (preview == null)
+                      const _MessageState(
+                        icon: Icons.upload_file_outlined,
+                        title: 'No CSV preview yet',
+                        message:
+                            'Choose a CSV file to validate rows before saving transactions.',
+                      )
+                    else ...[
+                      _PreviewSummary(preview: preview),
                       const SizedBox(height: 16),
-                      if (!hasRequiredData)
-                        const _MessageState(
-                          icon: Icons.rule_folder_outlined,
-                          title: 'Set up accounts and categories',
-                          message:
-                              'Create at least one account, income category, and expense category before importing.',
-                        )
-                      else
-                        _ImportDefaults(
-                          accounts: data.accounts,
-                          expenseCategories: data.expenseCategories,
-                          incomeCategories: data.incomeCategories,
-                          accountId: accountId ?? data.accounts.first.id,
-                          expenseCategoryId:
-                              expenseCategoryId ??
-                              data.expenseCategories.first.id,
-                          incomeCategoryId:
-                              incomeCategoryId ??
-                              data.incomeCategories.first.id,
-                          onAccountChanged: onAccountChanged,
-                          onExpenseCategoryChanged: onExpenseCategoryChanged,
-                          onIncomeCategoryChanged: onIncomeCategoryChanged,
-                        ),
-                      const SizedBox(height: 16),
-                      if (preview == null)
-                        const _MessageState(
-                          icon: Icons.upload_file_outlined,
-                          title: 'No CSV preview yet',
-                          message:
-                              'Choose a CSV file to validate rows before saving transactions.',
-                        )
-                      else ...[
-                        _PreviewSummary(preview: preview),
-                        const SizedBox(height: 16),
-                        _PreviewTable(preview: preview),
-                      ],
+                      _PreviewTable(preview: preview),
                     ],
-                  ),
+                  ],
                 ),
               ),
             ),

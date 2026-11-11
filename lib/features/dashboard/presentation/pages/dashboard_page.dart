@@ -163,46 +163,44 @@ class _DashboardBody extends StatelessWidget {
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           sliver: SliverToBoxAdapter(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1100),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _SummaryGrid(overview: overview, isWide: isWide),
-                    if (overview.period != null) ...[
-                      const SizedBox(height: 12),
-                      _CurrentPeriodBanner(period: overview.period!),
-                    ],
-                    const SizedBox(height: 16),
-                    if (isWide)
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: _ExpenseBreakdownCard(
-                              items: overview.expenseBreakdown,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _RecentTransactionsCard(
-                              transactions: overview.recentTransactions,
-                              onViewAll: onViewTransactions,
-                            ),
-                          ),
-                        ],
-                      )
-                    else ...[
-                      _ExpenseBreakdownCard(items: overview.expenseBreakdown),
-                      const SizedBox(height: 16),
-                      _RecentTransactionsCard(
-                        transactions: overview.recentTransactions,
-                        onViewAll: onViewTransactions,
-                      ),
-                    ],
+            child: DesktopMainContent(
+              mobileMaxWidth: 1100,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _SummaryGrid(overview: overview, isWide: isWide),
+                  if (overview.period != null) ...[
+                    const SizedBox(height: 12),
+                    _CurrentPeriodBanner(period: overview.period!),
                   ],
-                ),
+                  const SizedBox(height: 16),
+                  if (isWide)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _ExpenseBreakdownCard(
+                            items: overview.expenseBreakdown,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _RecentTransactionsCard(
+                            transactions: overview.recentTransactions,
+                            onViewAll: onViewTransactions,
+                          ),
+                        ),
+                      ],
+                    )
+                  else ...[
+                    _ExpenseBreakdownCard(items: overview.expenseBreakdown),
+                    const SizedBox(height: 16),
+                    _RecentTransactionsCard(
+                      transactions: overview.recentTransactions,
+                      onViewAll: onViewTransactions,
+                    ),
+                  ],
+                ],
               ),
             ),
           ),

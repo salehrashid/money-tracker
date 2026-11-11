@@ -79,8 +79,8 @@ class _FinancialCycleContentState
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.xl),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
+        child: DesktopMainContent(
+          mobileMaxWidth: 560,
           child: Card(
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.lg),

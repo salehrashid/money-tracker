@@ -340,18 +340,15 @@ class _NotificationBody extends ConsumerWidget {
               child: LinearProgressIndicator(minHeight: 2),
             ),
           SliverToBoxAdapter(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 980),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: _FilterBar(
-                    selected: filter,
-                    logs: logs,
-                    onSelected: (value) => ref
-                        .read(_notificationFilterProvider.notifier)
-                        .set(value),
-                  ),
+            child: DesktopMainContent(
+              mobileMaxWidth: 980,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: _FilterBar(
+                  selected: filter,
+                  logs: logs,
+                  onSelected: (value) =>
+                      ref.read(_notificationFilterProvider.notifier).set(value),
                 ),
               ),
             ),
@@ -384,28 +381,26 @@ class _NotificationBody extends ConsumerWidget {
                 separatorBuilder: (_, _) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
                   final log = filtered[index];
-                  return Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 980),
-                      child: _NotificationTile(
-                        log: log,
-                        isSelected: selectedIds.contains(log.id),
-                        isSelecting: selectedIds.isNotEmpty,
-                        isBusy: isBusy,
-                        onTap: () => _openLog(context, ref, log),
-                        onLongPress: () => ref
-                            .read(_selectedNotificationIdsProvider.notifier)
-                            .toggle(log.id),
-                        onSelectionChanged: (_) => ref
-                            .read(_selectedNotificationIdsProvider.notifier)
-                            .toggle(log.id),
-                        onDelete: () => _deleteOne(context, ref, log),
-                        onIgnore: () => _runOperation(
-                          ref,
-                          () => ref
-                              .read(ignoreNotificationUseCaseProvider(userId))
-                              .execute(log.id),
-                        ),
+                  return DesktopMainContent(
+                    mobileMaxWidth: 980,
+                    child: _NotificationTile(
+                      log: log,
+                      isSelected: selectedIds.contains(log.id),
+                      isSelecting: selectedIds.isNotEmpty,
+                      isBusy: isBusy,
+                      onTap: () => _openLog(context, ref, log),
+                      onLongPress: () => ref
+                          .read(_selectedNotificationIdsProvider.notifier)
+                          .toggle(log.id),
+                      onSelectionChanged: (_) => ref
+                          .read(_selectedNotificationIdsProvider.notifier)
+                          .toggle(log.id),
+                      onDelete: () => _deleteOne(context, ref, log),
+                      onIgnore: () => _runOperation(
+                        ref,
+                        () => ref
+                            .read(ignoreNotificationUseCaseProvider(userId))
+                            .execute(log.id),
                       ),
                     ),
                   );

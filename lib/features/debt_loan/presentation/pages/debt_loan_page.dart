@@ -189,22 +189,20 @@ class _DebtContent extends ConsumerWidget {
                 child: CustomScrollView(
                   slivers: [
                     SliverToBoxAdapter(
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 980),
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                            child: _DebtHeader(
-                              debts: debts,
-                              selectedKind: selectedKind,
-                              selectedStatus: selectedStatus,
-                              onKindChanged: (value) => ref
-                                  .read(_debtKindFilterProvider.notifier)
-                                  .set(value),
-                              onStatusChanged: (value) => ref
-                                  .read(_debtStatusFilterProvider.notifier)
-                                  .set(value),
-                            ),
+                      child: DesktopMainContent(
+                        mobileMaxWidth: 980,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                          child: _DebtHeader(
+                            debts: debts,
+                            selectedKind: selectedKind,
+                            selectedStatus: selectedStatus,
+                            onKindChanged: (value) => ref
+                                .read(_debtKindFilterProvider.notifier)
+                                .set(value),
+                            onStatusChanged: (value) => ref
+                                .read(_debtStatusFilterProvider.notifier)
+                                .set(value),
                           ),
                         ),
                       ),
@@ -239,35 +237,23 @@ class _DebtContent extends ConsumerWidget {
                           separatorBuilder: (_, _) => const SizedBox(height: 8),
                           itemBuilder: (context, index) {
                             final debt = filtered[index];
-                            return Center(
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 980,
-                                ),
-                                child: _DebtTile(
-                                  debt: debt,
-                                  isBusy: operationState.isLoading,
-                                  onEdit: () => _showEditDialog(
-                                    context,
-                                    ref,
-                                    userId,
-                                    debt,
-                                  ),
-                                  onStatusChanged: (status) =>
-                                      _confirmStatusChange(
-                                        context,
-                                        ref,
-                                        userId,
-                                        debt,
-                                        status,
-                                      ),
-                                  onDelete: () => _confirmDelete(
-                                    context,
-                                    ref,
-                                    userId,
-                                    debt,
-                                  ),
-                                ),
+                            return DesktopMainContent(
+                              mobileMaxWidth: 980,
+                              child: _DebtTile(
+                                debt: debt,
+                                isBusy: operationState.isLoading,
+                                onEdit: () =>
+                                    _showEditDialog(context, ref, userId, debt),
+                                onStatusChanged: (status) =>
+                                    _confirmStatusChange(
+                                      context,
+                                      ref,
+                                      userId,
+                                      debt,
+                                      status,
+                                    ),
+                                onDelete: () =>
+                                    _confirmDelete(context, ref, userId, debt),
                               ),
                             );
                           },

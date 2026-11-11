@@ -11,6 +11,37 @@ import '../../core/utils/result.dart';
 
 import '../theme/app_theme.dart';
 
+/// Establishes the shared content boundary used by desktop pages.
+///
+/// On compact layouts this deliberately keeps the page's previous width
+/// constraint. That keeps mobile layouts independent from desktop sizing.
+class DesktopMainContent extends StatelessWidget {
+  const DesktopMainContent({
+    required this.child,
+    required this.mobileMaxWidth,
+    super.key,
+  });
+
+  static const maxWidth = 1180.0;
+
+  final Widget child;
+  final double mobileMaxWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final contentMaxWidth = AppBreakpoints.isDesktop(context)
+        ? maxWidth
+        : mobileMaxWidth;
+
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: contentMaxWidth),
+        child: child,
+      ),
+    );
+  }
+}
+
 class AppTopBar extends ConsumerWidget implements PreferredSizeWidget {
   const AppTopBar({
     required this.title,
@@ -235,14 +266,12 @@ class AppPage extends StatelessWidget {
             AppSpacing.md,
           ),
           sliver: SliverToBoxAdapter(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: maxWidth),
-                child: PageHeader(
-                  title: title,
-                  subtitle: subtitle,
-                  action: action,
-                ),
+            child: DesktopMainContent(
+              mobileMaxWidth: maxWidth,
+              child: PageHeader(
+                title: title,
+                subtitle: subtitle,
+                action: action,
               ),
             ),
           ),

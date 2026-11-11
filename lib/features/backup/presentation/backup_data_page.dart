@@ -26,76 +26,72 @@ class _BackupDataPageState extends ConsumerState<BackupDataPage> {
         subtitle: 'Private, local data portability',
         showBackButton: true,
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 760),
-          child: ListView(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            children: [
-              _Section(
-                title: 'Backup & Restore',
-                children: [
-                  _Action(
-                    icon: Icons.backup_outlined,
-                    title: 'Create Backup',
-                    subtitle: 'Complete Fleeca backup (.xlsx)',
-                    onTap: _busy ? null : () => _export(BackupFileFormat.xlsx),
-                  ),
-                  _Action(
-                    icon: Icons.restore,
-                    title: 'Restore Backup',
-                    subtitle: 'Preview and restore a Fleeca backup',
-                    onTap: _busy ? null : _restore,
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.md),
-              _Section(
-                title: 'Export',
-                children: [
-                  _Action(
-                    icon: Icons.table_view_outlined,
-                    title: 'Export All Data (.xlsx)',
-                    subtitle: 'One workbook with related datasets',
-                    onTap: _busy ? null : () => _export(BackupFileFormat.xlsx),
-                  ),
-                  _Action(
-                    icon: Icons.folder_zip_outlined,
-                    title: 'Export All Data (.csv.zip)',
-                    subtitle: 'CSV datasets in a ZIP archive',
-                    onTap: _busy
-                        ? null
-                        : () => _export(BackupFileFormat.csvZip),
-                  ),
-                  _Action(
-                    icon: Icons.receipt_long_outlined,
-                    title: 'Export Transactions Only',
-                    subtitle: 'Readable spreadsheet for analysis',
-                    onTap: _busy ? null : _exportTransactions,
-                  ),
-                ],
-              ),
-              // const SizedBox(height: AppSpacing.md),
-              // _Section(
-              //   title: 'Testing',
-              //   children: [
-              //     _Action(
-              //       icon: Icons.delete_forever_outlined,
-              //       title: 'Format All Data',
-              //       subtitle:
-              //           'Permanently delete all app data for this account',
-              //       destructive: true,
-              //       onTap: _busy ? null : _formatAllData,
-              //     ),
-              //   ],
-              // ),
-              if (_busy)
-                const Padding(
-                  padding: EdgeInsets.only(top: AppSpacing.md),
-                  child: LinearProgressIndicator(),
+      body: DesktopMainContent(
+        mobileMaxWidth: 760,
+        child: ListView(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          children: [
+            _Section(
+              title: 'Backup & Restore',
+              children: [
+                _Action(
+                  icon: Icons.backup_outlined,
+                  title: 'Create Backup',
+                  subtitle: 'Complete Fleeca backup (.xlsx)',
+                  onTap: _busy ? null : () => _export(BackupFileFormat.xlsx),
                 ),
-            ],
-          ),
+                _Action(
+                  icon: Icons.restore,
+                  title: 'Restore Backup',
+                  subtitle: 'Preview and restore a Fleeca backup',
+                  onTap: _busy ? null : _restore,
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            _Section(
+              title: 'Export',
+              children: [
+                _Action(
+                  icon: Icons.table_view_outlined,
+                  title: 'Export All Data (.xlsx)',
+                  subtitle: 'One workbook with related datasets',
+                  onTap: _busy ? null : () => _export(BackupFileFormat.xlsx),
+                ),
+                _Action(
+                  icon: Icons.folder_zip_outlined,
+                  title: 'Export All Data (.csv.zip)',
+                  subtitle: 'CSV datasets in a ZIP archive',
+                  onTap: _busy ? null : () => _export(BackupFileFormat.csvZip),
+                ),
+                _Action(
+                  icon: Icons.receipt_long_outlined,
+                  title: 'Export Transactions Only',
+                  subtitle: 'Readable spreadsheet for analysis',
+                  onTap: _busy ? null : _exportTransactions,
+                ),
+              ],
+            ),
+            // const SizedBox(height: AppSpacing.md),
+            // _Section(
+            //   title: 'Testing',
+            //   children: [
+            //     _Action(
+            //       icon: Icons.delete_forever_outlined,
+            //       title: 'Format All Data',
+            //       subtitle:
+            //           'Permanently delete all app data for this account',
+            //       destructive: true,
+            //       onTap: _busy ? null : _formatAllData,
+            //     ),
+            //   ],
+            // ),
+            if (_busy)
+              const Padding(
+                padding: EdgeInsets.only(top: AppSpacing.md),
+                child: LinearProgressIndicator(),
+              ),
+          ],
         ),
       ),
     );

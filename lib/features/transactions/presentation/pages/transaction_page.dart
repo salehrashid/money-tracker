@@ -384,34 +384,30 @@ class _TransactionBody extends StatelessWidget {
             ),
           if (data.drafts.isNotEmpty)
             SliverToBoxAdapter(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 980),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: _DraftSection(
-                      drafts: data.drafts,
-                      isBusy: isBusy,
-                      onSaveDraft: onSaveDraft,
-                    ),
+              child: DesktopMainContent(
+                mobileMaxWidth: 980,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: _DraftSection(
+                    drafts: data.drafts,
+                    isBusy: isBusy,
+                    onSaveDraft: onSaveDraft,
                   ),
                 ),
               ),
             ),
           if (data.transactions.isNotEmpty)
             SliverToBoxAdapter(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 980),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                    child: _TransactionFilterPanel(
-                      criteria: filterCriteria,
-                      categories: data.categories,
-                      accounts: data.accounts,
-                      transactions: data.transactions,
-                      financialCycleDay: financialCycleDay,
-                    ),
+              child: DesktopMainContent(
+                mobileMaxWidth: 980,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: _TransactionFilterPanel(
+                    criteria: filterCriteria,
+                    categories: data.categories,
+                    accounts: data.accounts,
+                    transactions: data.transactions,
+                    financialCycleDay: financialCycleDay,
                   ),
                 ),
               ),
@@ -434,17 +430,15 @@ class _TransactionBody extends StatelessWidget {
                 separatorBuilder: (_, _) => const SizedBox(height: 8),
                 itemBuilder: (context, index) {
                   final transaction = transactions[index];
-                  return Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 980),
-                      child: _TransactionTile(
-                        transaction: transaction,
-                        category: data.categoryById[transaction.categoryId],
-                        account: data.accountById[transaction.accountId],
-                        isBusy: isBusy,
-                        onEdit: () => onEdit(transaction),
-                        onDelete: () => onDelete(transaction),
-                      ),
+                  return DesktopMainContent(
+                    mobileMaxWidth: 980,
+                    child: _TransactionTile(
+                      transaction: transaction,
+                      category: data.categoryById[transaction.categoryId],
+                      account: data.accountById[transaction.accountId],
+                      isBusy: isBusy,
+                      onEdit: () => onEdit(transaction),
+                      onDelete: () => onDelete(transaction),
                     ),
                   );
                 },
