@@ -42,7 +42,7 @@ void main() {
     expect(accountField.initialValue, 'cash');
   });
 
-  testWidgets('does not assume an account for a detected myBCA transaction', (
+  testWidgets('preselects the myBCA account for a detected myBCA transaction', (
     tester,
   ) async {
     SaveTransactionCommand? savedCommand;
@@ -64,8 +64,8 @@ void main() {
                         type: AccountType.cash,
                       ),
                       _account(
-                        id: 'rekening',
-                        name: 'Rekening',
+                        id: 'my-bca',
+                        name: 'myBCA',
                         type: AccountType.bank,
                       ),
                     ],
@@ -89,11 +89,16 @@ void main() {
 
     await tester.tap(find.text('Open'));
     await tester.pumpAndSettle();
+
+    final accountField = tester.widget<DropdownButtonFormField<String>>(
+      find.byType(DropdownButtonFormField<String>).last,
+    );
+    expect(accountField.initialValue, 'my-bca');
+
     await tester.tap(find.text('Save'));
     await tester.pumpAndSettle();
 
-    expect(savedCommand, isNull);
-    expect(find.text('Select a financial account'), findsOneWidget);
+    expect(savedCommand?.accountId, 'my-bca');
   });
 
   testWidgets('requires account selection when only Cash exists', (

@@ -66,7 +66,9 @@ class _TransactionFormDialogState extends State<TransactionFormDialog> {
     );
     _categoryId = transaction?.categoryId ?? draft?.suggestedCategoryId;
     _accountId = transaction?.accountId;
-    if (transaction == null && draft == null && detectedTransaction == null) {
+    if (transaction == null && draft == null && detectedTransaction != null) {
+      _accountId = _myBcaAccountId();
+    } else if (transaction == null && draft == null) {
       for (final account in widget.accounts) {
         if (!account.isArchived && account.type == AccountType.cash) {
           _accountId = account.id;
@@ -308,7 +310,21 @@ class _TransactionFormDialogState extends State<TransactionFormDialog> {
       _accountId = null;
     }
   }
+
+  String? _myBcaAccountId() {
+    for (final account in widget.accounts) {
+      if (!account.isArchived &&
+          (_normalizedAccountIdentifier(account.name) == 'mybca' ||
+              _normalizedAccountIdentifier(account.id) == 'mybca')) {
+        return account.id;
+      }
+    }
+    return null;
+  }
 }
+
+String _normalizedAccountIdentifier(String value) =>
+    value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
 
 String _categoryLabel(Category category, List<Category> categories) {
   if (category.parentCategoryId == null) return category.name;
