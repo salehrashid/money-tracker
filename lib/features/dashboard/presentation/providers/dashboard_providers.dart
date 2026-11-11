@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/errors/app_failure.dart';
+import '../../../../core/financial_cycle/financial_cycle_service.dart';
 import '../../../settings/presentation/providers/financial_settings_providers.dart';
 import '../../../../core/utils/result.dart';
 import '../../../accounts/domain/entities/account.dart';
@@ -45,7 +46,8 @@ final dashboardOverviewProvider =
       final transactionsResult = transactionsState.value;
       final accountsResult = accountsState.value;
       final categoriesResult = categoriesState.value;
-      final cycleDay = cycleDayState.value ?? 1;
+      final cycleDay =
+          cycleDayState.value ?? FinancialCycleService.defaultCycleDay;
       if (transactionsResult == null ||
           accountsResult == null ||
           categoriesResult == null) {

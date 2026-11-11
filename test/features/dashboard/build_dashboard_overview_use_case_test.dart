@@ -57,6 +57,7 @@ void main() {
             ),
           ],
           now: DateTime.utc(2026, 6, 30),
+          financialCycleDay: 1,
         );
 
         expect(overview.totalBalance, 175000);

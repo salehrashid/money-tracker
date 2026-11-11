@@ -110,7 +110,8 @@ final statisticsOverviewProvider =
       final transactionsResult = transactionsState.value;
       final accountsResult = accountsState.value;
       final categoriesResult = categoriesState.value;
-      final cycleDay = cycleDayState.value ?? 1;
+      final cycleDay =
+          cycleDayState.value ?? FinancialCycleService.defaultCycleDay;
       final now = DateTime.now();
       if (transactionsResult == null ||
           accountsResult == null ||
@@ -216,7 +217,9 @@ final financialHistoryProvider =
     Provider.family<List<FinancialHistoryEntry>, String>((ref, userId) {
       final transactions = ref.watch(transactionListProvider(userId)).value;
       final accounts = ref.watch(accountListProvider(userId)).value;
-      final day = ref.watch(financialCycleDayProvider(userId)).value ?? 1;
+      final day =
+          ref.watch(financialCycleDayProvider(userId)).value ??
+          FinancialCycleService.defaultCycleDay;
       if (transactions == null || accounts == null) return const [];
       if (transactions case Failure<List<TransactionEntity>>()) {
         return const [];

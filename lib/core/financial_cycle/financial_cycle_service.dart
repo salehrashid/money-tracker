@@ -3,7 +3,10 @@ import 'financial_period.dart';
 class FinancialCycleService {
   const FinancialCycleService();
 
-  static const defaultCycleDay = 1;
+  /// Used for people who have not configured a cycle yet. Existing saved
+  /// settings are always respected, so changing this does not move a user's
+  /// already configured cycle.
+  static const defaultCycleDay = 10;
 
   int normalizeCycleDay(int? cycleDay) {
     if (cycleDay == null || cycleDay < 1 || cycleDay > 31) {

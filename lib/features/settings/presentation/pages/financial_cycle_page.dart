@@ -73,7 +73,9 @@ class _FinancialCycleContentState
 
   @override
   Widget build(BuildContext context) {
-    final day = ref.watch(financialCycleDayProvider(widget.userId)).value ?? 1;
+    final day =
+        ref.watch(financialCycleDayProvider(widget.userId)).value ??
+        FinancialCycleService.defaultCycleDay;
     final period = const FinancialCycleService().currentPeriod(cycleDay: day);
 
     return Center(

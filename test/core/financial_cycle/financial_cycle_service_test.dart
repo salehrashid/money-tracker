@@ -56,9 +56,9 @@ void main() {
           final period = service.getFinancialPeriod(DateTime(2026, 8, 15), day);
           expect(period.start.isBefore(period.nextStart), isTrue);
         }
-        expect(service.normalizeCycleDay(null), 1);
-        expect(service.normalizeCycleDay(0), 1);
-        expect(service.normalizeCycleDay(32), 1);
+        expect(service.normalizeCycleDay(null), 10);
+        expect(service.normalizeCycleDay(0), 10);
+        expect(service.normalizeCycleDay(32), 10);
         expect(service.normalizeCycleDay(15), 15);
       },
     );

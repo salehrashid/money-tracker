@@ -92,7 +92,9 @@ class _TransactionContent extends ConsumerWidget {
     final accountsState = ref.watch(accountListProvider(userId));
     final operationState = ref.watch(transactionOperationStateProvider);
     final filterCriteria = ref.watch(transactionFilterProvider);
-    final cycleDay = ref.watch(financialCycleDayProvider(userId)).value ?? 1;
+    final cycleDay =
+        ref.watch(financialCycleDayProvider(userId)).value ??
+        FinancialCycleService.defaultCycleDay;
     final applyFilters = ref.watch(applyTransactionFiltersUseCaseProvider);
     final pendingDeletions = ref.watch(pendingDeleteControllerProvider);
 
@@ -188,11 +190,15 @@ class _TransactionContent extends ConsumerWidget {
         ),
         _LoadedData(data: _?) when screenData != null => _TransactionBody(
           data: screenData,
+          // An unset date range represents the active cycle. It is derived
+          // from the clock on every build, so reopening after a boundary
+          // automatically shows the new cycle without mutating transactions
+          // or storing a separate "active cycle" record.
           transactions: applyFilters.execute(
             transactions: screenData.transactions,
             categories: screenData.categories,
             accounts: screenData.accounts,
-            criteria: filterCriteria,
+            criteria: _criteriaForActiveCycle(filterCriteria, cycleDay),
           ),
           filterCriteria: filterCriteria,
           financialCycleDay: cycleDay,
@@ -450,6 +456,21 @@ class _TransactionBody extends StatelessWidget {
   }
 }
 
+TransactionFilterCriteria _criteriaForActiveCycle(
+  TransactionFilterCriteria criteria,
+  int cycleDay,
+) {
+  // A manually supplied range, including a historical cycle selected from
+  // the picker, must remain untouched.
+  if (criteria.startDate != null || criteria.endDate != null) {
+    return criteria;
+  }
+  final period = const FinancialCycleService().currentPeriod(
+    cycleDay: cycleDay,
+  );
+  return criteria.copyWith(startDate: period.start, endDate: period.end);
+}
+
 class _DraftSection extends StatelessWidget {
   const _DraftSection({
     required this.drafts,
@@ -582,13 +603,20 @@ class _TransactionFilterPanelState
           offset: -offset,
         ),
     ];
-    final selectedCycle = cycles
-        .where(
-          (cycle) =>
-              cycle.start == criteria.startDate &&
-              cycle.end == criteria.endDate,
-        )
-        .firstOrNull;
+    final selectedCycle =
+        cycles
+            .where(
+              (cycle) =>
+                  cycle.start == criteria.startDate &&
+                  cycle.end == criteria.endDate,
+            )
+            .firstOrNull ??
+        (criteria.startDate == null && criteria.endDate == null
+            ? currentCycle
+            : null);
+    final isCurrentCycle =
+        selectedCycle?.start == currentCycle.start &&
+        selectedCycle?.end == currentCycle.end;
 
     return Card(
       margin: EdgeInsets.zero,
@@ -690,7 +718,9 @@ class _TransactionFilterPanelState
                         const SizedBox(width: 8),
                         Text(
                           selectedCycle == null
-                              ? 'Choose cycle'
+                              ? 'Custom date range'
+                              : isCurrentCycle
+                              ? 'Current: ${_cycleLabel(selectedCycle.start)}'
                               : _cycleLabel(selectedCycle.start),
                         ),
                         const SizedBox(width: 8),

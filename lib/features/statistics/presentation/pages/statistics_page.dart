@@ -68,7 +68,9 @@ class _StatisticsContent extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final statisticsState = ref.watch(statisticsOverviewProvider(userId));
     final selection = ref.watch(statisticsPeriodProvider);
-    final cycleDay = ref.watch(financialCycleDayProvider(userId)).value ?? 1;
+    final cycleDay =
+        ref.watch(financialCycleDayProvider(userId)).value ??
+        FinancialCycleService.defaultCycleDay;
     final history = ref.watch(financialHistoryProvider(userId));
     final accountsResult = ref.watch(accountListProvider(userId)).value;
     final accounts = accountsResult is Success<List<Account>>
