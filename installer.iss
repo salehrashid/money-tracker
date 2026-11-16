@@ -1,5 +1,5 @@
 #define MyAppName "Fleeca"
-#define MyAppVersion "1.6.2-6"
+#define MyAppVersion "1.6.9-13"
 #define MyAppPublisher "Saleh Rashid"
 #define MyAppExeName "fleeca.exe"
 
